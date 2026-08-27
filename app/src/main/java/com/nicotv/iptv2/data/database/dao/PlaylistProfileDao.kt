@@ -12,6 +12,14 @@ interface PlaylistProfileDao {
     @Query("SELECT * FROM playlist_profiles ORDER BY lastUsedAt DESC")
     fun getAll(): Flow<List<PlaylistProfileEntity>>
 
+    /** Lecture ponctuelle (pas un Flow) — pour écrire la copie de secours
+     * SharedPreferences après chaque modification (cf. ProfileBackupPrefs). */
+    @Query("SELECT * FROM playlist_profiles ORDER BY lastUsedAt DESC")
+    suspend fun getAllOnce(): List<PlaylistProfileEntity>
+
+    @Query("SELECT COUNT(*) FROM playlist_profiles")
+    suspend fun countProfiles(): Int
+
     @Query("SELECT * FROM playlist_profiles WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): PlaylistProfileEntity?
 

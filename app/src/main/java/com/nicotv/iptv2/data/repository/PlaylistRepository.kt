@@ -3,6 +3,7 @@ package com.nicotv.iptv2.data.repository
 import android.content.Context
 import android.net.Uri
 import com.nicotv.iptv2.data.PlaylistSourcePrefs
+import com.nicotv.iptv2.data.ProfileBackupPrefs
 import com.nicotv.iptv2.data.SourceType
 import com.nicotv.iptv2.data.database.AppDatabase
 import com.nicotv.iptv2.data.database.entity.ChannelEntity
@@ -73,6 +74,8 @@ class PlaylistRepository(
     // fetchSeriesByCategory) — un panel avec une centaine de catégories ne doit
     // pas partir en rafale de requêtes simultanées.
     private val xtreamSemaphore = Semaphore(6)
+    // Copie de secours des profils hors Room — cf. ProfileBackupPrefs.
+    private val profileBackup = ProfileBackupPrefs(context)
 
     // ── Profils sauvegardés ──────────────────────────────────────────────────
 
@@ -99,21 +102,43 @@ class PlaylistRepository(
     // Laissé à 0 (défaut) pour un nouveau profil : Room lui assigne un id.
     suspend fun saveM3uUrlProfile(name: String, url: String, existingId: Long = 0): Long = withContext(Dispatchers.IO) {
         db.playlistProfileDao().insert(PlaylistProfileEntity(id = existingId, name = name, type = SourceType.M3U_URL.name, m3uUrl = url))
+            .also { backupProfiles() }
     }
 
     suspend fun saveM3uFileProfile(name: String, uri: String, existingId: Long = 0): Long = withContext(Dispatchers.IO) {
         db.playlistProfileDao().insert(PlaylistProfileEntity(id = existingId, name = name, type = SourceType.M3U_FILE.name, m3uFileUri = uri))
+            .also { backupProfiles() }
     }
 
     suspend fun saveXtreamProfile(name: String, host: String, username: String, password: String, existingId: Long = 0): Long = withContext(Dispatchers.IO) {
         db.playlistProfileDao().insert(
             PlaylistProfileEntity(id = existingId, name = name, type = SourceType.XTREAM.name, xtreamHost = host, xtreamUsername = username, xtreamPassword = password)
-        )
+        ).also { backupProfiles() }
     }
 
     suspend fun deleteProfile(id: Long) = withContext(Dispatchers.IO) {
         db.playlistProfileDao().delete(id)
         if (sourcePrefs.getActiveProfileId() == id) sourcePrefs.setActiveProfileId(null)
+        backupProfiles()
+    }
+
+    /** Réécrit la copie de secours SharedPreferences après chaque changement de
+     * profil (cf. [ProfileBackupPrefs]) — Room peut être vidé (montée de schéma
+     * destructive, incident), pas les prefs. */
+    private suspend fun backupProfiles() = withContext(Dispatchers.IO) {
+        profileBackup.save(db.playlistProfileDao().getAllOnce())
+    }
+
+    /** Appelé au démarrage : si Room n'a aucun profil mais que la copie de
+     * secours en contient, on les réinsère (nouveaux id — les favoris/reprise
+     * d'un ancien catalogue ne s'y rattachent pas, même limite qu'un rechargement
+     * normal). Ne fait rien dans le cas nominal (Room non vide). */
+    suspend fun restoreProfilesIfEmpty() = withContext(Dispatchers.IO) {
+        if (db.playlistProfileDao().countProfiles() > 0) return@withContext
+        val saved = profileBackup.load()
+        if (saved.isEmpty()) return@withContext
+        android.util.Log.i("PlaylistRepository", "Room vide : restauration de ${saved.size} profil(s) depuis la sauvegarde de secours")
+        saved.forEach { db.playlistProfileDao().insert(it.copy(id = 0)) }
     }
 
     /** Charge (ou recharge) un profil sauvegardé : dispatch selon son type,

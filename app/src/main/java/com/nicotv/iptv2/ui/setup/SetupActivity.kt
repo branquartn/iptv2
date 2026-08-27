@@ -78,6 +78,13 @@ class SetupActivity : BaseActivity() {
         binding.rvProfiles.adapter = profileAdapter
 
         lifecycleScope.launch {
+            // Filet : si Room a perdu les profils (montée de schéma destructive,
+            // incident), on les réinjecte depuis la copie SharedPreferences avant
+            // d'afficher la liste — cf. ProfileBackupPrefs.
+            (application as IptvApplication).playlistRepository.restoreProfilesIfEmpty()
+        }
+
+        lifecycleScope.launch {
             (application as IptvApplication).playlistRepository.getProfiles().collect { profiles ->
                 // Diagnostic profils "disparus" signalés en test — grep logcat
                 // "SetupActivity" pour voir si la table playlist_profiles est
