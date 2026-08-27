@@ -14,15 +14,21 @@ import com.nicotv.iptv2.data.database.entity.SeriesEntity
 import com.nicotv.iptv2.data.database.entity.WatchHistoryEntity
 import com.nicotv.iptv2.data.m3u.M3uEntry
 import com.nicotv.iptv2.data.m3u.M3uParser
+import com.nicotv.iptv2.data.tmdb.TmdbClient
 import com.nicotv.iptv2.data.xtream.XtreamClient
 import com.nicotv.iptv2.domain.model.Channel
 import com.nicotv.iptv2.domain.model.EpisodeProgress
 import com.nicotv.iptv2.domain.model.Movie
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -54,6 +60,12 @@ class PlaylistRepository(
     }
 
     class LoadException(message: String, cause: Throwable? = null) : Exception(message, cause)
+
+    private val tmdbClient = TmdbClient(okHttpClient)
+    // Borne le nombre de recherches TMDb simultanées pendant l'enrichissement
+    // (un M3U avec des centaines de films sans jaquette ne doit pas matraquer
+    // l'API d'un coup — ni bloquer le chargement en les faisant en série).
+    private val tmdbSemaphore = Semaphore(6)
 
     // ── Profils sauvegardés ──────────────────────────────────────────────────
 
@@ -163,24 +175,67 @@ class PlaylistRepository(
         channels.size + movies.size + seriesEpisodes.size
     }
 
+    /** Complète en parallèle (borné par [tmdbSemaphore]) les films sans jaquette
+     * (M3U sans tvg-logo, ou Xtream avec stream_icon vide) via une recherche
+     * TMDb par titre — best-effort, ne bloque jamais sur un échec individuel. */
+    private suspend fun enrichMovies(movies: List<MovieEntity>): List<MovieEntity> = coroutineScope {
+        movies.map { m ->
+            async {
+                if (m.posterUrl.isNotBlank()) return@async m
+                val hit = tmdbSemaphore.withPermit { tmdbClient.searchMovie(m.title) } ?: return@async m
+                m.copy(
+                    posterUrl = hit.posterUrl,
+                    backdropUrl = m.backdropUrl.ifBlank { hit.backdropUrl },
+                    overview = m.overview.ifBlank { hit.overview },
+                    releaseYear = m.releaseYear.ifBlank { hit.year },
+                    rating = if (m.rating <= 0f) hit.rating else m.rating
+                )
+            }
+        }.awaitAll()
+    }
+
+    /** Même principe pour les séries dont le titre n'a pas encore de jaquette —
+     * appelé avec seulement les titres qui en ont besoin (évite de chercher les
+     * séries déjà pourvues d'une cover par le M3U/Xtream). */
+    private suspend fun fetchSeriesArt(titles: Collection<String>): Map<String, TmdbClient.Hit?> = coroutineScope {
+        titles.associateWith { title -> async { tmdbSemaphore.withPermit { tmdbClient.searchTv(title) } } }
+            .mapValues { it.value.await() }
+    }
+
     private suspend fun replaceCatalog(
         channels: List<ChannelEntity>,
         movies: List<MovieEntity>,
         seriesEpisodes: Map<String, List<Triple<M3uEntry, M3uParser.ParsedEpisode, Int>>>
     ) = withContext(Dispatchers.IO) {
+        val enrichedMovies = enrichMovies(movies)
+
+        val seriesLogos = seriesEpisodes.mapValues { (_, items) ->
+            items.firstOrNull { it.first.logo.isNotBlank() }?.first?.logo.orEmpty()
+        }
+        val seriesArt = fetchSeriesArt(seriesLogos.filterValues { it.isBlank() }.keys)
+
         db.channelDao().deleteAll()
         db.movieDao().deleteAll()
         db.seriesDao().deleteAll() // cascade → episodes déjà supprimés
 
         db.channelDao().insertAll(channels)
-        db.movieDao().insertAll(movies)
+        db.movieDao().insertAll(enrichedMovies)
 
         val allEpisodes = mutableListOf<EpisodeEntity>()
         for ((seriesTitle, items) in seriesEpisodes) {
-            val firstLogo = items.firstOrNull { it.first.logo.isNotBlank() }?.first?.logo.orEmpty()
             val category = items.first().first.groupTitle
+            val logo = seriesLogos[seriesTitle].orEmpty()
+            val art = seriesArt[seriesTitle]
             val seriesId = db.seriesDao().insert(
-                SeriesEntity(title = seriesTitle, posterUrl = firstLogo, category = category)
+                SeriesEntity(
+                    title = seriesTitle,
+                    posterUrl = logo.ifBlank { art?.posterUrl.orEmpty() },
+                    backdropUrl = art?.backdropUrl.orEmpty(),
+                    overview = art?.overview.orEmpty(),
+                    rating = art?.rating ?: 0f,
+                    releaseYear = art?.year.orEmpty(),
+                    category = category
+                )
             )
             items.forEach { (entry, parsed, _) ->
                 val fileKey = "$seriesTitle/${parsed.season}x${parsed.episode}"
@@ -221,25 +276,35 @@ class PlaylistRepository(
 
         val vodCats = client.getVodCategories().associateBy { it.id }
         val vodStreams = client.getVodStreams()
-        val movies = vodStreams.map {
-            MovieEntity(
-                title = it.name, streamUrl = client.vodStreamUrl(it.streamId, it.containerExtension),
-                posterUrl = it.icon, overview = it.plot, rating = it.rating,
-                category = vodCats[it.categoryId]?.name.orEmpty()
-            )
-        }
+        val movies = enrichMovies(
+            vodStreams.map {
+                MovieEntity(
+                    title = it.name, streamUrl = client.vodStreamUrl(it.streamId, it.containerExtension),
+                    posterUrl = it.icon, overview = it.plot, rating = it.rating,
+                    category = vodCats[it.categoryId]?.name.orEmpty()
+                )
+            }
+        )
 
         val seriesCats = client.getSeriesCategories().associateBy { it.id }
         val seriesList = client.getSeriesList()
+        // La plupart des panels Xtream fournissent déjà une cover ; recherche
+        // TMDb seulement pour celles qui n'en ont pas.
+        val seriesArt = fetchSeriesArt(seriesList.filter { it.cover.isBlank() }.map { it.name })
 
         db.channelDao().deleteAll(); db.movieDao().deleteAll(); db.seriesDao().deleteAll()
         db.channelDao().insertAll(channels)
         db.movieDao().insertAll(movies)
         for (s in seriesList) {
+            val art = seriesArt[s.name]
             db.seriesDao().insert(
                 SeriesEntity(
-                    title = s.name, posterUrl = s.cover, overview = s.plot, rating = s.rating,
-                    genres = s.genre, releaseYear = s.releaseDate.take(4),
+                    title = s.name,
+                    posterUrl = s.cover.ifBlank { art?.posterUrl.orEmpty() },
+                    backdropUrl = art?.backdropUrl.orEmpty(),
+                    overview = s.plot.ifBlank { art?.overview.orEmpty() },
+                    rating = if (s.rating > 0f) s.rating else (art?.rating ?: 0f),
+                    genres = s.genre, releaseYear = s.releaseDate.take(4).ifBlank { art?.year.orEmpty() },
                     category = seriesCats[s.categoryId]?.name.orEmpty(),
                     xtreamSeriesId = s.seriesId
                 )

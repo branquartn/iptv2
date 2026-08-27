@@ -54,16 +54,34 @@ object M3uParser {
 
     private val vodGroupHints = listOf("vod", "film", "movie", "pelicula", "película", "filme")
     private val seriesGroupHints = listOf("serie", "série", "series", "séries", "show", "dizi")
+    private val vodExtensions = listOf(".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".m4v")
     private val episodeRegex = Regex("""(?i)[\s._-]*S(\d{1,2})\s*E(\d{1,3})[\s._-]*""")
     private val episodeRegexAlt = Regex("""(?i)[\s._-]*(\d{1,2})x(\d{1,3})[\s._-]*""")
 
     enum class Kind { LIVE, MOVIE, EPISODE }
 
+    /** Le group-title seul est peu fiable (beaucoup de panels classent les VOD
+     * par genre/pays sans jamais écrire "film"/"vod") — priorité au chemin de
+     * l'URL, qui encode le type de façon fiable sur les playlists exportées
+     * depuis un panel Xtream Codes (de très loin le cas le plus fréquent) :
+     * /live/, /movie/, /series/. Extension de fichier vidéo en dernier recours
+     * avant de retomber sur "live" par défaut. */
     fun classify(entry: M3uEntry): Kind {
+        val urlPath = entry.url.substringBefore('?').lowercase()
+        val isEpisodeNamed = episodeRegex.containsMatchIn(entry.name) || episodeRegexAlt.containsMatchIn(entry.name)
+
+        if (urlPath.contains("/live/")) return Kind.LIVE
+        if (urlPath.contains("/series/")) return Kind.EPISODE
+        if (urlPath.contains("/movie/")) return if (isEpisodeNamed) Kind.EPISODE else Kind.MOVIE
+
+        if (isEpisodeNamed) return Kind.EPISODE
+
         val group = entry.groupTitle.lowercase()
-        if (episodeRegex.containsMatchIn(entry.name) || episodeRegexAlt.containsMatchIn(entry.name)) return Kind.EPISODE
         if (seriesGroupHints.any { group.contains(it) }) return Kind.EPISODE
         if (vodGroupHints.any { group.contains(it) }) return Kind.MOVIE
+
+        if (vodExtensions.any { urlPath.endsWith(it) }) return Kind.MOVIE
+
         return Kind.LIVE
     }
 
