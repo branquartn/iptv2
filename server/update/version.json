@@ -1,6 +1,6 @@
 {
-  "versionCode": 5,
-  "versionName": "1.0.4",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.4.apk",
-  "changelog": "Xtream Codes : repli automatique sur l'export M3U (get.php) quand l'API JSON du panel ne renvoie aucun flux malgré un login réussi."
+  "versionCode": 8,
+  "versionName": "1.0.7",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.7.apk",
+  "changelog": "Chaînes : bouton FR pour filtrer les chaînes françaises (heuristique nom/catégorie)."
 }
