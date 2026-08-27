@@ -183,8 +183,41 @@ tasks.register("publishReleaseToIptv2Update") {
     }
 }
 
+tasks.register("publishBundleToReleases") {
+    group = "publishing"
+    description = "Copie le .aab release dans le dossier privé des releases (upload manuel Play Console)."
+    dependsOn("bundleRelease")
+
+    val versionName = appVersionName
+    val releasesDirPath = providers.gradleProperty("iptv2ReleasesDir")
+        .orElse(providers.environmentVariable("IPTV2_RELEASES_DIR"))
+        .orElse("Z:/releases")
+    val sourceAabFile = layout.buildDirectory.file("outputs/bundle/release/app-release.aab")
+
+    doLast {
+        val releasesDir = File(releasesDirPath.get())
+        if (!releasesDir.exists() && !releasesDir.mkdirs()) {
+            throw GradleException("Dossier releases introuvable: ${releasesDir.absolutePath}")
+        }
+
+        val sourceAab = sourceAabFile.get().asFile
+        if (!sourceAab.isFile) {
+            throw GradleException("AAB release introuvable: ${sourceAab.absolutePath}")
+        }
+
+        val targetAab = releasesDir.resolve("iptv2-$versionName.aab")
+        sourceAab.copyTo(targetAab, overwrite = true)
+        targetAab.setReadable(true, false)
+
+        println("iptv2 bundle publie: ${targetAab.absolutePath}")
+    }
+}
+
 afterEvaluate {
     tasks.named("assembleRelease") {
         finalizedBy("publishReleaseToIptv2Update")
+    }
+    tasks.named("bundleRelease") {
+        finalizedBy("publishBundleToReleases")
     }
 }
