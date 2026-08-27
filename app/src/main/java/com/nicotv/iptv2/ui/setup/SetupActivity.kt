@@ -20,9 +20,10 @@ import kotlinx.coroutines.launch
 /**
  * Écran de démarrage : pas de compte, pas de login. Affiche les profils déjà
  * sauvegardés (nommés par l'utilisateur, un par source M3U/Xtream) — tap pour
- * recharger l'un d'eux — et une grille "type de source" pour en ajouter un
- * nouveau (fichier M3U local, URL M3U, ou Xtream Codes). Réutilisé pour
- * "Changer de source" depuis MainActivity (EXTRA_FORCE_SHOW).
+ * recharger l'un d'eux — et 2 cartes pour en ajouter un nouveau : "Charger
+ * votre playlist" (URL M3U ou fichier local, un seul formulaire) et "Xtream
+ * Codes". Réutilisé pour "Changer de source" depuis MainActivity
+ * (EXTRA_FORCE_SHOW).
  */
 class SetupActivity : BaseActivity() {
 
@@ -88,8 +89,7 @@ class SetupActivity : BaseActivity() {
 
     private fun setupTypeCards() {
         val cards = listOf(
-            Triple(binding.cardTypeUrl, binding.cardTypeUrlRing, binding.formUrl),
-            Triple(binding.cardTypeFile, binding.cardTypeFileRing, binding.formFile),
+            Triple(binding.cardTypePlaylist, binding.cardTypePlaylistRing, binding.formPlaylist),
             Triple(binding.cardTypeXtream, binding.cardTypeXtreamRing, binding.formXtream)
         )
         cards.forEach { (card, ring, form) ->
@@ -102,21 +102,28 @@ class SetupActivity : BaseActivity() {
     }
 
     private fun setupForms() {
-        binding.btnLoadUrl.setOnClickListener {
-            val name = binding.etUrlName.text.toString().trim()
+        binding.btnPickFile.setOnClickListener { pickFileLauncher.launch(arrayOf("*/*")) }
+
+        // Un seul bouton pour le formulaire playlist : fichier choisi = priorité,
+        // sinon l'URL saisie.
+        binding.btnLoadPlaylist.setOnClickListener {
+            val name = binding.etPlaylistName.text.toString().trim()
             val url = binding.etM3uUrl.text.toString().trim()
-            if (name.isBlank() || url.isBlank()) {
+            val fileUri = pickedFileUri
+            if (name.isBlank() || (url.isBlank() && fileUri == null)) {
                 showStatus(getString(R.string.setup_error_empty_url)); return@setOnClickListener
             }
             setLoading(true)
             lifecycleScope.launch {
                 val app = application as IptvApplication
-                val id = app.playlistRepository.saveM3uUrlProfile(name, url)
+                val id = if (fileUri != null) {
+                    app.playlistRepository.saveM3uFileProfile(name, fileUri.toString())
+                } else {
+                    app.playlistRepository.saveM3uUrlProfile(name, url)
+                }
                 loadProfile(id)
             }
         }
-
-        binding.btnPickFile.setOnClickListener { pickFileLauncher.launch(arrayOf("*/*")) }
 
         binding.btnLoadXtream.setOnClickListener {
             val name = binding.etXtreamName.text.toString().trim()
@@ -148,17 +155,8 @@ class SetupActivity : BaseActivity() {
         binding.tvFileName.visibility = View.VISIBLE
         val fileName = uri.lastPathSegment ?: uri.toString()
         binding.tvFileName.text = fileName
-        if (binding.etFileName.text.isNullOrBlank()) {
-            binding.etFileName.setText(fileName.substringAfterLast('/').substringBeforeLast('.'))
-        }
-
-        val name = binding.etFileName.text.toString().trim()
-        if (name.isBlank()) { showStatus(getString(R.string.setup_error_empty_name)); return }
-        setLoading(true)
-        lifecycleScope.launch {
-            val app = application as IptvApplication
-            val id = app.playlistRepository.saveM3uFileProfile(name, uri.toString())
-            loadProfile(id)
+        if (binding.etPlaylistName.text.isNullOrBlank()) {
+            binding.etPlaylistName.setText(fileName.substringAfterLast('/').substringBeforeLast('.'))
         }
     }
 
@@ -178,7 +176,7 @@ class SetupActivity : BaseActivity() {
 
     private fun setLoading(loading: Boolean) {
         binding.progressLoading.visibility = if (loading) View.VISIBLE else View.GONE
-        listOf(binding.btnPickFile, binding.btnLoadUrl, binding.btnLoadXtream).forEach { it.isEnabled = !loading }
+        listOf(binding.btnPickFile, binding.btnLoadPlaylist, binding.btnLoadXtream).forEach { it.isEnabled = !loading }
     }
 
     private fun showStatus(text: String) {

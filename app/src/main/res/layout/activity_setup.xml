@@ -78,7 +78,7 @@
                     android:clipToPadding="false">
 
                     <FrameLayout
-                        android:id="@+id/card_type_url"
+                        android:id="@+id/card_type_playlist"
                         android:layout_width="0dp"
                         android:layout_height="120dp"
                         android:layout_weight="1"
@@ -106,58 +106,14 @@
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="10dp"
                                 android:gravity="center"
-                                android:text="@string/setup_type_url"
+                                android:text="@string/setup_type_playlist"
                                 android:textColor="@color/text_primary"
                                 android:textSize="12sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
 
                         <com.nicotv.iptv2.ui.common.RotatingBorderView
-                            android:id="@+id/card_type_url_ring"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            app:cornerRadius="12dp"
-                            app:borderColor="@android:color/white"
-                            android:visibility="invisible" />
-                    </FrameLayout>
-
-                    <FrameLayout
-                        android:id="@+id/card_type_file"
-                        android:layout_width="0dp"
-                        android:layout_height="120dp"
-                        android:layout_weight="1"
-                        android:layout_marginEnd="10dp"
-                        android:background="@drawable/bg_card"
-                        android:focusable="true"
-                        android:clipChildren="false"
-                        android:clipToPadding="false">
-
-                        <LinearLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_gravity="center"
-                            android:gravity="center"
-                            android:orientation="vertical">
-
-                            <ImageView
-                                android:layout_width="28dp"
-                                android:layout_height="28dp"
-                                android:src="@drawable/ic_download"
-                                app:tint="@color/text_primary" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="10dp"
-                                android:gravity="center"
-                                android:text="@string/setup_type_file"
-                                android:textColor="@color/text_primary"
-                                android:textSize="12sp"
-                                android:textStyle="bold" />
-                        </LinearLayout>
-
-                        <com.nicotv.iptv2.ui.common.RotatingBorderView
-                            android:id="@+id/card_type_file_ring"
+                            android:id="@+id/card_type_playlist_ring"
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
                             app:cornerRadius="12dp"
@@ -209,9 +165,9 @@
                     </FrameLayout>
                 </LinearLayout>
 
-                <!-- Formulaire URL M3U -->
+                <!-- Formulaire playlist (URL M3U ou fichier local, un seul submit) -->
                 <LinearLayout
-                    android:id="@+id/form_url"
+                    android:id="@+id/form_playlist"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
@@ -221,7 +177,7 @@
                     android:visibility="gone">
 
                     <EditText
-                        android:id="@+id/et_url_name"
+                        android:id="@+id/et_playlist_name"
                         android:layout_width="match_parent"
                         android:layout_height="48dp"
                         android:background="@drawable/bg_input"
@@ -248,41 +204,14 @@
                         android:maxLines="1"
                         android:singleLine="true" />
 
-                    <Button
-                        android:id="@+id/btn_load_url"
-                        style="?android:attr/borderlessButtonStyle"
+                    <TextView
                         android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:layout_marginTop="12dp"
-                        android:background="@drawable/bg_btn_primary"
-                        android:text="@string/action_load"
-                        android:textAllCaps="false"
-                        android:textColor="@android:color/white" />
-                </LinearLayout>
-
-                <!-- Formulaire fichier local -->
-                <LinearLayout
-                    android:id="@+id/form_file"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:background="@drawable/bg_card"
-                    android:padding="20dp"
-                    android:layout_marginTop="16dp"
-                    android:visibility="gone">
-
-                    <EditText
-                        android:id="@+id/et_file_name"
-                        android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:background="@drawable/bg_input"
-                        android:paddingStart="14dp"
-                        android:paddingEnd="14dp"
-                        android:hint="@string/setup_name_hint"
-                        android:textColor="@android:color/white"
-                        android:textColorHint="@color/text_secondary"
-                        android:maxLines="1"
-                        android:singleLine="true" />
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:gravity="center"
+                        android:text="@string/setup_or"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp" />
 
                     <Button
                         android:id="@+id/btn_pick_file"
@@ -303,6 +232,17 @@
                         android:textColor="@color/text_secondary"
                         android:textSize="12sp"
                         android:visibility="gone" />
+
+                    <Button
+                        android:id="@+id/btn_load_playlist"
+                        style="?android:attr/borderlessButtonStyle"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="12dp"
+                        android:background="@drawable/bg_btn_primary"
+                        android:text="@string/action_load"
+                        android:textAllCaps="false"
+                        android:textColor="@android:color/white" />
                 </LinearLayout>
 
                 <!-- Formulaire Xtream Codes -->

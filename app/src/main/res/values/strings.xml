@@ -34,9 +34,9 @@
     <!-- Configuration de la source (écran de démarrage) -->
     <string name="setup_profiles_title">Mes profils</string>
     <string name="setup_add_title">Ajouter une source</string>
-    <string name="setup_type_url">URL M3U</string>
-    <string name="setup_type_file">Fichier local</string>
+    <string name="setup_type_playlist">Charger votre playlist</string>
     <string name="setup_type_xtream">Xtream Codes</string>
+    <string name="setup_or">— OU —</string>
     <string name="setup_name_hint">Nom du profil</string>
     <string name="setup_file_pick">Choisir un fichier</string>
     <string name="setup_url_hint">https://exemple.com/playlist.m3u</string>
@@ -45,7 +45,7 @@
     <string name="setup_xtream_pass_hint">Mot de passe</string>
     <string name="setup_success">%d éléments chargés</string>
     <string name="setup_error_empty_name">Donne un nom à ce profil</string>
-    <string name="setup_error_empty_url">Renseigne un nom et une URL</string>
+    <string name="setup_error_empty_url">Renseigne un nom, puis une URL ou un fichier</string>
     <string name="setup_error_empty_xtream">Renseigne un nom, le serveur, l\'utilisateur et le mot de passe</string>
     <string name="setup_error_generic">Échec du chargement</string>
 
