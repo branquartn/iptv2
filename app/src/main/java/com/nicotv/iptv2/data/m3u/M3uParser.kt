@@ -12,7 +12,9 @@ data class M3uEntry(
  * sur la ligne suivante) — pas de dépendance externe, format IPTV standard. */
 object M3uParser {
 
-    private val attrRegex = Regex("""([a-zA-Z0-9_-]+)="([^"]*)"""")
+    // Chaîne normale (pas de raw string """...""") : le motif se termine par un
+    // guillemet, qui collisionnerait avec le délimiteur """ d'une chaîne brute.
+    private val attrRegex = Regex("([a-zA-Z0-9_-]+)=\"([^\"]*)\"")
 
     fun parse(text: String): List<M3uEntry> {
         val entries = mutableListOf<M3uEntry>()
