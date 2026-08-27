@@ -10,10 +10,10 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 2
-val appVersionName = "1.0.1"
+val appVersionCode = 3
+val appVersionName = "1.0.2"
 // Changelog affiché dans le modal de mise à jour OTA — mis à jour à chaque bump.
-val appChangelog = "Écran de démarrage toujours affiché (profils enregistrés + Playlist / Xtream Codes), jaquettes et fiches films complétées via TMDb (casting, réalisateur, films similaires, bande-annonce), classement M3U films/séries/chaînes plus fiable, correction d'un plantage au démarrage."
+val appChangelog = "Chargement Xtream Codes qui restait bloqué sur les gros catalogues corrigé, identifiants avec caractères spéciaux, formulaires Playlist/Xtream Codes désormais dans un dialogue centré."
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
