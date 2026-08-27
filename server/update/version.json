@@ -1,6 +1,6 @@
 {
-  "versionCode": 10,
-  "versionName": "1.0.9",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.9.apk",
-  "changelog": "Crash OutOfMemoryError au chargement Xtream sur un très gros catalogue VOD corrigé (largeHeap)."
+  "versionCode": 12,
+  "versionName": "1.0.11",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.11.apk",
+  "changelog": "Bandeau blanc système retiré (chaque écran a déjà son propre titre) + log diagnostic pour le souci de profils non affichés."
 }
