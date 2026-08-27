@@ -11,7 +11,7 @@ import com.nicotv.iptv2.data.database.entity.FavoriteEntity
 import com.nicotv.iptv2.domain.model.Movie
 import com.nicotv.iptv2.util.foldAccents
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.viewModelScope
+import androidx.lifecycle.viewModelScope
 
 class MoviesViewModel(application: Application) : AndroidViewModel(application) {
 

@@ -16,6 +16,9 @@ interface SeriesDao {
     fun getCategories(): Flow<List<String>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(series: SeriesEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(series: List<SeriesEntity>)
 
     @Query("DELETE FROM series")
