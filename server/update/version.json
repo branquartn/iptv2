@@ -1,6 +1,6 @@
 {
-  "versionCode": 13,
-  "versionName": "1.0.12",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.12.apk",
-  "changelog": "Vrai fix du bandeau blanc (installSplashScreen() jamais appelé, thème splash jamais quitté) + erreur de formulaire enfin visible (Toast, plus caché derrière le dialogue)."
+  "versionCode": 15,
+  "versionName": "1.0.14",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.14.apk",
+  "changelog": "\"Mes profils\" remonté tout en haut de l'écran de démarrage (avant le logo)."
 }
