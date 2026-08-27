@@ -8,26 +8,13 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.nicotv.iptv2.R
-import com.nicotv.iptv2.data.database.entity.DownloadEntity
 import com.nicotv.iptv2.databinding.ItemPosterBinding
 import com.nicotv.iptv2.domain.model.Movie
 
-/** Adapter pour le mur d'affiches (grille de posters verticaux). Le badge de
- * téléchargement (mode avion) n'est activé que si [showDownloadBadge] est vrai
- * (mur de films uniquement pour l'instant — pas de sens sur une fiche série). */
+/** Adapter pour le mur d'affiches (grille de posters verticaux) — films et séries. */
 class PosterAdapter(
-    private val onClick: (Movie) -> Unit,
-    private val showDownloadBadge: Boolean = false,
-    private val onDownloadClick: (Movie) -> Unit = {}
+    private val onClick: (Movie) -> Unit
 ) : ListAdapter<Movie, PosterAdapter.PosterViewHolder>(DIFF) {
-
-    // movieKey (DownloadEntity.movieKey) → téléchargement local. Absent = pas téléchargé.
-    private var downloads: Map<String, DownloadEntity> = emptyMap()
-
-    fun setDownloads(map: Map<String, DownloadEntity>) {
-        downloads = map
-        notifyDataSetChanged()
-    }
 
     override fun onAttachedToRecyclerView(recyclerView: RecyclerView) {
         // Désactive les animations d'items : DefaultItemAnimator anime itemView via
@@ -59,16 +46,10 @@ class PosterAdapter(
             binding.root.scaleY = 1f
             binding.tvTitle.text = movie.title
             binding.ivFavorite.visibility = if (movie.isFavorite) View.VISIBLE else View.GONE
-
-            // Badge « NOUVEAU » pour les titres récemment ajoutés au catalogue.
-            binding.tvBadgeNew.visibility = if (movie.isNew) View.VISIBLE else View.GONE
-
-            // Badge « ✓ Vu » pour les films regardés jusqu'à la fin (isFinished,
-            // PAS isSeen qui se déclenche dès l'ouverture de la fiche).
             binding.tvBadgeSeen.visibility = if (movie.isFinished) View.VISIBLE else View.GONE
 
-            // Badge reprise pour les films commencés mais non terminés (icône seule,
-            // comme la pastille .prog de la PWA — plus de barre de progression).
+            // Badge reprise pour les films/séries commencés mais non terminés (icône
+            // seule, comme la pastille .prog de la PWA — plus de barre de progression).
             binding.badgeResume.visibility = if (movie.inProgress) View.VISIBLE else View.GONE
 
             binding.ivPoster.load(movie.posterUrl.ifBlank { movie.backdropUrl }) {
@@ -79,13 +60,6 @@ class PosterAdapter(
 
             binding.focusOverlay.visibility = View.INVISIBLE
             binding.focusOverlay.stopAnim()
-
-            // Badge téléchargement : visible UNIQUEMENT si déjà téléchargé (indicateur
-            // de statut, pas un bouton pour lancer un téléchargement).
-            val isDownloaded = showDownloadBadge && movie.type == Movie.Type.MOVIE &&
-                downloads[DownloadEntity.movieKey(movie.id)]?.state == DownloadEntity.STATE_COMPLETED
-            binding.badgeDownload.visibility = if (isDownloaded) View.VISIBLE else View.GONE
-            if (isDownloaded) binding.badgeDownload.setOnClickListener { onDownloadClick(movie) }
 
             binding.root.setOnClickListener { onClick(movie) }
             binding.root.setOnFocusChangeListener { v, hasFocus ->
@@ -102,7 +76,7 @@ class PosterAdapter(
 
     companion object {
         private val DIFF = object : DiffUtil.ItemCallback<Movie>() {
-            override fun areItemsTheSame(a: Movie, b: Movie) = a.id == b.id
+            override fun areItemsTheSame(a: Movie, b: Movie) = a.id == b.id && a.type == b.type
             override fun areContentsTheSame(a: Movie, b: Movie) = a == b
         }
     }

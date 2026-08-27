@@ -1,4 +1,4 @@
-﻿# Prépare l'environnement de build NicoTV sur un PC Windows :
+﻿# Prépare l'environnement de build IPTV2 sur un PC Windows :
 #   - JDK 17 (Temurin) via winget s'il manque
 #   - Android SDK (cmdline-tools + platform 34 + build-tools 34.0.0)
 #   - local.properties pré-rempli (sdk.dir + placeholders keystore)
@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $SdkRoot  = Join-Path $env:LOCALAPPDATA "Android\Sdk"
 
-Write-Host "=== NicoTV : préparation de l'environnement de build ===" -ForegroundColor Cyan
+Write-Host "=== IPTV2 : préparation de l'environnement de build ===" -ForegroundColor Cyan
 
 # ---------------------------------------------------------------- JDK 17
 $javaOk = $false
@@ -79,9 +79,9 @@ if (-not (Test-Path $LocalProps)) {
     $contenu = @"
 sdk.dir=$sdkDirProps
 # Renseigner les secrets du keystore release (ne JAMAIS committer ce fichier) :
-nicotvStorePassword=A_REMPLIR
-nicotvKeyPassword=A_REMPLIR
-nicotvKeyAlias=nicotv
+iptv2StorePassword=A_REMPLIR
+iptv2KeyPassword=A_REMPLIR
+iptv2KeyAlias=iptv2
 "@
     # SANS BOM : Set-Content -Encoding UTF8 ajoute un BOM que Java/Gradle ne
     # retire pas → la clé sdk.dir ne serait pas reconnue.
@@ -95,9 +95,9 @@ nicotvKeyAlias=nicotv
 Write-Host ""
 Write-Host "=== Terminé ===" -ForegroundColor Green
 Write-Host "Reste à faire manuellement :"
-Write-Host "  1. Copier nicotv-release.jks dans app\ (il n'est pas versionné)."
-Write-Host "  2. Renseigner nicotvStorePassword / nicotvKeyPassword dans local.properties."
+Write-Host "  1. Copier iptv2-release.jks dans app\ (il n'est pas versionné)."
+Write-Host "  2. Renseigner iptv2StorePassword / iptv2KeyPassword dans local.properties."
 Write-Host "  3. Builder :  gradlew.bat assembleRelease"
 Write-Host "     L'APK sort dans app\build\outputs\apk\release\ et la tâche"
 Write-Host "     publishReleaseToNicoUpdate le copie vers le dossier update"
-Write-Host "     (NICOTV_UPDATE_DIR ou Z:\update par défaut)."
+Write-Host "     (IPTV2_UPDATE_DIR ou Z:\update-iptv2 par défaut)."

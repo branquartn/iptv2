@@ -6,7 +6,6 @@ import android.view.View
 import androidx.lifecycle.ViewModelProvider
 import androidx.media3.common.util.UnstableApi
 import androidx.recyclerview.widget.GridLayoutManager
-import com.nicotv.iptv2.IptvApplication
 import com.nicotv.iptv2.R
 import com.nicotv.iptv2.databinding.ActivityMoviesBinding
 import com.nicotv.iptv2.domain.model.Movie
@@ -22,12 +21,6 @@ class FavoritesActivity : BaseActivity() {
     private lateinit var viewModel: FavoritesViewModel
     private lateinit var adapter: PosterAdapter
 
-    // Présence admin.nicotv.ovh (« qui regarde quoi ») : écran courant hors lecture.
-    override fun onResume() {
-        super.onResume()
-        (application as IptvApplication).reportScreen("Favoris")
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMoviesBinding.inflate(layoutInflater)
@@ -35,7 +28,6 @@ class FavoritesActivity : BaseActivity() {
         viewModel = ViewModelProvider(this)[FavoritesViewModel::class.java]
 
         binding.tvSectionTitle.text = getString(R.string.nav_favorites)
-        // Masque tout le conteneur de recherche (champ + croix) sur l'écran Favoris
         binding.searchBox.visibility = View.GONE
 
         adapter = PosterAdapter(onClick = { item ->
@@ -66,12 +58,12 @@ class FavoritesActivity : BaseActivity() {
                 .setDuration(150).start()
         }
 
-        viewModel.favorites.observe(this) { movies ->
+        viewModel.favorites.observe(this) { items ->
             binding.progressLoading.visibility = View.GONE
-            adapter.submitList(movies)
-            binding.tvCount.text = "${movies.size}"
-            binding.tvEmpty.visibility = if (movies.isEmpty()) View.VISIBLE else View.GONE
-            binding.rvPosters.visibility = if (movies.isEmpty()) View.GONE else View.VISIBLE
+            adapter.submitList(items)
+            binding.tvCount.text = "${items.size}"
+            binding.tvEmpty.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
+            binding.rvPosters.visibility = if (items.isEmpty()) View.GONE else View.VISIBLE
         }
     }
 

@@ -1,0 +1,380 @@
+package com.nicotv.iptv2.data.repository
+
+import android.content.Context
+import android.net.Uri
+import com.nicotv.iptv2.data.PlaylistSource
+import com.nicotv.iptv2.data.PlaylistSourcePrefs
+import com.nicotv.iptv2.data.SourceType
+import com.nicotv.iptv2.data.database.AppDatabase
+import com.nicotv.iptv2.data.database.entity.ChannelEntity
+import com.nicotv.iptv2.data.database.entity.EpisodeEntity
+import com.nicotv.iptv2.data.database.entity.FavoriteEntity
+import com.nicotv.iptv2.data.database.entity.MovieEntity
+import com.nicotv.iptv2.data.database.entity.SeriesEntity
+import com.nicotv.iptv2.data.database.entity.WatchHistoryEntity
+import com.nicotv.iptv2.data.m3u.M3uEntry
+import com.nicotv.iptv2.data.m3u.M3uParser
+import com.nicotv.iptv2.data.xtream.XtreamClient
+import com.nicotv.iptv2.domain.model.Channel
+import com.nicotv.iptv2.domain.model.EpisodeProgress
+import com.nicotv.iptv2.domain.model.Movie
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.io.IOException
+
+/**
+ * Point central : charge la playlist (M3U url/fichier ou Xtream Codes) dans le
+ * cache Room, puis expose films/séries/chaînes joints aux favoris et à la
+ * reprise de lecture. Remplace MediaRepository (NicoTV) — pas de backend, pas
+ * de compte, une seule source active à la fois (cf. PlaylistSourcePrefs).
+ *
+ * Limite connue (héritée du même choix que NicoTV, cf. MovieEntity/SeriesEntity) :
+ * un rechargement de playlist redistribue de nouveaux id Room (autoIncrement) —
+ * les favoris/la reprise d'un titre disparu-puis-revenu ne sont pas rattachés
+ * automatiquement. Acceptable pour une v1 : la source ne change pas souvent.
+ */
+class PlaylistRepository(
+    private val context: Context,
+    private val db: AppDatabase,
+    private val okHttpClient: OkHttpClient,
+    private val sourcePrefs: PlaylistSourcePrefs
+) {
+    companion object {
+        // Reprise affichée dès 5s de lecture (comme NicoTV) — sous ce seuil, pas
+        // la peine de proposer une reprise pour quelques secondes de générique/pub.
+        private const val MIN_RESUME_MS = 5_000L
+    }
+
+    class LoadException(message: String, cause: Throwable? = null) : Exception(message, cause)
+
+    // ── Chargement de la source active ──────────────────────────────────────
+
+    suspend fun loadFromCurrentSource(): Result<Int> {
+        val source = sourcePrefs.get()
+        return try {
+            val count = when (source.type) {
+                SourceType.M3U_URL -> loadM3u(fetchUrl(source.m3uUrl))
+                SourceType.M3U_FILE -> loadM3u(readLocalFile(source.m3uFileUri))
+                SourceType.XTREAM -> loadXtream(source)
+                SourceType.NONE -> throw LoadException("Aucune source configurée")
+            }
+            Result.success(count)
+        } catch (e: Exception) {
+            Result.failure(if (e is LoadException) e else LoadException(e.message ?: "Erreur de chargement", e))
+        }
+    }
+
+    /** Test de connexion Xtream depuis l'écran de config, sans toucher au cache
+     * Room ni à la source active tant que l'utilisateur n'a pas validé. */
+    suspend fun testXtream(host: String, username: String, password: String) {
+        withContext(Dispatchers.IO) {
+            XtreamClient(okHttpClient, host, username, password).login()
+        }
+    }
+
+    private suspend fun fetchUrl(url: String): String = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder().url(url).build()
+            okHttpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) throw LoadException("Le serveur a répondu HTTP ${response.code}")
+                response.body?.string() ?: throw LoadException("Réponse vide")
+            }
+        } catch (e: IOException) {
+            throw LoadException("Impossible de joindre l'URL (réseau ?)", e)
+        }
+    }
+
+    private suspend fun readLocalFile(uriString: String): String = withContext(Dispatchers.IO) {
+        try {
+            val uri = Uri.parse(uriString)
+            context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                ?: throw LoadException("Fichier introuvable — sélectionne-le à nouveau")
+        } catch (e: SecurityException) {
+            throw LoadException("Permission perdue sur le fichier — sélectionne-le à nouveau", e)
+        }
+    }
+
+    // ── M3U (URL ou fichier local, même parsing) ────────────────────────────
+
+    private suspend fun loadM3u(text: String): Int = withContext(Dispatchers.Default) {
+        val entries = M3uParser.parse(text)
+        if (entries.isEmpty()) throw LoadException("Playlist vide ou format M3U non reconnu")
+
+        val channels = mutableListOf<ChannelEntity>()
+        val movies = mutableListOf<MovieEntity>()
+        // Titre de série → (entrée d'épisode + saison/n°/titre parsés)
+        val seriesEpisodes = LinkedHashMap<String, MutableList<Triple<M3uEntry, M3uParser.ParsedEpisode, Int>>>()
+
+        var order = 0
+        for (entry in entries) {
+            when (M3uParser.classify(entry)) {
+                M3uParser.Kind.LIVE -> channels.add(
+                    ChannelEntity(name = entry.name, streamUrl = entry.url, logoUrl = entry.logo, category = entry.groupTitle, sortOrder = order++)
+                )
+                M3uParser.Kind.MOVIE -> movies.add(
+                    MovieEntity(title = entry.name, streamUrl = entry.url, posterUrl = entry.logo, category = entry.groupTitle)
+                )
+                M3uParser.Kind.EPISODE -> {
+                    val parsed = M3uParser.parseEpisodeTitle(entry.name)
+                    if (parsed == null) {
+                        // Motif SxxEyy absent malgré la classification par group-title :
+                        // traité comme film plutôt que perdu.
+                        movies.add(MovieEntity(title = entry.name, streamUrl = entry.url, posterUrl = entry.logo, category = entry.groupTitle))
+                    } else {
+                        seriesEpisodes.getOrPut(parsed.seriesTitle) { mutableListOf() }.add(Triple(entry, parsed, order++))
+                    }
+                }
+            }
+        }
+
+        replaceCatalog(channels, movies, seriesEpisodes)
+        channels.size + movies.size + seriesEpisodes.size
+    }
+
+    private suspend fun replaceCatalog(
+        channels: List<ChannelEntity>,
+        movies: List<MovieEntity>,
+        seriesEpisodes: Map<String, List<Triple<M3uEntry, M3uParser.ParsedEpisode, Int>>>
+    ) = withContext(Dispatchers.IO) {
+        db.channelDao().deleteAll()
+        db.movieDao().deleteAll()
+        db.seriesDao().deleteAll() // cascade → episodes déjà supprimés
+
+        db.channelDao().insertAll(channels)
+        db.movieDao().insertAll(movies)
+
+        val allEpisodes = mutableListOf<EpisodeEntity>()
+        for ((seriesTitle, items) in seriesEpisodes) {
+            val firstLogo = items.firstOrNull { it.first.logo.isNotBlank() }?.first?.logo.orEmpty()
+            val category = items.first().first.groupTitle
+            val seriesId = db.seriesDao().insert(
+                SeriesEntity(title = seriesTitle, posterUrl = firstLogo, category = category)
+            )
+            items.forEach { (entry, parsed, _) ->
+                val fileKey = "$seriesTitle/${parsed.season}x${parsed.episode}"
+                allEpisodes.add(
+                    EpisodeEntity(
+                        seriesId = seriesId,
+                        seasonNumber = parsed.season,
+                        seasonName = "Saison ${parsed.season}",
+                        episodeNumber = parsed.episode,
+                        episodeTitle = parsed.episodeTitle,
+                        streamUrl = entry.url,
+                        fileKey = fileKey,
+                        watchKey = EpisodeEntity.computeWatchKey(fileKey)
+                    )
+                )
+            }
+        }
+        db.episodeDao().insertAll(allEpisodes)
+    }
+
+    // ── Xtream Codes ─────────────────────────────────────────────────────────
+
+    private fun xtreamClientFor(source: PlaylistSource): XtreamClient =
+        XtreamClient(okHttpClient, source.xtreamHost, source.xtreamUsername, source.xtreamPassword)
+
+    private suspend fun loadXtream(source: PlaylistSource): Int = withContext(Dispatchers.IO) {
+        val client = xtreamClientFor(source)
+        client.login()
+
+        val liveCats = client.getLiveCategories().associateBy { it.id }
+        val liveStreams = client.getLiveStreams()
+        val channels = liveStreams.map {
+            ChannelEntity(
+                name = it.name, streamUrl = client.liveStreamUrl(it.streamId),
+                logoUrl = it.icon, category = liveCats[it.categoryId]?.name.orEmpty()
+            )
+        }
+
+        val vodCats = client.getVodCategories().associateBy { it.id }
+        val vodStreams = client.getVodStreams()
+        val movies = vodStreams.map {
+            MovieEntity(
+                title = it.name, streamUrl = client.vodStreamUrl(it.streamId, it.containerExtension),
+                posterUrl = it.icon, overview = it.plot, rating = it.rating,
+                category = vodCats[it.categoryId]?.name.orEmpty()
+            )
+        }
+
+        val seriesCats = client.getSeriesCategories().associateBy { it.id }
+        val seriesList = client.getSeriesList()
+
+        db.channelDao().deleteAll(); db.movieDao().deleteAll(); db.seriesDao().deleteAll()
+        db.channelDao().insertAll(channels)
+        db.movieDao().insertAll(movies)
+        for (s in seriesList) {
+            db.seriesDao().insert(
+                SeriesEntity(
+                    title = s.name, posterUrl = s.cover, overview = s.plot, rating = s.rating,
+                    genres = s.genre, releaseYear = s.releaseDate.take(4),
+                    category = seriesCats[s.categoryId]?.name.orEmpty(),
+                    xtreamSeriesId = s.seriesId
+                )
+            )
+        }
+        // Épisodes chargés à la demande (loadEpisodesForSeries) : des milliers de
+        // séries impliqueraient sinon des milliers d'appels get_series_info au
+        // chargement initial — bien trop long.
+        channels.size + movies.size + seriesList.size
+    }
+
+    /** Récupère les épisodes d'une série. Pour une série d'origine Xtream
+     * (xtreamSeriesId non vide) sans épisode encore en cache, va les chercher
+     * via get_series_info et les met en cache. Pour une série détectée depuis un
+     * M3U, les épisodes sont déjà en base depuis le chargement initial. */
+    suspend fun loadEpisodesForSeries(series: SeriesEntity): List<EpisodeEntity> = withContext(Dispatchers.IO) {
+        val cached = db.episodeDao().getEpisodesForSeries(series.id)
+        if (cached.isNotEmpty() || series.xtreamSeriesId.isBlank()) return@withContext cached
+
+        val source = sourcePrefs.get()
+        if (source.type != SourceType.XTREAM) return@withContext cached
+        val client = xtreamClientFor(source)
+        val info = client.getSeriesInfo(series.xtreamSeriesId)
+        val episodes = info.episodesBySeason.values.flatten().map { ep ->
+            val fileKey = "${series.title}/${ep.seasonNumber}x${ep.episodeNumber}"
+            EpisodeEntity(
+                seriesId = series.id,
+                seasonNumber = ep.seasonNumber,
+                seasonName = info.seasons.firstOrNull { it.number == ep.seasonNumber }?.name ?: "Saison ${ep.seasonNumber}",
+                episodeNumber = ep.episodeNumber,
+                episodeTitle = ep.title,
+                overview = ep.overview,
+                streamUrl = client.seriesEpisodeUrl(ep.id, ep.containerExtension),
+                fileKey = fileKey,
+                watchKey = EpisodeEntity.computeWatchKey(fileKey)
+            )
+        }
+        db.episodeDao().insertAll(episodes)
+        episodes
+    }
+
+    // ── Lecture (films / séries / chaînes + favoris + reprise) ─────────────
+
+    fun getMovies(): Flow<List<Movie>> =
+        combine(db.movieDao().getAllMovies(), db.favoriteDao().getFavoritesByType(FavoriteEntity.Type.MOVIE), db.watchHistoryDao().getAllHistory()) { movies, favs, history ->
+            val favIds = favs.map { it.itemId }.toSet()
+            val historyByKey = history.associateBy { it.historyKey }
+            movies.map { m ->
+                val h = historyByKey["m${m.id}"]
+                m.toDomain(isFavorite = m.id in favIds, watchProgress = h?.progressPercent ?: 0)
+            }
+        }
+
+    fun getSeries(): Flow<List<Movie>> =
+        combine(db.seriesDao().getAllSeries(), db.favoriteDao().getFavoritesByType(FavoriteEntity.Type.SERIES)) { series, favs ->
+            val favIds = favs.map { it.itemId }.toSet()
+            series.map { it.toDomain(isFavorite = it.id in favIds) }
+        }
+
+    fun getChannels(): Flow<List<Channel>> =
+        combine(db.channelDao().getAllChannels(), db.favoriteDao().getFavoritesByType(FavoriteEntity.Type.CHANNEL)) { channels, favs ->
+            val favIds = favs.map { it.itemId }.toSet()
+            channels.map { it.toDomain(isFavorite = it.id in favIds) }
+        }
+
+    fun getFavoriteMoviesAndSeries(): Flow<List<Movie>> =
+        combine(getMovies(), getSeries()) { movies, series -> (movies + series).filter { it.isFavorite } }
+
+    fun getFavoriteChannels(): Flow<List<Channel>> =
+        getChannels().map { list -> list.filter { it.isFavorite } }
+
+    fun getFavoritesCount(): Flow<Int> = db.favoriteDao().getCount()
+
+    suspend fun toggleFavorite(itemId: Long, type: String, currentlyFavorite: Boolean) = withContext(Dispatchers.IO) {
+        if (currentlyFavorite) db.favoriteDao().removeFavorite(itemId, type)
+        else db.favoriteDao().addFavorite(FavoriteEntity(itemId, type))
+    }
+
+    suspend fun getMovieById(id: Long): Movie? = withContext(Dispatchers.IO) {
+        val entity = db.movieDao().getMovieById(id) ?: return@withContext null
+        val isFav = db.favoriteDao().isFavorite(id, FavoriteEntity.Type.MOVIE)
+        val history = db.watchHistoryDao().getPosition("m$id")
+        entity.toDomain(isFavorite = isFav, watchProgress = history?.progressPercent ?: 0)
+    }
+
+    suspend fun getSeriesEntityById(id: Long): SeriesEntity? = withContext(Dispatchers.IO) { db.seriesDao().getById(id) }
+
+    suspend fun isSeriesFavorite(id: Long): Boolean = withContext(Dispatchers.IO) { db.favoriteDao().isFavorite(id, FavoriteEntity.Type.SERIES) }
+
+    /** watchKey d'épisode → état (reprise/rien). Pas de notion de "vu" permanente
+     * en v1 (simplifié) : une entrée présente = en cours, absente = jamais commencé
+     * ou terminé (l'entrée est supprimée à la fin, cf. saveWatchPosition). */
+    suspend fun getEpisodeProgressMap(episodes: List<EpisodeEntity>): Map<Long, EpisodeProgress> = withContext(Dispatchers.IO) {
+        val keys = episodes.map { "e:${it.fileKey}" }
+        val positions = db.watchHistoryDao().getPositions(keys).associateBy { it.historyKey }
+        episodes.mapNotNull { ep ->
+            val h = positions["e:${ep.fileKey}"] ?: return@mapNotNull null
+            ep.watchKey to EpisodeProgress(seen = false, percent = h.progressPercent, positionMs = h.positionMs, durationMs = h.durationMs)
+        }.toMap()
+    }
+
+    suspend fun getEpisodesForSeriesId(seriesId: Long): List<EpisodeEntity> = withContext(Dispatchers.IO) { db.episodeDao().getEpisodesForSeries(seriesId) }
+
+    // ── Reprise de lecture ───────────────────────────────────────────────────
+
+    /** Écran "Reprendre la lecture" : films et épisodes en cours, triés du plus
+     * récent au plus ancien. */
+    fun getUnifiedHistory(): Flow<List<Movie>> =
+        combine(db.watchHistoryDao().getRecentHistory(), db.movieDao().getAllMovies(), db.episodeDao().getAllEpisodesFlow()) { history, movies, episodes ->
+            val moviesById = movies.associateBy { it.id }
+            val episodesByWatchKey = episodes.associateBy { it.watchKey }
+            history.mapNotNull { h ->
+                if (h.historyKey.startsWith("m")) {
+                    val movieId = h.historyKey.removePrefix("m").toLongOrNull() ?: return@mapNotNull null
+                    moviesById[movieId]?.toDomain(watchProgress = h.progressPercent)
+                } else {
+                    val ep = episodesByWatchKey[h.movieId] ?: return@mapNotNull null
+                    Movie(
+                        id = ep.watchKey, title = ep.episodeTitle, streamUrl = ep.streamUrl,
+                        watchProgress = h.progressPercent, type = Movie.Type.EPISODE,
+                        episodeKey = ep.fileKey, seriesId = ep.seriesId, seriesTitle = h.title
+                    )
+                }
+            }
+        }
+
+    suspend fun getWatchPosition(historyKey: String): Long = withContext(Dispatchers.IO) { db.watchHistoryDao().getPosition(historyKey)?.positionMs ?: 0L }
+
+    /** [historyKey] = "m<id>" pour un film, "e:<fileKey>" pour un épisode.
+     * [progressMovieId] = id local utilisé pour le tri/lookup côté ResumeViewModel
+     * (movie.id pour un film, episode.watchKey pour un épisode). */
+    suspend fun saveWatchPosition(historyKey: String, progressMovieId: Long, title: String, positionMs: Long, durationMs: Long, finished: Boolean) =
+        withContext(Dispatchers.IO) {
+            if (finished || positionMs < MIN_RESUME_MS) {
+                db.watchHistoryDao().removeHistory(historyKey)
+            } else {
+                db.watchHistoryDao().savePosition(WatchHistoryEntity(historyKey, progressMovieId, title, positionMs, durationMs))
+            }
+        }
+
+    /** Épisode suivant dans la série (par watchKey courant), ou null si dernier. */
+    suspend fun getNextEpisode(currentWatchKey: Long, seriesId: Long): EpisodeEntity? = withContext(Dispatchers.IO) {
+        val episodes = db.episodeDao().getEpisodesForSeries(seriesId)
+        val idx = episodes.indexOfFirst { it.watchKey == currentWatchKey }
+        if (idx >= 0 && idx + 1 < episodes.size) episodes[idx + 1] else null
+    }
+
+    // ── Recherche locale (par titre, insensible aux accents) ───────────────
+
+    suspend fun searchTitle(query: String): Triple<List<Movie>, List<Movie>, List<Channel>> {
+        val q = query.trim()
+        if (q.isBlank()) return Triple(emptyList(), emptyList(), emptyList())
+        val movies = getMovies().first().filter { it.title.contains(q, ignoreCase = true) }
+        val series = getSeries().first().filter { it.title.contains(q, ignoreCase = true) }
+        val channels = getChannels().first().filter { it.name.contains(q, ignoreCase = true) }
+        return Triple(movies, series, channels)
+    }
+
+    suspend fun clearAllData() = withContext(Dispatchers.IO) {
+        db.channelDao().deleteAll(); db.movieDao().deleteAll(); db.seriesDao().deleteAll()
+        db.favoriteDao().deleteAll(); db.watchHistoryDao().deleteAll()
+        sourcePrefs.clear()
+    }
+}

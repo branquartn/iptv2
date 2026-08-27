@@ -11,8 +11,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.media3.common.util.UnstableApi
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.nicotv.iptv2.IptvApplication
-import com.nicotv.iptv2.R
 import com.nicotv.iptv2.databinding.ActivitySeriesBinding
 import com.nicotv.iptv2.ui.common.PosterAdapter
 
@@ -23,24 +21,11 @@ class SeriesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
     private lateinit var viewModel: SeriesViewModel
     private lateinit var adapter: PosterAdapter
 
-    // Présence admin.nicotv.ovh (« qui regarde quoi ») : écran courant hors lecture.
-    override fun onResume() {
-        super.onResume()
-        (application as IptvApplication).reportScreen("Séries")
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivitySeriesBinding.inflate(layoutInflater)
         setContentView(binding.root)
         viewModel = ViewModelProvider(this)[SeriesViewModel::class.java]
-
-        // Pastille « N nouveautés » de l'accueil : ouvre cette même liste mais
-        // filtrée sur les nouveautés (comme new-series côté PWA).
-        if (intent.getBooleanExtra(EXTRA_NEW_ONLY, false)) {
-            viewModel.newOnly.value = true
-            binding.tvSectionTitle.text = getString(R.string.title_new_series)
-        }
 
         adapter = PosterAdapter(onClick = { item ->
             startActivity(Intent(this, SeriesDetailActivity::class.java).apply {
@@ -63,8 +48,6 @@ class SeriesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         }
 
         binding.btnBack.setOnClickListener { finish() }
-        // Icône + anneau blanc tournant (RotatingBorderView), même pattern que la
-        // fiche détail (avant : bouton texte "Retour" avec juste un zoom).
         binding.btnBack.setOnFocusChangeListener { v, hasFocus ->
             v.animate()
                 .scaleX(if (hasFocus) 1.25f else 1f)
@@ -81,7 +64,6 @@ class SeriesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                 .setDuration(150).start()
         }
 
-        // Croix : efface le texte et redonne le focus au champ
         binding.btnClear.setOnClickListener {
             binding.etSearch.setText("")
             binding.etSearch.requestFocus()
@@ -114,12 +96,6 @@ class SeriesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
             binding.tvEmpty.visibility = if (series.isEmpty()) View.VISIBLE else View.GONE
             binding.rvPosters.visibility = if (series.isEmpty()) View.GONE else View.VISIBLE
         }
-
-        // Hors-ligne (mode avion) : Séries n'affiche que les séries ayant au moins un
-        // épisode téléchargé (cf. SeriesViewModel.filteredSeries).
-        (application as IptvApplication).isOnline.observe(this) { online ->
-            binding.tvEmpty.text = getString(if (online) R.string.series_empty_title else R.string.offline_empty_series)
-        }
     }
 
     private fun hideKeyboard() {
@@ -133,9 +109,5 @@ class SeriesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         val screenWidthDp = resources.configuration.screenWidthDp
         val posterWidthDp = 112
         return (screenWidthDp / posterWidthDp).coerceIn(6, 10)
-    }
-
-    companion object {
-        const val EXTRA_NEW_ONLY = "extra_new_only"
     }
 }

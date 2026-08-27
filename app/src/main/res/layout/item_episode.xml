@@ -139,7 +139,7 @@
     <!-- Anneau blanc tournant au focus (remplace l'ancien contour statique de
          bg_episode_item) — match_parent = mêmes bords que la ligne elle-même, donc
          touche le bas des onglets saison quand l'épisode 1 est sélectionné. -->
-    <com.nicotv.iptv.ui.common.RotatingBorderView
+    <com.nicotv.iptv2.ui.common.RotatingBorderView
         android:id="@+id/episode_row_ring"
         android:layout_width="match_parent"
         android:layout_height="match_parent"

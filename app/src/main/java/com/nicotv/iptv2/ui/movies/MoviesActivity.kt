@@ -1,6 +1,5 @@
 package com.nicotv.iptv2.ui.movies
 
-import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.text.Editable
@@ -9,18 +8,11 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.asLiveData
-import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.nicotv.iptv2.IptvApplication
-import com.nicotv.iptv2.R
-import com.nicotv.iptv2.data.database.entity.DownloadEntity
 import com.nicotv.iptv2.databinding.ActivityMoviesBinding
-import com.nicotv.iptv2.domain.model.Movie
 import com.nicotv.iptv2.ui.common.PosterAdapter
 import com.nicotv.iptv2.ui.detail.DetailActivity
-import kotlinx.coroutines.launch
 
 class MoviesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
 
@@ -28,35 +20,17 @@ class MoviesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
     private lateinit var viewModel: MoviesViewModel
     private lateinit var adapter: PosterAdapter
 
-    // Présence admin.nicotv.ovh (« qui regarde quoi ») : écran courant hors lecture.
-    override fun onResume() {
-        super.onResume()
-        (application as IptvApplication).reportScreen("Films")
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMoviesBinding.inflate(layoutInflater)
         setContentView(binding.root)
         viewModel = ViewModelProvider(this)[MoviesViewModel::class.java]
 
-        // Pastille « N nouveautés » de l'accueil : ouvre cette même liste mais
-        // filtrée sur les nouveautés (comme new-films côté PWA), pas la liste
-        // entière.
-        if (intent.getBooleanExtra(EXTRA_NEW_ONLY, false)) {
-            viewModel.newOnly.value = true
-            binding.tvSectionTitle.text = getString(R.string.title_new_movies)
-        }
-
-        adapter = PosterAdapter(
-            onClick = { movie ->
-                startActivity(Intent(this, DetailActivity::class.java).apply {
-                    putExtra(DetailActivity.EXTRA_MOVIE_ID, movie.id)
-                })
-            },
-            showDownloadBadge = true,
-            onDownloadClick = { movie -> onPosterDownloadClick(movie) }
-        )
+        adapter = PosterAdapter(onClick = { movie ->
+            startActivity(Intent(this, DetailActivity::class.java).apply {
+                putExtra(DetailActivity.EXTRA_MOVIE_ID, movie.id)
+            })
+        })
 
         binding.rvPosters.apply {
             layoutManager = GridLayoutManager(this@MoviesActivity, computeSpanCount())
@@ -72,8 +46,6 @@ class MoviesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         }
 
         binding.btnBack.setOnClickListener { finish() }
-        // Icône + anneau blanc tournant (RotatingBorderView), même pattern que la
-        // fiche détail (avant : bouton texte "Retour" avec juste un zoom).
         binding.btnBack.setOnFocusChangeListener { v, hasFocus ->
             v.animate()
                 .scaleX(if (hasFocus) 1.25f else 1f)
@@ -90,7 +62,6 @@ class MoviesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                 .setDuration(150).start()
         }
 
-        // Croix : efface le texte et redonne le focus au champ
         binding.btnClear.setOnClickListener {
             binding.etSearch.setText("")
             binding.etSearch.requestFocus()
@@ -111,7 +82,6 @@ class MoviesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
             }
         })
 
-        // Loupe du clavier → ferme le clavier
         binding.etSearch.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH) { hideKeyboard(); true } else false
         }
@@ -124,42 +94,6 @@ class MoviesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
             binding.tvEmpty.visibility = if (movies.isEmpty()) View.VISIBLE else View.GONE
             binding.rvPosters.visibility = if (movies.isEmpty()) View.GONE else View.VISIBLE
         }
-
-        // Badge de téléchargement sur chaque affiche (mode avion).
-        (application as IptvApplication).downloadRepository.getAllFlow().asLiveData().observe(this) { list ->
-            adapter.setDownloads(
-                list.filter { it.type == DownloadEntity.TYPE_MOVIE }.associateBy { it.key }
-            )
-        }
-
-        // Hors-ligne (mode avion) : Films n'affiche que les téléchargements locaux
-        // (cf. MoviesViewModel.filteredMovies) — message vide dédié pour l'expliquer.
-        (application as IptvApplication).isOnline.observe(this) { online ->
-            binding.tvEmpty.text = getString(if (online) R.string.home_empty_title else R.string.offline_empty_movies)
-        }
-
-        // Préchauffe le cache casting en tâche de fond → la recherche par acteur
-        // devient utile sans attendre l'ouverture individuelle de chaque fiche.
-        viewModel.prefetchCast()
-    }
-
-    /** Tap sur le badge de téléchargement d'une affiche (mur de films) — le badge
-     * n'est visible que si le film est déjà téléchargé, donc toujours une suppression. */
-    private fun onPosterDownloadClick(movie: Movie) = confirmDeleteDownload(movie)
-
-    private fun confirmDeleteDownload(movie: Movie) {
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("Supprimer le téléchargement ?")
-            .setMessage(movie.title)
-            .setPositiveButton("Supprimer") { _, _ ->
-                lifecycleScope.launch {
-                    (application as IptvApplication).downloadRepository.delete(DownloadEntity.movieKey(movie.id))
-                }
-            }
-            .setNegativeButton("Annuler", null)
-            .create()
-        dialog.show()
-        dialog.window?.setBackgroundDrawableResource(R.drawable.bg_dialog)
     }
 
     private fun hideKeyboard() {
@@ -174,9 +108,5 @@ class MoviesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         // ~6 affiches par ligne sur un téléphone, plus sur grand écran
         val posterWidthDp = 112
         return (screenWidthDp / posterWidthDp).coerceIn(6, 10)
-    }
-
-    companion object {
-        const val EXTRA_NEW_ONLY = "extra_new_only"
     }
 }

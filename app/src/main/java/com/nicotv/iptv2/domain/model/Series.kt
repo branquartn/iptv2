@@ -9,7 +9,7 @@ data class Series(
     val firstAirYear: String = "",
     val rating: Float = 0f,
     val genres: List<String> = emptyList(),
-    val tmdbId: Int = 0,
+    val category: String = "",
     val seasons: List<Season> = emptyList()
 )
 

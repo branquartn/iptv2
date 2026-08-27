@@ -1,13 +1,18 @@
 package com.nicotv.iptv2.data.database.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.nicotv.iptv2.domain.model.Movie
 
-@Entity(tableName = "movies")
+/** Un film VOD. Index unique (title, streamUrl) : un rechargement de la playlist
+ * met à jour la ligne existante au lieu d'en créer une doublonnée. */
+@Entity(
+    tableName = "movies",
+    indices = [Index(value = ["title", "streamUrl"], unique = true)]
+)
 data class MovieEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val username: String = "",
     val title: String,
     val streamUrl: String,
     val posterUrl: String = "",
@@ -17,17 +22,12 @@ data class MovieEntity(
     val runtime: Int = 0,
     val rating: Float = 0f,
     val genres: String = "",
-    val tmdbId: Int = 0,
-    // Premier ajout du titre au catalogue (sert au badge « NOUVEAU »). Contrairement à
-    // updatedAt, n'est PAS modifié quand l'URL de flux change lors d'une resynchro.
-    val addedAt: Long = System.currentTimeMillis(),
+    val category: String = "",
     val updatedAt: Long = System.currentTimeMillis()
 ) {
     fun toDomain(
         isFavorite: Boolean = false,
-        isNew: Boolean = false,
         watchProgress: Int = 0,
-        isSeen: Boolean = false,
         isFinished: Boolean = false
     ) = Movie(
         id = id,
@@ -40,11 +40,9 @@ data class MovieEntity(
         runtime = runtime,
         rating = rating,
         genres = if (genres.isBlank()) emptyList() else genres.split(","),
-        tmdbId = tmdbId,
+        category = category,
         isFavorite = isFavorite,
-        isNew = isNew,
         watchProgress = watchProgress,
-        isSeen = isSeen,
         isFinished = isFinished
     )
 }

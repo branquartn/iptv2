@@ -6,31 +6,21 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.nicotv.iptv2.data.database.entity.DownloadEntity
 import com.nicotv.iptv2.data.database.entity.EpisodeEntity
 import com.nicotv.iptv2.databinding.ItemEpisodeBinding
 import com.nicotv.iptv2.domain.model.EpisodeProgress
 
 class EpisodeAdapter(
     private val onPlay: (EpisodeEntity) -> Unit,
-    private val onRestart: (EpisodeEntity) -> Unit = {},
-    private val onDownload: (EpisodeEntity) -> Unit = {},
-    private val onDeleteDownload: (EpisodeEntity) -> Unit = {},
-    private val onCancelDownload: (EpisodeEntity) -> Unit = {}
+    private val onRestart: (EpisodeEntity) -> Unit = {}
 ) : ListAdapter<EpisodeEntity, EpisodeAdapter.VH>(DIFF) {
 
-    // watchKey → état (vu / reprise). Absent = jamais commencé.
+    // watchKey → état de reprise. Absent = jamais commencé (ou terminé — l'entrée
+    // est supprimée à la fin de la lecture, cf. PlaylistRepository.saveWatchPosition).
     private var progress: Map<Long, EpisodeProgress> = emptyMap()
-    // fileKey → téléchargement local (mode avion). Absent = pas téléchargé.
-    private var downloads: Map<String, DownloadEntity> = emptyMap()
 
     fun setProgress(map: Map<Long, EpisodeProgress>) {
         progress = map
-        notifyDataSetChanged()
-    }
-
-    fun setDownloads(map: Map<String, DownloadEntity>) {
-        downloads = map
         notifyDataSetChanged()
     }
 
@@ -62,71 +52,27 @@ class EpisodeAdapter(
             }
 
             val state = progress[ep.watchKey]
-            when {
+            if (state != null) {
                 // En cours : reprise affichée dès la 1re seconde et jusqu'à la dernière,
-                // tant qu'une position est mémorisée (plus de seuil en %). Temps réel
-                // affiché (comme la PWA : "12:34 / 45:00"), pas un texte générique.
-                state != null && !state.seen -> {
-                    b.tvStatus.visibility = View.VISIBLE
-                    b.tvStatus.text = "▶ " + if (state.durationMs > 0) {
-                        "${fmtTime(state.positionMs)} / ${fmtTime(state.durationMs)}"
-                    } else {
-                        fmtTime(state.positionMs)
-                    }
-                    b.tvStatus.setTextColor(0xFF6E84FF.toInt())
-                    b.progressResume.visibility = View.VISIBLE
-                    b.progressResume.progress = state.percent
-                    // Comme la PWA : bouton « depuis le début » sur un épisode commencé.
-                    b.btnEpisodeRestart.visibility = View.VISIBLE
+                // tant qu'une position est mémorisée. Temps réel affiché ("12:34 / 45:00").
+                b.tvStatus.visibility = View.VISIBLE
+                b.tvStatus.text = "▶ " + if (state.durationMs > 0) {
+                    "${fmtTime(state.positionMs)} / ${fmtTime(state.durationMs)}"
+                } else {
+                    fmtTime(state.positionMs)
                 }
-                state != null && state.seen -> {
-                    b.tvStatus.visibility = View.VISIBLE
-                    b.tvStatus.text = "✓ Vu"
-                    b.tvStatus.setTextColor(0xFF4CAF50.toInt())
-                    b.progressResume.visibility = View.GONE
-                    b.btnEpisodeRestart.visibility = View.GONE
-                }
-                else -> {
-                    b.tvStatus.visibility = View.GONE
-                    b.progressResume.visibility = View.GONE
-                    b.btnEpisodeRestart.visibility = View.GONE
-                }
+                b.tvStatus.setTextColor(0xFF6E84FF.toInt())
+                b.progressResume.visibility = View.VISIBLE
+                b.progressResume.progress = state.percent
+                b.btnEpisodeRestart.visibility = View.VISIBLE
+            } else {
+                b.tvStatus.visibility = View.GONE
+                b.progressResume.visibility = View.GONE
+                b.btnEpisodeRestart.visibility = View.GONE
             }
 
             b.btnEpisodeRestart.setOnClickListener { onRestart(ep) }
             b.root.setOnClickListener { onPlay(ep) }
-
-            val dl = downloads[ep.fileKey]
-            when (dl?.state) {
-                DownloadEntity.STATE_COMPLETED -> {
-                    b.progressEpisodeDownload.visibility = View.GONE
-                    b.tvEpisodeDownloadPct.visibility = View.GONE
-                    b.ivEpisodeDownload.visibility = View.VISIBLE
-                    b.ivEpisodeDownload.setImageResource(com.nicotv.iptv2.R.drawable.ic_download_done)
-                    b.btnEpisodeDownload.setOnClickListener { onDeleteDownload(ep) }
-                }
-                DownloadEntity.STATE_QUEUED, DownloadEntity.STATE_DOWNLOADING -> {
-                    b.ivEpisodeDownload.visibility = View.GONE
-                    val pct = if (dl.bytesTotal > 0) (dl.bytesDownloaded * 100 / dl.bytesTotal).toInt() else -1
-                    if (pct >= 0) {
-                        b.progressEpisodeDownload.visibility = View.GONE
-                        b.tvEpisodeDownloadPct.visibility = View.VISIBLE
-                        b.tvEpisodeDownloadPct.text = "$pct%"
-                    } else {
-                        b.progressEpisodeDownload.visibility = View.VISIBLE
-                        b.tvEpisodeDownloadPct.visibility = View.GONE
-                    }
-                    b.btnEpisodeDownload.setOnClickListener { onCancelDownload(ep) }
-                }
-                else -> {
-                    // FAILED ou jamais téléchargé : icône de téléchargement, tap = lancer.
-                    b.progressEpisodeDownload.visibility = View.GONE
-                    b.tvEpisodeDownloadPct.visibility = View.GONE
-                    b.ivEpisodeDownload.visibility = View.VISIBLE
-                    b.ivEpisodeDownload.setImageResource(com.nicotv.iptv2.R.drawable.ic_download)
-                    b.btnEpisodeDownload.setOnClickListener { onDownload(ep) }
-                }
-            }
         }
     }
 
@@ -136,7 +82,7 @@ class EpisodeAdapter(
             override fun areContentsTheSame(a: EpisodeEntity, b: EpisodeEntity) = a == b
         }
 
-        /** Même format que la PWA (fmtTime côté app.js) : M:SS, ou H:MM:SS au-delà d'1h. */
+        /** M:SS, ou H:MM:SS au-delà d'1h. */
         private fun fmtTime(ms: Long): String {
             val totalSec = ms / 1000
             val h = totalSec / 3600

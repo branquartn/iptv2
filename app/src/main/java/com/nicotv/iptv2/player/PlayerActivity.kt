@@ -31,15 +31,16 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.PlayerView
 import com.nicotv.iptv2.IptvApplication
 import com.nicotv.iptv2.R
-import com.nicotv.iptv2.data.database.entity.DownloadEntity
 import com.nicotv.iptv2.data.database.entity.EpisodeEntity
 import com.nicotv.iptv2.databinding.ActivityPlayerBinding
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import java.io.File
 
+/** Lecteur ExoPlayer : chaînes live, films, épisodes de série. [EXTRA_MOVIE_ID]
+ * n'est renseigné (≠ -1) que pour un film/épisode (reprise + historique) — une
+ * chaîne live le laisse à -1, aucune reprise n'a de sens pour du direct. */
 @UnstableApi
 class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
 
@@ -56,9 +57,6 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
     private var episodeNumber: Int = -1
     private var seasonNumber: Int = -1
     private var fileKeyExtra: String = ""
-    // Vrai une fois qu'on a cherché un fichier téléchargé localement (mode avion) pour
-    // ce média — évite de relancer la recherche à chaque onStart (retour en premier plan).
-    private var localFileChecked = false
     private var playbackEnded = false
     // Le seek vers la reprise (initPlayer, coroutine) est ASYNCHRONE (requête Room
     // via getResumePosition) : si l'activité se ferme avant qu'il se termine,
@@ -98,6 +96,11 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
     private var stuckEndTriggered = false
 
     private enum class SubMenu { SPEED, AUDIO, SUBTITLE }
+
+    /** "m<id>" pour un film, "e:<fileKey>" pour un épisode — vide pour une
+     * chaîne live (aucune reprise/historique). */
+    private val historyKey: String
+        get() = if (movieId == -1L) "" else if (seriesId != -1L) "e:$fileKeyExtra" else "m$movieId"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -422,160 +425,12 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
 
     override fun onStart() {
         super.onStart()
-        current = this
-        if (localFileChecked) { initPlayer(); return }
-        localFileChecked = true
-        lifecycleScope.launch {
-            val key = fileKeyExtra.ifBlank { if (movieId != -1L) DownloadEntity.movieKey(movieId) else "" }
-            if (key.isNotBlank()) {
-                (application as IptvApplication).downloadRepository.localPathFor(key)?.let {
-                    streamUrl = Uri.fromFile(File(it)).toString()
-                }
-            }
-            initPlayer()
-        }
+        initPlayer()
     }
 
     override fun onStop() {
-        if (current === this) current = null
         saveAndRelease()
         super.onStop()
-    }
-
-    /** Pause déclenchée depuis admin.nicotv.ovh (bus WS, event "remote"/cmd=pause).
-     *  No-op si déjà en pause ou si le player n'est pas prêt. */
-    fun remotePause() {
-        // Pas de garde sur isPlaying : ExoPlayer le renvoie false pendant un simple
-        // rebuffer transitoire (playWhenReady=true mais STATE_BUFFERING) même si la
-        // vidéo tourne visuellement — la commande ne faisait alors rien, silencieusement
-        // (incident 2026-07-31). pause() est un no-op sûr si déjà en pause.
-        player?.pause()
-    }
-
-    /** Reprise déclenchée depuis admin.nicotv.ovh (bus WS, event "remote"/cmd=resume). */
-    fun remoteResume() {
-        player?.play()
-    }
-
-    /** Retour déclenché par la télécommande (bus WS, "remote"/cmd=nav_back) — appelé
-     *  directement par IptvApplication quand un lecteur est ouvert, PLUTÔT que de
-     *  relayer un KeyEvent BACK générique (dispatchNavKey) : ce dernier doit remonter
-     *  toute la hiérarchie de vues du lecteur (barre de progression, menu réglages...)
-     *  avant d'atteindre onKeyDown() ici — un widget custom peut le consommer en
-     *  route sans effet visible (incident 2026-08-04, "le retour ne fonctionne pas").
-     *  Même nettoyage que le bouton retour physique/tactile local. */
-    fun remoteBack() {
-        saveAndRelease()
-        finish()
-    }
-
-    // ── Télécommande complète (icône à côté du pseudo, cf. IptvApplication.handleRemoteCommand) ──
-    // Seek/volume relayés directement (pas d'UI à ouvrir) ; audio/sous-titres ouvrent le
-    // même sous-menu que la molette locale (rowAudio/rowSubtitles) — la sélection précise
-    // se fait ensuite via les flèches de la télécommande (nav_up/down/select, relayées en
-    // KeyEvent D-pad par IptvApplication, génériques à toute l'app), pas de logique de
-    // cycle dupliquée ici.
-    fun remoteSeek(deltaMs: Long) = seekRelative(deltaMs)
-
-    private var lastNonZeroVolume = 1f
-    fun remoteSetVolume(v: Float) {
-        val vv = v.coerceIn(0f, 1f)
-        player?.volume = vv
-        if (vv > 0f) lastNonZeroVolume = vv
-    }
-    fun remoteSetMute(muted: Boolean) {
-        // volume=0 seul ne coupait pas le son (incident 2026-08-04, icône change côté
-        // télécommande mais pas de mute réel) — en plus, désactive carrément la piste
-        // audio via trackSelectionParameters, même mécanisme déjà utilisé et éprouvé
-        // pour les sous-titres (remoteSetSubtitleTrack) : deux façons indépendantes de
-        // couper le son, au cas où l'une des deux ne suffise pas seule sur ce pipeline.
-        player?.let {
-            it.volume = if (muted) 0f else lastNonZeroVolume
-            it.trackSelectionParameters = it.trackSelectionParameters.buildUpon()
-                .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, muted)
-                .build()
-        }
-    }
-    fun remoteOpenAudioMenu() = binding.rowAudio.performClick()
-    fun remoteOpenSubtitleMenu() = binding.rowSubtitles.performClick()
-
-    // ── Menu pistes audio/sous-titres construit CÔTÉ TÉLÉCOMMANDE (pas un cycle à
-    // l'aveugle ni l'ouverture du menu local) : la cible expose sa liste de pistes à
-    // plat, la télécommande affiche un vrai choix, cf. incident 2026-08-04
-    // "j'aimerais avoir un petit menu". Index à plat stable tant que currentTracks ne
-    // change pas entre le report et la sélection (même session de lecture).
-    private fun audioTracksFlat(): List<Pair<androidx.media3.common.Tracks.Group, Int>> {
-        val list = mutableListOf<Pair<androidx.media3.common.Tracks.Group, Int>>()
-        player?.currentTracks?.groups?.filter { it.type == C.TRACK_TYPE_AUDIO }?.forEach { g ->
-            for (ti in 0 until g.length) list.add(g to ti)
-        }
-        return list
-    }
-    private fun subtitleTracksFlat(): List<Pair<androidx.media3.common.Tracks.Group, Int>> {
-        val list = mutableListOf<Pair<androidx.media3.common.Tracks.Group, Int>>()
-        player?.currentTracks?.groups?.filter { it.type == C.TRACK_TYPE_TEXT }?.forEach { g ->
-            for (ti in 0 until g.length) list.add(g to ti)
-        }
-        return list
-    }
-
-    fun remoteReportTracks() {
-        val audio = audioTracksFlat()
-        val subtitle = subtitleTracksFlat()
-        val curAudio = audio.indexOfFirst { (g, ti) -> g.isTrackSelected(ti) }.let { if (it < 0) null else it }
-        val curSubtitle = if (!subtitlesEnabled) null
-            else subtitle.indexOfFirst { (g, ti) -> g.isTrackSelected(ti) }.let { if (it < 0) null else it }
-        val app = application as IptvApplication
-        val report = com.nicotv.iptv2.data.network.RemoteTracksReport(
-            deviceId = app.sessionManager.getOrCreateDeviceId(),
-            audio = audio.mapIndexed { i, (g, ti) ->
-                val fmt = g.getTrackFormat(ti)
-                com.nicotv.iptv2.data.network.RemoteTrackInfo(i, buildTrackLabel(fmt.language, fmt.label, "Piste ${i + 1}"))
-            },
-            subtitle = subtitle.mapIndexed { i, (g, ti) ->
-                val fmt = g.getTrackFormat(ti)
-                com.nicotv.iptv2.data.network.RemoteTrackInfo(i, buildTrackLabel(fmt.language, fmt.label, "Sous-titres ${i + 1}"))
-            },
-            curAudio = curAudio,
-            curSubtitle = curSubtitle
-        )
-        app.appScope.launch {
-            runCatching { app.mediaRepository.remoteReportTracks(report, app.sessionManager.bearer()) }
-        }
-    }
-
-    fun remoteSetAudioTrack(index: Int) {
-        val (group, ti) = audioTracksFlat().getOrNull(index) ?: return
-        player?.let {
-            it.trackSelectionParameters = it.trackSelectionParameters.buildUpon()
-                .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
-                .addOverride(TrackSelectionOverride(group.mediaTrackGroup, listOf(ti)))
-                .build()
-        }
-        updateMainMenuValues()
-    }
-
-    fun remoteSetSubtitleTrack(index: Int?) {
-        if (index == null) {
-            subtitlesEnabled = false
-            player?.let {
-                it.trackSelectionParameters = it.trackSelectionParameters.buildUpon()
-                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
-                    .build()
-            }
-            updateMainMenuValues()
-            return
-        }
-        val (group, ti) = subtitleTracksFlat().getOrNull(index) ?: return
-        subtitlesEnabled = true
-        player?.let {
-            it.trackSelectionParameters = it.trackSelectionParameters.buildUpon()
-                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-                .clearOverridesOfType(C.TRACK_TYPE_TEXT)
-                .addOverride(TrackSelectionOverride(group.mediaTrackGroup, listOf(ti)))
-                .build()
-        }
-        updateMainMenuValues()
     }
 
     // ── Picture-in-Picture (Android 8+) ─────────────────────────────────────
@@ -693,7 +548,6 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                 seekBarJob?.cancel()
                 seekBarJob = lifecycleScope.launch {
                     val seekBar = binding.playerView.findViewById<PlayerSeekBar>(R.id.player_seekbar)
-                    var heartbeatTicks = 0
                     while (isActive) {
                         val p = player
                         if (seekBar != null && p != null) {
@@ -702,17 +556,6 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                             seekBar.bufferedMs = p.bufferedPosition.coerceAtLeast(0)
                         }
                         if (p != null) checkStuckNearEnd(p)
-                        // Présence temps réel (admin « qui regarde quoi ») : ~20s (boucle à
-                        // 500ms), même mécanique/throttle que côté PWA (timeupdate). Envoyé
-                        // aussi en pause (pas seulement isPlaying) : sinon l'entrée disparaît
-                        // du panneau admin après le TTL au lieu d'afficher « ⏸ Pause ».
-                        if (p != null) {
-                            heartbeatTicks++
-                            if (heartbeatTicks >= 40) {
-                                heartbeatTicks = 0
-                                viewModel.sendHeartbeat(movieId, p.currentPosition.coerceAtLeast(0), p.duration.coerceAtLeast(0), p.isPlaying)
-                            }
-                        }
                         delay(500)
                     }
                 }
@@ -728,13 +571,6 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                         if (hasStartedPlaying) {
                             binding.overlayPauseInfo.visibility =
                                 if (isPlaying) View.GONE else View.VISIBLE
-                            // Présence temps réel (admin « qui regarde quoi ») : pause/reprise
-                            // reflétée tout de suite au lieu d'attendre jusqu'à 20s de boucle
-                            // périodique (même correctif que côté PWA, cf. app.js sendHeartbeat
-                            // sur les events 'pause'/'play' du <video>).
-                            player?.let {
-                                viewModel.sendHeartbeat(movieId, it.currentPosition.coerceAtLeast(0), it.duration.coerceAtLeast(0), isPlaying)
-                            }
                         }
                     }
                     override fun onTracksChanged(tracks: Tracks) {
@@ -748,10 +584,11 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                 exo.prepare()
                 exo.playWhenReady = true
 
-                if (movieId != -1L && resume) {
+                val key = historyKey
+                if (key.isNotBlank() && resume) {
                     resumeSeekDone = false
                     lifecycleScope.launch {
-                        val pos = viewModel.getResumePosition(movieId)
+                        val pos = viewModel.getResumePosition(key)
                         if (pos > 0) player?.seekTo(pos)
                         resumeSeekDone = true
                     }
@@ -871,12 +708,13 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         nextEpisodeCountdownJob?.cancel()
         seekBarJob?.cancel()
         player?.let { exo ->
-            if (movieId != -1L) {
+            val key = historyKey
+            if (key.isNotBlank()) {
                 // À moins d'1 min de la fin (durée connue) : considéré comme terminé
                 // même si l'utilisateur quitte via Retour — l'auto-enchaînement/prompt
                 // ne se déclenche que dans les 45 dernières secondes (cf.
                 // NEXT_EPISODE_LOOKAHEAD_MS), donc sans ça un retour entre -60s et -45s
-                // ne marquait jamais « vu » (juste une reprise qui ne bouge plus).
+                // ne marquait jamais l'élément comme terminé.
                 val duration = exo.duration
                 if (!playbackEnded && duration != C.TIME_UNSET && duration > 0 &&
                     duration - exo.currentPosition <= NEAR_END_FINISHED_MS
@@ -887,19 +725,19 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                 // réouverture) : exo.currentPosition ne reflète pas encore la vraie
                 // position → ne pas toucher la reprise existante plutôt que l'effacer
                 // avec une valeur ~0 non fiable. playbackEnded (fin réelle) reste
-                // prioritaire : la position n'y est pas utilisée pour la décision « vu ».
+                // prioritaire : la position n'y est pas utilisée pour la décision.
                 if (resumeSeekDone || playbackEnded) {
-                    viewModel.savePosition(movieId, title, exo.currentPosition, exo.duration, playbackEnded)
+                    // progressId = movieId : id du film, ou watchKey de l'épisode
+                    // (les deux transitent par le même extra EXTRA_MOVIE_ID).
+                    viewModel.savePosition(key, movieId, if (seriesId != -1L) seriesTitle else title, exo.currentPosition, exo.duration, playbackEnded)
                     // `resume` ne reflète que l'intent DE DÉPART (false pour un film lancé
-                    // depuis zéro via "▶ Lecture", cf. DetailActivity.play(resume =
-                    // currentResumePos > 0)) et ne changeait jamais ensuite : au retour
-                    // d'arrière-plan, initPlayer() se relance (onStart → localFileChecked)
-                    // sans jamais chercher la position qu'on vient tout juste de sauvegarder
-                    // ci-dessus → repart de zéro à chaque fois. Une fois une vraie position
-                    // sauvegardée, un futur initPlayer() doit toujours tenter de reprendre.
+                    // depuis zéro via "▶ Lecture") et ne changeait jamais ensuite : au retour
+                    // d'arrière-plan, initPlayer() se relance sans jamais chercher la
+                    // position qu'on vient tout juste de sauvegarder ci-dessus → repart de
+                    // zéro à chaque fois. Une fois une vraie position sauvegardée, un futur
+                    // initPlayer() doit toujours tenter de reprendre.
                     if (!playbackEnded) resume = true
                 }
-                viewModel.sendPresenceStop()
             }
             exo.release()
         }
@@ -999,9 +837,6 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
     }
 
     companion object {
-        // Instance active (premier plan) : cible du contrôle à distance admin (pause).
-        // Volatile — lu depuis le thread WS via IptvApplication.handleRemoteCommand().
-        @Volatile var current: PlayerActivity? = null
         const val EXTRA_MOVIE_ID       = "movie_id"
         const val EXTRA_STREAM_URL     = "stream_url"
         const val EXTRA_TITLE          = "title"
@@ -1022,7 +857,7 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         private const val STUCK_NEAR_END_MS = 1_500L
         private const val STUCK_TICKS_THRESHOLD = 4
         // Retour (bouton/télécommande) à moins d'1 min de la fin = considéré comme
-        // terminé (marque « vu »), même hors de la fenêtre d'auto-enchaînement.
+        // terminé, même hors de la fenêtre d'auto-enchaînement.
         private const val NEAR_END_FINISHED_MS = 60_000L
     }
 }

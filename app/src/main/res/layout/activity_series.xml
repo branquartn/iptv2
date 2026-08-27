@@ -47,7 +47,7 @@
                     android:src="@drawable/ic_pwa_back"
                     android:layout_gravity="center" />
 
-                <com.nicotv.iptv.ui.common.RotatingBorderView
+                <com.nicotv.iptv2.ui.common.RotatingBorderView
                     xmlns:app="http://schemas.android.com/apk/res-auto"
                     android:id="@+id/btn_back_ring"
                     android:layout_width="match_parent"
@@ -107,7 +107,7 @@
                     android:contentDescription="@string/btn_clear_search"
                     android:visibility="gone" />
 
-                <com.nicotv.iptv.ui.common.RotatingBorderView
+                <com.nicotv.iptv2.ui.common.RotatingBorderView
                     android:id="@+id/search_ring"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"

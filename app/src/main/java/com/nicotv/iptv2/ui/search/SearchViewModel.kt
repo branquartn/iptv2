@@ -2,88 +2,37 @@ package com.nicotv.iptv2.ui.search
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.nicotv.iptv2.IptvApplication
-import com.nicotv.iptv2.data.network.model.TmdbMultiResult
-import com.nicotv.iptv2.data.network.model.TmdbPerson
-import com.nicotv.iptv2.domain.model.OpenTarget
-import com.nicotv.iptv2.domain.model.SimilarWork
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import com.nicotv.iptv2.domain.model.Channel
+import com.nicotv.iptv2.domain.model.Movie
 import kotlinx.coroutines.launch
 
+data class SearchResults(val movies: List<Movie>, val series: List<Movie>, val channels: List<Channel>) {
+    val isEmpty get() = movies.isEmpty() && series.isEmpty() && channels.isEmpty()
+}
+
 class SearchViewModel(application: Application) : AndroidViewModel(application) {
-
     private val app = application as IptvApplication
-    private val tmdbApi = app.tmdbApi
-    private val repository = app.mediaRepository
+    private val repository = app.playlistRepository
 
-    // Résultats films/séries en SimilarWork (badge possédé/pas possédé déjà résolu) :
-    // grille + fiche aperçu (mobile et TV), comme la PWA (renderAddResults).
-    val results = MutableLiveData<List<SimilarWork>>(emptyList())
-    // Acteurs trouvés par la recherche (comme la PWA) : clic → fiche/filmographie.
-    val people = MutableLiveData<List<TmdbMultiResult>>(emptyList())
-    val isLoading = MutableLiveData(false)
-    val error = MutableLiveData<String?>(null)
+    private val _results = MutableLiveData(SearchResults(emptyList(), emptyList(), emptyList()))
+    val results: LiveData<SearchResults> = _results
 
-    // Résultat de l'ajout au serveur (message affiché à l'utilisateur).
-    val addResult = MutableLiveData<String?>(null)
-
-    private var searchJob: Job? = null
+    private var searchJob: kotlinx.coroutines.Job? = null
 
     fun search(query: String) {
         searchJob?.cancel()
         if (query.isBlank()) {
-            results.value = emptyList()
-            people.value = emptyList()
+            _results.value = SearchResults(emptyList(), emptyList(), emptyList())
             return
         }
         searchJob = viewModelScope.launch {
-            delay(1000) // debounce
-            isLoading.value = true
-            error.value = null
-            try {
-                val response = tmdbApi.searchMulti(query)
-                val filtered = response.results.filter { it.isMovie || it.isTv }
-                people.value = response.results.filter { it.isPerson && it.profileUrl.isNotBlank() }.take(12)
-                val username = app.sessionManager.getUsername()
-                results.value = filtered.map {
-                    repository.toSimilarWork(
-                        it.id, it.isTv, it.displayTitle, it.displayYear, it.posterPath, username,
-                        overview = it.overview, backdropPath = it.backdropPath, rating = it.voteAverage
-                    )
-                }
-            } catch (e: Exception) {
-                error.value = e.localizedMessage
-                results.value = emptyList()
-                people.value = emptyList()
-            } finally {
-                isLoading.value = false
-            }
+            kotlinx.coroutines.delay(200) // anti-rafale pendant la frappe
+            val (movies, series, channels) = repository.searchTitle(query)
+            _results.value = SearchResults(movies, series, channels)
         }
     }
-
-    // ── Fiche acteur (même mécanique que DetailViewModel — casting/similaires) ──
-
-    suspend fun loadPerson(personId: Int): TmdbPerson? = repository.getPersonDetail(personId)
-
-    suspend fun loadPersonFilmography(personId: Int): List<SimilarWork> =
-        repository.getPersonFilmographyAsWork(personId, app.sessionManager.getUsername())
-
-    /** Fiche réalisateur : films réalisés (crew job=Director), pas la filmographie
-     * d'acteur — même logique que DetailViewModel.loadPersonDirected. */
-    suspend fun loadPersonDirected(personId: Int): List<SimilarWork> =
-        repository.getPersonDirectedAsWork(personId, app.sessionManager.getUsername())
-
-    suspend fun resolveOrAdd(work: SimilarWork): OpenTarget? =
-        repository.resolveOrAddWork(work, app.sessionManager.getUsername(), app.sessionManager.bearer()) {
-            addResult.value = it
-        }
-
-    suspend fun loadTrailerKeyFor(tmdbId: Int, isTv: Boolean): String? =
-        if (tmdbId <= 0) null else repository.getTrailerKey(tmdbId, isTv)
-
-    suspend fun loadWorkGenresAndRuntime(tmdbId: Int, isTv: Boolean): Pair<String, Int> =
-        if (tmdbId <= 0) "" to 0 else repository.getWorkGenresAndRuntime(tmdbId, isTv)
 }

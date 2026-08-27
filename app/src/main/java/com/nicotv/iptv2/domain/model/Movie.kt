@@ -11,20 +11,11 @@ data class Movie(
     val runtime: Int = 0,
     val rating: Float = 0f,
     val genres: List<String> = emptyList(),
-    val tmdbId: Int = 0,
+    val category: String = "",
     val isFavorite: Boolean = false,
-    // Récemment ajouté au catalogue → badge « NOUVEAU » sur l'affiche.
-    val isNew: Boolean = false,
     // Progression de lecture en cours (0 = jamais lu, 100 = terminé).
     val watchProgress: Int = 0,
-    // Fiche déjà ouverte au moins une fois (peu importe si regardé) — sert
-    // UNIQUEMENT à la détection NOUVEAU (seen.mkeys, partagé avec la PWA).
-    // PAS pour un badge visible : contrairement à son ancien rôle, ce champ
-    // ne veut plus dire « terminé » (cf. isFinished ci-dessous).
-    val isSeen: Boolean = false,
-    // Film regardé JUSQU'AU BOUT (FinishedMoviesCache, local) → badge « ✓ Vu »
-    // sur l'affiche. Distinct de isSeen (qui se déclenche dès l'ouverture de la
-    // fiche, pas seulement en fin de lecture).
+    // Film/épisode regardé jusqu'au bout → badge « ✓ Vu » sur l'affiche.
     val isFinished: Boolean = false,
     // Type d'élément (film ou épisode de série).
     val type: Type = Type.MOVIE,

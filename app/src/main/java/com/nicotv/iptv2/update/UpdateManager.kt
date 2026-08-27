@@ -36,10 +36,9 @@ private var lastUpdateCheck = 0L
 private const val UPDATE_CHECK_INTERVAL_MS = 2 * 60 * 1000L
 
 /**
- * Vérifie une mise à jour OTA et propose l'installation si disponible. Ne nécessite
- * pas d'être connecté (version.json est public) : peut donc être appelé aussi bien
- * depuis LoginActivity que MainActivity, pour ne pas dépendre du login pour se
- * rattraper d'un bug qui bloquerait justement la connexion.
+ * Vérifie une mise à jour OTA et propose l'installation si disponible.
+ * Appelé aussi bien depuis SetupActivity que MainActivity — pas besoin d'avoir
+ * chargé une source pour se rattraper d'un bug qui bloquerait justement ça.
  */
 fun FragmentActivity.checkForAppUpdate() {
     val updateManager = UpdateManager(this)
@@ -113,13 +112,13 @@ class UpdateManager(private val context: Context) {
     fun downloadAndInstall(remote: RemoteVersion) {
         try {
             val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            val fileName = "nicotv-${remote.versionName.ifBlank { remote.versionCode.toString() }}.apk"
+            val fileName = "iptv2-${remote.versionName.ifBlank { remote.versionCode.toString() }}.apk"
 
             // Supprime un éventuel ancien téléchargement
             File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName).delete()
 
             val request = DownloadManager.Request(Uri.parse(remote.apkUrl)).apply {
-                setTitle("NicoTV ${remote.versionName}")
+                setTitle("IPTV2 ${remote.versionName}")
                 setDescription("Téléchargement de la mise à jour…")
                 // Notif système masquée, comme pour les téléchargements mode avion
                 // (DOWNLOAD_WITHOUT_NOTIFICATION déclarée) — un Toast suffit déjà ici.
@@ -284,8 +283,8 @@ class UpdateManager(private val context: Context) {
                 val permDialog = AlertDialog.Builder(context)
                     .setTitle("Permission requise")
                     .setMessage(
-                        "NicoTV doit être autorisé à installer des applications.\n\n" +
-                        "Active « Sources inconnues » pour NicoTV dans les paramètres, " +
+                        "IPTV2 doit être autorisé à installer des applications.\n\n" +
+                        "Active « Sources inconnues » pour IPTV2 dans les paramètres, " +
                         "puis reviens : la mise à jour démarrera automatiquement."
                     )
                     .setPositiveButton("Ouvrir les paramètres") { _, _ ->
@@ -299,7 +298,7 @@ class UpdateManager(private val context: Context) {
                 Log.e(TAG, "requestInstallPermission failed", e)
                 Toast.makeText(
                     context,
-                    "Autorise l'installation de sources inconnues pour NicoTV, puis relance la mise à jour.",
+                    "Autorise l'installation de sources inconnues pour IPTV2, puis relance la mise à jour.",
                     Toast.LENGTH_LONG
                 ).show()
             }

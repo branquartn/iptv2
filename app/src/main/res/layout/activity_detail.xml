@@ -1,549 +1,195 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg_dark"
-    android:clipChildren="false"
-    android:clipToPadding="false">
+    android:background="@color/bg_dark">
 
-    <!-- Full backdrop -->
     <ImageView
         android:id="@+id/iv_backdrop"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:scaleType="centerCrop"
-        android:alpha="0.5" />
+        android:alpha="0.55" />
 
-    <!-- Left gradient -->
     <View
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@drawable/gradient_detail" />
 
-    <!-- Content : colonne verticale [zone défilante (tête poster+infos PUIS films
-         similaires pleine largeur, comme .detail-scroll côté PWA)][boutons fixes].
-         Avant : poster+infos en 2 colonnes fixes, similaires coincés dans la
-         colonne texte. Maintenant : le poster grandit avec la tête (infos+casting),
-         et Films similaires déborde à pleine largeur EN DESSOUS, dans la même
-         zone de scroll — répartition et hiérarchie identiques à la PWA. -->
-    <LinearLayout
-        android:id="@+id/content_root"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
+    <!-- Retour -->
+    <FrameLayout
+        android:id="@+id/btn_back"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_margin="24dp"
+        android:focusable="true"
+        android:clickable="true"
         android:clipChildren="false"
         android:clipToPadding="false"
-        android:paddingStart="48dp"
-        android:paddingEnd="48dp"
-        android:paddingTop="48dp"
-        android:paddingBottom="48dp">
+        android:defaultFocusHighlightEnabled="false">
 
-        <!-- Conteneur de la zone défilante : clippe STRICTEMENT le contenu
-             (clipChildren/clipToPadding=true) indépendamment du panneau qui, lui,
-             est en clipChildren=false pour laisser le zoom des boutons déborder.
-             C'est ce découplage qui évite À LA FOIS le contenu derrière les
-             boutons ET le bouton Lecture coupé à gauche au focus. -->
-        <FrameLayout
-            android:id="@+id/scroll_frame"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:layout_marginBottom="24dp"
-            android:clipChildren="true"
-            android:clipToPadding="true">
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_pwa_back"
+            app:tint="@android:color/white" />
 
-        <ScrollView
+        <com.nicotv.iptv2.ui.common.RotatingBorderView
+            android:id="@+id/btn_back_ring"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:clipChildren="true"
-            android:clipToPadding="true"
-            android:overScrollMode="never"
-            android:scrollbars="vertical">
+            app:circular="true"
+            app:borderColor="@android:color/white"
+            android:visibility="invisible" />
+    </FrameLayout>
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
 
-                <!-- Tête : poster + infos (titre/synopsis/casting), comme .detail-head
-                     côté PWA. -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-
-                    <!-- Poster : taille FIXE 150x225 (ratio 2:3), identique sur toutes
-                         les fiches. Avant : la hauteur suivait la colonne infos (donc
-                         le synopsis) → poster énorme si synopsis long, taille
-                         incohérente d'un film à l'autre. Le synopsis est maintenant
-                         plafonné à 3 lignes (tv_overview/tv_overview_toggle) : plus
-                         besoin de faire varier le poster pour "suivre" la colonne. -->
-                    <androidx.cardview.widget.CardView
-                        android:id="@+id/card_poster"
-                        android:layout_width="150dp"
-                        android:layout_height="225dp"
-                        android:layout_marginEnd="32dp"
-                        app:cardCornerRadius="10dp"
-                        app:cardElevation="6dp"
-                        app:cardBackgroundColor="@color/bg_card"
-                        xmlns:app="http://schemas.android.com/apk/res-auto">
-
-                        <ImageView
-                            android:id="@+id/iv_poster"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:scaleType="centerCrop" />
-
-                    </androidx.cardview.widget.CardView>
-
-                    <LinearLayout
-                        android:id="@+id/ll_info_column"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:id="@+id/tv_title"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:textColor="@color/text_primary"
-                            android:textSize="36sp"
-                            android:textStyle="bold" />
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="10dp"
-                            android:layout_marginBottom="10dp"
-                            android:orientation="horizontal">
-
-                            <TextView
-                                android:id="@+id/tv_year"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginEnd="16dp"
-                                android:textColor="@color/text_secondary"
-                                android:textSize="15sp" />
-
-                            <TextView
-                                android:id="@+id/tv_runtime"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginEnd="16dp"
-                                android:textColor="@color/text_secondary"
-                                android:textSize="15sp" />
-
-                            <TextView
-                                android:id="@+id/tv_rating"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:textColor="@color/rating_color"
-                                android:textSize="15sp" />
-                        </LinearLayout>
-
-                        <TextView
-                            android:id="@+id/tv_genres"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginBottom="8dp"
-                            android:textColor="@color/accent"
-                            android:textSize="13sp" />
-
-                        <!-- 3 lignes par défaut + « Lire la suite » : sinon un synopsis
-                             long fait grandir toute la colonne infos, et donc le poster
-                             (qui matchait sa hauteur) — jaquette énorme et pas la même
-                             taille d'une fiche à l'autre. Le poster est maintenant fixe
-                             (cf. card_poster plus bas), donc ce plafond n'est même plus
-                             strictement nécessaire pour ça, mais reste utile en soi
-                             (fiche plus courte, cohérente d'un film à l'autre). -->
-                        <!-- marginBottom : espace avant l'élément suivant (toggle si
-                             visible, sinon directement tv_director) — sans lui, un
-                             synopsis court (pas de « Lire la suite ») collait Réalisé
-                             par juste en dessous, tv_overview_toggle (seule source de
-                             marge ici) étant GONE. -->
-                        <TextView
-                            android:id="@+id/tv_overview"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginBottom="12dp"
-                            android:textColor="@color/text_secondary"
-                            android:textSize="14sp"
-                            android:lineSpacingMultiplier="1.5"
-                            android:maxLines="3"
-                            android:ellipsize="end" />
-
-                        <TextView
-                            android:id="@+id/tv_overview_toggle"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:layout_marginBottom="16dp"
-                            android:paddingStart="6dp"
-                            android:paddingEnd="6dp"
-                            android:text="@string/overview_more"
-                            android:textColor="@color/accent"
-                            android:textSize="13sp"
-                            android:textStyle="bold"
-                            android:focusable="true"
-                            android:clickable="true"
-                            android:visibility="gone" />
-
-                        <!-- Réalisateur (portage PWA, cf. .director-link) — clic ouvre sa
-                             fiche/filmographie, comme un acteur du casting. Préfixe
-                             statique + nom en lien (même style/gabarit que
-                             tv_overview_toggle) : seul le nom est focusable/cliquable,
-                             comme côté PWA (le texte "Réalisé par" reste inerte). -->
-                        <LinearLayout
-                            android:id="@+id/ll_director"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginBottom="16dp"
-                            android:orientation="horizontal"
-                            android:visibility="gone">
-
-                            <TextView
-                                android:id="@+id/tv_director_label"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_gravity="center_vertical"
-                                android:text="@string/directed_by_label"
-                                android:textColor="@color/text_secondary"
-                                android:textSize="13sp" />
-
-                            <TextView
-                                android:id="@+id/tv_director"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginStart="2dp"
-                                android:paddingStart="6dp"
-                                android:paddingEnd="6dp"
-                                android:textColor="@color/accent"
-                                android:textSize="13sp"
-                                android:textStyle="bold"
-                                android:focusable="true"
-                                android:clickable="true" />
-
-                        </LinearLayout>
-
-                    </LinearLayout>
-
-                </LinearLayout>
-
-                <!-- Casting : PLEINE LARGEUR, sous la tête poster+infos, alignée à
-                     gauche comme Films similaires (avant : dans la colonne texte,
-                     décalée à droite du poster — désaligné avec Films similaires
-                     juste en dessous). marginTop : sans lui, collée directement sous
-                     la ligne poster+infos (surtout visible avec un synopsis court, la
-                     ligne se limite alors à la hauteur du poster — le titre touche
-                     carrément l'affiche). -->
-                <TextView
-                    android:id="@+id/tv_cast_title"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:layout_marginBottom="6dp"
-                    android:text="@string/title_casting"
-                    android:textColor="@color/text_primary"
-                    android:textSize="13sp"
-                    android:textStyle="bold"
-                    android:visibility="gone" />
-
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/rv_cast"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:layout_marginBottom="10dp"
-                    android:orientation="horizontal"
-                    android:clipChildren="false"
-                    android:clipToPadding="false"
-                    android:visibility="gone" />
-
-                <!-- Films similaires : PLEINE LARGEUR, sous la tête poster+infos
-                     (comme #simRow côté PWA — sort de la colonne texte). -->
-                <TextView
-                    android:id="@+id/tv_similar_title"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="6dp"
-                    android:text="@string/title_similar_movies"
-                    android:textColor="@color/text_primary"
-                    android:textSize="13sp"
-                    android:textStyle="bold"
-                    android:visibility="gone" />
-
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/rv_similar"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:layout_marginBottom="4dp"
-                    android:paddingStart="8dp"
-                    android:paddingEnd="8dp"
-                    android:paddingTop="8dp"
-                    android:paddingBottom="8dp"
-                    android:orientation="horizontal"
-                    android:clipChildren="false"
-                    android:clipToPadding="false"
-                    android:visibility="gone" />
-
-            </LinearLayout>
-        </ScrollView>
-        </FrameLayout>
-
-        <!-- Boutons fixes sous la zone défilante -->
         <LinearLayout
-            android:id="@+id/ll_buttons_row"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
+            android:gravity="bottom"
+            android:paddingStart="40dp"
+            android:paddingEnd="40dp"
+            android:paddingTop="120dp"
+            android:paddingBottom="40dp"
             android:clipChildren="false"
             android:clipToPadding="false">
 
-                <!-- Lecture : icône triangle seule (comme les autres actions) + anneau
-                     tournant — avant : gros bouton texte bleu "Lire". -->
-                <FrameLayout
-                    android:id="@+id/btn_play"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:focusable="true"
-                    android:clickable="true"
-                    android:clipChildren="false"
-                    android:clipToPadding="false">
+            <androidx.cardview.widget.CardView
+                android:id="@+id/card_poster"
+                android:layout_width="180dp"
+                android:layout_height="260dp"
+                android:layout_marginEnd="32dp"
+                app:cardCornerRadius="10dp"
+                app:cardElevation="12dp"
+                app:cardBackgroundColor="@color/bg_card">
 
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@drawable/ic_pwa_play"
-                        android:layout_gravity="center" />
+                <com.nicotv.iptv2.ui.common.PosterImageView
+                    android:id="@+id/iv_poster"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop" />
+            </androidx.cardview.widget.CardView>
 
-                    <com.nicotv.iptv.ui.common.RotatingBorderView
-                        xmlns:app="http://schemas.android.com/apk/res-auto"
-                        android:id="@+id/btn_play_ring"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        app:circular="true"
-                        app:borderColor="@android:color/white"
-                        android:visibility="invisible" />
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
 
-                </FrameLayout>
-
-                <!-- ★ Favori (icône seule, zoom au focus) -->
-                <FrameLayout
-                    android:id="@+id/btn_favorite"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:layout_marginEnd="8dp"
-                    android:focusable="true"
-                    android:clickable="true"
-                    android:clipChildren="false"
-                    android:clipToPadding="false">
-
-                    <ImageView
-                        android:id="@+id/iv_favorite"
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@drawable/ic_favorite_filled"
-                        android:layout_gravity="center" />
-
-                    <com.nicotv.iptv.ui.common.RotatingBorderView
-                        xmlns:app="http://schemas.android.com/apk/res-auto"
-                        android:id="@+id/btn_favorite_ring"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        app:circular="true"
-                        app:borderColor="@android:color/white"
-                        android:visibility="invisible" />
-
-                </FrameLayout>
-
-                <!-- ⬇ Téléchargement local (mode avion) : icône selon l'état -->
-                <FrameLayout
-                    android:id="@+id/btn_download"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:layout_marginEnd="8dp"
-                    android:focusable="true"
-                    android:clickable="true"
-                    android:clipChildren="false"
-                    android:clipToPadding="false">
-
-                    <ImageView
-                        android:id="@+id/iv_download"
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@drawable/ic_download"
-                        android:tint="@color/text_secondary"
-                        android:layout_gravity="center" />
-
-                    <ProgressBar
-                        android:id="@+id/progress_download"
-                        android:layout_width="26dp"
-                        android:layout_height="26dp"
-                        android:layout_gravity="center"
-                        android:visibility="gone" />
-
-                    <TextView
-                        android:id="@+id/tv_download_pct"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center"
-                        android:textSize="10sp"
-                        android:textStyle="bold"
-                        android:textColor="#6E84FF"
-                        android:visibility="gone" />
-
-                    <com.nicotv.iptv.ui.common.RotatingBorderView
-                        xmlns:app="http://schemas.android.com/apk/res-auto"
-                        android:id="@+id/btn_download_ring"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        app:circular="true"
-                        app:borderColor="@android:color/white"
-                        android:visibility="invisible" />
-
-                </FrameLayout>
-
-                <!-- ⟳ Recommencer (visible seulement si reprise disponible) -->
-                <FrameLayout
-                    android:id="@+id/btn_restart"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:layout_marginEnd="8dp"
-                    android:focusable="true"
-                    android:clickable="true"
-                    android:clipChildren="false"
-                    android:clipToPadding="false"
-                    android:visibility="gone">
-
-                    <!-- tint aligné sur les autres icônes (ic_movies/ic_pwa_edit,
-                         #8892B0) : le drawable partagé ic_pwa_restart est plus clair
-                         (#EAECF4, utilisé ailleurs sur fond vidéo) et tranchait ici. -->
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@drawable/ic_pwa_restart"
-                        android:tint="@color/text_secondary"
-                        android:layout_gravity="center" />
-
-                    <com.nicotv.iptv.ui.common.RotatingBorderView
-                        xmlns:app="http://schemas.android.com/apk/res-auto"
-                        android:id="@+id/btn_restart_ring"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        app:circular="true"
-                        app:borderColor="@android:color/white"
-                        android:visibility="invisible" />
-
-                </FrameLayout>
-
-                <!-- ✏ TMDb relink -->
-                <FrameLayout
-                    android:id="@+id/btn_relink_tmdb"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:layout_marginEnd="8dp"
-                    android:focusable="true"
-                    android:clickable="true"
-                    android:clipChildren="false"
-                    android:clipToPadding="false">
-
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@drawable/ic_pwa_edit"
-                        android:layout_gravity="center" />
-
-                    <com.nicotv.iptv.ui.common.RotatingBorderView
-                        xmlns:app="http://schemas.android.com/apk/res-auto"
-                        android:id="@+id/btn_tmdb_ring"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        app:circular="true"
-                        app:borderColor="@android:color/white"
-                        android:visibility="invisible" />
-
-                </FrameLayout>
-
-                <!-- 🎬 Bande-annonce (comme la PWA) -->
-                <FrameLayout
-                    android:id="@+id/btn_trailer"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:focusable="true"
-                    android:clickable="true"
-                    android:clipChildren="false"
-                    android:clipToPadding="false"
-                    android:visibility="gone">
-
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@drawable/ic_movies"
-                        android:layout_gravity="center" />
-
-                    <com.nicotv.iptv.ui.common.RotatingBorderView
-                        xmlns:app="http://schemas.android.com/apk/res-auto"
-                        android:id="@+id/btn_trailer_ring"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        app:circular="true"
-                        app:borderColor="@android:color/white"
-                        android:visibility="invisible" />
-
-                </FrameLayout>
-
-                <!-- Position/durée de la reprise (ex. 14:19/2:20:43), à côté de la
-                     bande-annonce — visible seulement si une reprise est disponible. -->
                 <TextView
-                    android:id="@+id/tv_play_runtime"
+                    android:id="@+id/tv_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@android:color/white"
+                    android:textSize="30sp"
+                    android:textStyle="bold"
+                    android:maxLines="2"
+                    android:ellipsize="end" />
+
+                <TextView
+                    android:id="@+id/tv_meta"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="14sp" />
+
+                <TextView
+                    android:id="@+id/tv_genres"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:id="@+id/tv_overview"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:textColor="@color/text_primary"
+                    android:textSize="14sp"
+                    android:lineSpacingMultiplier="1.2"
+                    android:maxLines="6"
+                    android:ellipsize="end" />
+
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="center_vertical"
-                    android:layout_marginStart="8dp"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="13sp"
-                    android:visibility="gone" />
-
-                <!-- Spacer -->
-                <View
-                    android:layout_width="0dp"
-                    android:layout_height="1dp"
-                    android:layout_weight="1" />
-
-                <!-- Retour : icône seule + anneau tournant, comme les autres actions
-                     de cette rangée (avant : bouton texte "Retour"). -->
-                <FrameLayout
-                    android:id="@+id/btn_back"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:focusable="true"
-                    android:clickable="true"
+                    android:layout_marginTop="22dp"
+                    android:orientation="horizontal"
                     android:clipChildren="false"
-                    android:clipToPadding="false"
-                    android:defaultFocusHighlightEnabled="false">
+                    android:clipToPadding="false">
 
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@drawable/ic_pwa_back"
-                        android:layout_gravity="center" />
+                    <FrameLayout
+                        android:id="@+id/btn_play"
+                        android:layout_width="wrap_content"
+                        android:layout_height="52dp"
+                        android:layout_marginEnd="16dp"
+                        android:background="@drawable/bg_btn_primary"
+                        android:focusable="true"
+                        android:clickable="true"
+                        android:clipChildren="false"
+                        android:clipToPadding="false">
 
-                    <com.nicotv.iptv.ui.common.RotatingBorderView
-                        xmlns:app="http://schemas.android.com/apk/res-auto"
-                        android:id="@+id/btn_back_ring"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_margin="3dp"
-                        app:circular="true"
-                        app:borderColor="@android:color/white"
-                        android:visibility="invisible" />
+                        <TextView
+                            android:id="@+id/tv_play_label"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:paddingStart="28dp"
+                            android:paddingEnd="28dp"
+                            android:text="@string/action_play"
+                            android:textColor="@android:color/white"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
 
-                </FrameLayout>
+                        <com.nicotv.iptv2.ui.common.RotatingBorderView
+                            android:id="@+id/btn_play_ring"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            app:cornerRadius="26dp"
+                            app:borderColor="@android:color/white"
+                            android:visibility="invisible" />
+                    </FrameLayout>
 
+                    <FrameLayout
+                        android:id="@+id/btn_favorite"
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
+                        android:background="@drawable/bg_btn_secondary"
+                        android:focusable="true"
+                        android:clickable="true"
+                        android:clipChildren="false"
+                        android:clipToPadding="false">
+
+                        <ImageView
+                            android:id="@+id/iv_favorite"
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_favorite_border"
+                            app:tint="@android:color/white" />
+
+                        <com.nicotv.iptv2.ui.common.RotatingBorderView
+                            android:id="@+id/btn_favorite_ring"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            app:circular="true"
+                            app:borderColor="@android:color/white"
+                            android:visibility="invisible" />
+                    </FrameLayout>
+                </LinearLayout>
             </LinearLayout>
-
         </LinearLayout>
+    </ScrollView>
 
 </FrameLayout>

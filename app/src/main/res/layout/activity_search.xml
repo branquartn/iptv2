@@ -1,156 +1,140 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="@color/bg_dark">
 
-    <!-- Barre du haut -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="20dp"
-        android:paddingEnd="20dp"
-        android:paddingTop="16dp"
-        android:paddingBottom="16dp"
-        android:background="@color/bg_dark"
-        android:elevation="8dp"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
         android:clipChildren="false"
         android:clipToPadding="false">
 
-        <!-- Retour : icône seule + anneau tournant (même pattern que la fiche détail,
-             cf. activity_detail.xml — avant : bouton texte "Retour"). -->
-        <FrameLayout
-            android:id="@+id/btn_back"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginEnd="16dp"
-            android:focusable="true"
-            android:clickable="true"
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="40dp"
+            android:paddingEnd="40dp"
+            android:paddingTop="24dp"
+            android:paddingBottom="16dp"
             android:clipChildren="false"
-            android:clipToPadding="false"
-            android:defaultFocusHighlightEnabled="false"
-            android:nextFocusDown="@id/rv_results">
+            android:clipToPadding="false">
 
-            <ImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:src="@drawable/ic_pwa_back"
-                android:layout_gravity="center" />
+            <FrameLayout
+                android:id="@+id/btn_back"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="20dp"
+                android:focusable="true"
+                android:clickable="true"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:defaultFocusHighlightEnabled="false">
 
-            <com.nicotv.iptv.ui.common.RotatingBorderView
-                xmlns:app="http://schemas.android.com/apk/res-auto"
-                android:id="@+id/btn_back_ring"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:layout_margin="3dp"
-                app:circular="true"
-                app:borderColor="@android:color/white"
-                android:visibility="invisible" />
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_pwa_back"
+                    app:tint="@color/text_primary" />
 
-        </FrameLayout>
-
-        <!-- Champ de recherche avec croix d'effacement intégrée -->
-        <FrameLayout
-            android:id="@+id/search_box"
-            android:layout_width="0dp"
-            android:layout_height="44dp"
-            android:layout_weight="1">
+                <com.nicotv.iptv2.ui.common.RotatingBorderView
+                    android:id="@+id/btn_back_ring"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    app:circular="true"
+                    app:borderColor="@android:color/white"
+                    android:visibility="invisible" />
+            </FrameLayout>
 
             <EditText
                 android:id="@+id/et_search"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
                 android:background="@drawable/bg_input_search"
-                android:hint="@string/search_tmdb_hint"
-                android:inputType="text"
-                android:imeOptions="flagNoExtractUi|actionSearch"
                 android:paddingStart="16dp"
-                android:paddingEnd="46dp"
+                android:paddingEnd="16dp"
+                android:hint="@string/search_hint_all"
                 android:textColor="@color/text_primary"
                 android:textColorHint="@color/text_secondary"
                 android:textSize="15sp"
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:maxLines="1"
                 android:singleLine="true" />
+        </LinearLayout>
 
-            <!-- Croix : efface le texte, focusable à la télécommande -->
-            <ImageView
-                android:id="@+id/btn_clear"
-                android:layout_width="34dp"
-                android:layout_height="34dp"
-                android:layout_gravity="end|center_vertical"
-                android:layout_marginEnd="5dp"
-                android:padding="7dp"
-                android:scaleType="fitCenter"
-                android:src="@drawable/ic_clear"
-                android:background="@drawable/bg_clear_btn"
-                android:focusable="true"
-                android:contentDescription="@string/btn_clear_search"
-                android:visibility="gone" />
+        <TextView
+            android:id="@+id/tv_empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="60dp"
+            android:gravity="center"
+            android:text="@string/search_hint_all"
+            android:textColor="@color/text_secondary"
+            android:textSize="15sp" />
 
-            <com.nicotv.iptv.ui.common.RotatingBorderView
-                android:id="@+id/search_ring"
+        <androidx.core.widget.NestedScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:visibility="invisible" />
-        </FrameLayout>
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingBottom="24dp">
 
-        <ProgressBar
-            android:id="@+id/progress_loading"
-            style="?android:attr/progressBarStyleSmall"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:layout_marginStart="12dp"
-            android:visibility="gone" />
+                <TextView
+                    android:id="@+id/tv_movies_header"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="40dp"
+                    android:paddingEnd="40dp"
+                    android:paddingTop="8dp"
+                    android:text="@string/search_section_vod"
+                    android:textColor="@color/text_primary"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
 
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rv_movies_series"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="34dp"
+                    android:paddingEnd="34dp"
+                    android:paddingTop="10dp"
+                    android:clipToPadding="false"
+                    android:nestedScrollingEnabled="false" />
+
+                <TextView
+                    android:id="@+id/tv_channels_header"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="40dp"
+                    android:paddingEnd="40dp"
+                    android:paddingTop="18dp"
+                    android:text="@string/search_section_live"
+                    android:textColor="@color/text_primary"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rv_channels"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="40dp"
+                    android:paddingEnd="40dp"
+                    android:paddingTop="10dp"
+                    android:clipToPadding="false"
+                    android:nestedScrollingEnabled="false" />
+            </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
     </LinearLayout>
-
-    <!-- Message vide -->
-    <TextView
-        android:id="@+id/tv_empty"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="60dp"
-        android:gravity="center"
-        android:text="@string/search_tmdb_empty"
-        android:textColor="@color/text_secondary"
-        android:textSize="15sp"
-        android:visibility="gone" />
-
-    <!-- Acteurs trouvés par la recherche (comme la PWA) : clic → fiche/filmographie -->
-    <TextView
-        android:id="@+id/tv_people_title"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="20dp"
-        android:layout_marginTop="12dp"
-        android:layout_marginBottom="8dp"
-        android:text="@string/title_actors"
-        android:textColor="@color/text_primary"
-        android:textSize="14sp"
-        android:textStyle="bold"
-        android:visibility="gone" />
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rv_people"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="8dp"
-        android:paddingStart="20dp"
-        android:paddingEnd="20dp"
-        android:clipChildren="false"
-        android:clipToPadding="false"
-        android:visibility="gone" />
-
-    <!-- Résultats -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rv_results"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:clipChildren="false"
-        android:clipToPadding="false"
-        android:paddingBottom="16dp" />
-
-</LinearLayout>
+</FrameLayout>

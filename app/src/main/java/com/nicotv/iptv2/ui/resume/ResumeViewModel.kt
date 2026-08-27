@@ -9,8 +9,7 @@ import com.nicotv.iptv2.domain.model.Movie
 
 class ResumeViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as IptvApplication
-    private val repository = app.mediaRepository
-    private val username = app.sessionManager.getUsername()
+    private val repository = app.playlistRepository
 
-    val resumeMovies: LiveData<List<Movie>> = repository.getUnifiedHistory(username).asLiveData()
+    val resumeMovies: LiveData<List<Movie>> = repository.getUnifiedHistory().asLiveData()
 }

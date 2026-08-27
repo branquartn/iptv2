@@ -22,7 +22,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toBottomOf="parent">
 
-        <com.nicotv.iptv.ui.common.PosterImageView
+        <com.nicotv.iptv2.ui.common.PosterImageView
             android:id="@+id/iv_poster"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -142,7 +142,7 @@
 
         <!-- Contour focus télécommande TV (rogné aux coins par CardView) : dégradé
              qui tourne en continu tant que la vue a le focus (RotatingBorderView). -->
-        <com.nicotv.iptv.ui.common.RotatingBorderView
+        <com.nicotv.iptv2.ui.common.RotatingBorderView
             android:id="@+id/focus_overlay"
             android:layout_width="match_parent"
             android:layout_height="match_parent"

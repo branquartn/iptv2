@@ -1,6 +1,6 @@
-﻿# Lance le build release NicoTV avec vérifications préalables :
+﻿# Lance le build release IPTV2 avec vérifications préalables :
 #   - JAVA_HOME / java disponibles (auto-détection du JDK Temurin sinon)
-#   - keystore app\nicotv-release.jks présent
+#   - keystore app\iptv2-release.jks présent
 #   - local.properties rempli (sdk.dir + mots de passe keystore)
 #   - git pull (sauf -NoPull), puis gradlew.bat assembleRelease
 #
@@ -14,7 +14,7 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $RepoRoot
 
-Write-Host "=== NicoTV : build release ===" -ForegroundColor Cyan
+Write-Host "=== IPTV2 : build release ===" -ForegroundColor Cyan
 
 # ------------------------------------------------------------ JAVA_HOME
 if (-not $env:JAVA_HOME -or -not (Test-Path (Join-Path $env:JAVA_HOME "bin\java.exe"))) {
@@ -30,8 +30,8 @@ if (-not $env:JAVA_HOME -or -not (Test-Path (Join-Path $env:JAVA_HOME "bin\java.
 Write-Host "JAVA_HOME : $env:JAVA_HOME"
 
 # ------------------------------------------------------------ Prérequis
-if (-not (Test-Path "app\nicotv-release.jks")) {
-    Write-Host "ERREUR : app\nicotv-release.jks manquant — copie le keystore dans app\." -ForegroundColor Red
+if (-not (Test-Path "app\iptv2-release.jks")) {
+    Write-Host "ERREUR : app\iptv2-release.jks manquant — copie le keystore dans app\." -ForegroundColor Red
     exit 1
 }
 if (-not (Test-Path "local.properties")) {
@@ -103,7 +103,7 @@ if (Test-Path $apk) {
     $size = [math]::Round((Get-Item $apk).Length / 1MB, 1)
     Write-Host "APK : $apk ($size Mo)"
 }
-$updateDir = if ($env:NICOTV_UPDATE_DIR) { $env:NICOTV_UPDATE_DIR } else { "Z:\update" }
+$updateDir = if ($env:IPTV2_UPDATE_DIR) { $env:IPTV2_UPDATE_DIR } else { "Z:\update-iptv2" }
 if (Test-Path $updateDir) {
     Write-Host "Publié dans : $updateDir (APK + version.json)"
 } else {
@@ -111,4 +111,4 @@ if (Test-Path $updateDir) {
     Write-Host "    L'APK reste disponible dans $apk"
 }
 Write-Host ""
-Write-Host "Rappel déploiement : copier l'APK sur update.nicotv.ovh AVANT version.json."
+Write-Host "Rappel déploiement : copier l'APK sur iptv2.nicotv.ovh AVANT version.json."

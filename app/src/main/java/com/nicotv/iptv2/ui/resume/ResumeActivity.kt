@@ -6,7 +6,6 @@ import android.view.View
 import androidx.lifecycle.ViewModelProvider
 import androidx.media3.common.util.UnstableApi
 import androidx.recyclerview.widget.GridLayoutManager
-import com.nicotv.iptv2.IptvApplication
 import com.nicotv.iptv2.R
 import com.nicotv.iptv2.databinding.ActivityMoviesBinding
 import com.nicotv.iptv2.domain.model.Movie
@@ -21,12 +20,6 @@ class ResumeActivity : BaseActivity() {
     private lateinit var binding: ActivityMoviesBinding
     private lateinit var viewModel: ResumeViewModel
     private lateinit var adapter: PosterAdapter
-
-    // Présence admin.nicotv.ovh (« qui regarde quoi ») : écran courant hors lecture.
-    override fun onResume() {
-        super.onResume()
-        (application as IptvApplication).reportScreen("En cours")
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,6 +47,7 @@ class ResumeActivity : BaseActivity() {
                     // lecture" (marchait déjà depuis la fiche série, qui les passe).
                     putExtra(PlayerActivity.EXTRA_SERIES_ID, movie.seriesId)
                     putExtra(PlayerActivity.EXTRA_SERIES_TITLE, movie.seriesTitle)
+                    putExtra(PlayerActivity.EXTRA_FILE_KEY, movie.episodeKey)
                 })
             }
         })

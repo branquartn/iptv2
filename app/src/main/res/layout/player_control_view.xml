@@ -24,7 +24,7 @@
             android:scaleType="fitCenter"
             android:contentDescription="Lecture / Pause" />
 
-        <com.nicotv.iptv.ui.common.RotatingBorderView
+        <com.nicotv.iptv2.ui.common.RotatingBorderView
             android:id="@+id/play_pause_ring"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
@@ -53,7 +53,7 @@
             android:textSize="13sp"
             android:paddingEnd="8dp" />
 
-        <com.nicotv.iptv.player.PlayerSeekBar
+        <com.nicotv.iptv2.player.PlayerSeekBar
             android:id="@+id/player_seekbar"
             android:layout_width="0dp"
             android:layout_height="32dp"

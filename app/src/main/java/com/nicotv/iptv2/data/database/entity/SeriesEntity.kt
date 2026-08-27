@@ -5,41 +5,40 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.nicotv.iptv2.domain.model.Movie
 
-/**
- * Une série. Index unique (username, title) :
- * une nouvelle synchro remplace la ligne au lieu d'en créer un doublon.
- */
+/** Une série. Index unique sur title : un rechargement de la playlist met à
+ * jour la ligne existante au lieu d'en créer une doublonnée. */
 @Entity(
     tableName = "series",
-    indices = [Index(value = ["username", "title"], unique = true)]
+    indices = [Index(value = ["title"], unique = true)]
 )
 data class SeriesEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val username: String = "",
     val title: String,
-    val streamUrl: String,
     val posterUrl: String = "",
     val backdropUrl: String = "",
     val overview: String = "",
     val releaseYear: String = "",
-    val runtime: Int = 0,
     val rating: Float = 0f,
     val genres: String = "",
-    val tmdbId: Int = 0,
+    val category: String = "",
+    // Identifiant côté Xtream Codes (series_id) — vide pour une série détectée
+    // depuis un M3U (regroupement par titre, cf. M3uParser). Sert à retrouver les
+    // épisodes via get_series_info lors de l'ouverture de la fiche.
+    val xtreamSeriesId: String = "",
     val updatedAt: Long = System.currentTimeMillis()
 ) {
-    fun toDomain() = Movie(
+    fun toDomain(isFavorite: Boolean = false) = Movie(
         id = id,
         title = title,
-        streamUrl = streamUrl,
+        streamUrl = "",
         posterUrl = posterUrl,
         backdropUrl = backdropUrl,
         overview = overview,
         releaseYear = releaseYear,
-        runtime = runtime,
         rating = rating,
         genres = if (genres.isBlank()) emptyList() else genres.split(","),
-        tmdbId = tmdbId,
-        isFavorite = false
+        category = category,
+        isFavorite = isFavorite,
+        type = Movie.Type.SERIES
     )
 }
