@@ -1,6 +1,6 @@
 {
-  "versionCode": 12,
-  "versionName": "1.0.11",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.11.apk",
-  "changelog": "Bandeau blanc système retiré (chaque écran a déjà son propre titre) + log diagnostic pour le souci de profils non affichés."
+  "versionCode": 13,
+  "versionName": "1.0.12",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.12.apk",
+  "changelog": "Vrai fix du bandeau blanc (installSplashScreen() jamais appelé, thème splash jamais quitté) + erreur de formulaire enfin visible (Toast, plus caché derrière le dialogue)."
 }
