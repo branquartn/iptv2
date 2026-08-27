@@ -359,7 +359,15 @@ class PlaylistRepository(
         // Épisodes chargés à la demande (loadEpisodesForSeries) : des milliers de
         // séries impliqueraient sinon des milliers d'appels get_series_info au
         // chargement initial — bien trop long.
-        channels.size + movies.size + seriesList.size
+        val total = channels.size + movies.size + seriesList.size
+        // login() a réussi (identifiants acceptés) mais les 3 catégories sont
+        // vides : presque toujours un panel qui répond par une erreur/un objet
+        // au lieu d'un tableau sur get_*_streams (avalé silencieusement par
+        // XtreamClient.callArray, cf. son log) plutôt qu'un compte réellement
+        // sans aucun contenu. Sans ce contrôle : succès silencieux, retour à un
+        // accueil vide sans aucun message pour comprendre pourquoi.
+        if (total == 0) throw LoadException("Connexion réussie mais aucun contenu reçu du panel (abonnement expiré, ou panel non standard — voir logcat XtreamClient)")
+        total
     }
 
     /** Récupère les épisodes d'une série. Pour une série d'origine Xtream

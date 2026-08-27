@@ -1,5 +1,6 @@
 package com.nicotv.iptv2.data.xtream
 
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -51,12 +52,24 @@ class XtreamClient(
         // Un panel mal configuré (mauvais login, action inconnue) répond parfois
         // par un objet d'erreur ({}) plutôt qu'un tableau : traité comme liste vide
         // plutôt que de planter (l'utilisateur voit une catégorie vide, pas un crash).
-        return try { JSONArray(body) } catch (e: Exception) { JSONArray() }
+        // Loggé (visible via adb logcat/bugreport) plutôt que totalement silencieux :
+        // un catalogue vide inexpliqué est sinon impossible à diagnostiquer à distance.
+        return try {
+            JSONArray(body)
+        } catch (e: Exception) {
+            Log.w("XtreamClient", "$action: réponse non-tableau (${body.take(200)})")
+            JSONArray()
+        }
     }
 
     private suspend fun callObject(action: String, params: Map<String, String> = emptyMap()): JSONObject {
         val body = callRaw(action, params)
-        return try { JSONObject(body) } catch (e: Exception) { JSONObject() }
+        return try {
+            JSONObject(body)
+        } catch (e: Exception) {
+            Log.w("XtreamClient", "$action: réponse non-objet (${body.take(200)})")
+            JSONObject()
+        }
     }
 
     /** Vérifie les identifiants. Lève XtreamException si le panel refuse
