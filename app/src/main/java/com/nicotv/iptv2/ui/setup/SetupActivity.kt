@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import com.nicotv.iptv2.IptvApplication
 import com.nicotv.iptv2.R
@@ -46,6 +47,14 @@ class SetupActivity : BaseActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // installSplashScreen() DOIT être appelé avant super.onCreate() — c'est
+        // lui qui bascule le thème de la fenêtre de Theme.IPTV.Splash (déclaré
+        // dans le manifeste, chrome clair par défaut de Theme.SplashScreen) vers
+        // postSplashScreenTheme (Theme.IPTV, sombre). Jamais appelé jusqu'ici :
+        // l'activité restait bloquée sur le thème splash toute sa durée de vie
+        // → bandeau clair système avec le nom de l'app, visible en permanence
+        // sur cet écran (seul point d'entrée MAIN/LAUNCHER de l'app).
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         binding = ActivitySetupBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -143,7 +152,14 @@ class SetupActivity : BaseActivity() {
             val url = dialogBinding.etM3uUrl.text.toString().trim()
             val fileUri = pickedFileUri
             if (name.isBlank() || (url.isBlank() && fileUri == null && editing?.m3uFileUri.isNullOrBlank())) {
-                showStatus(getString(R.string.setup_error_empty_url)); return@setOnClickListener
+                // Toast, pas showStatus() : ce texte-là est sur l'écran principal,
+                // invisible derrière le dialogue encore ouvert — l'utilisateur ne
+                // voyait jamais pourquoi rien ne se passait (champ "Nom" vide,
+                // facile à zapper), pensait avoir validé alors que rien n'était
+                // enregistré.
+                if (name.isBlank()) dialogBinding.etPlaylistName.error = getString(R.string.setup_error_empty_name)
+                android.widget.Toast.makeText(this@SetupActivity, R.string.setup_error_empty_url, android.widget.Toast.LENGTH_LONG).show()
+                return@setOnClickListener
             }
             dialog.dismiss()
             setLoading(true)
@@ -207,7 +223,15 @@ class SetupActivity : BaseActivity() {
             val user = dialogBinding.etXtreamUser.text.toString().trim()
             val pass = dialogBinding.etXtreamPass.text.toString()
             if (name.isBlank() || host.isBlank() || user.isBlank() || pass.isBlank()) {
-                showStatus(getString(R.string.setup_error_empty_xtream)); return@setOnClickListener
+                // Toast, pas showStatus() : cf. commentaire équivalent dans
+                // showPlaylistDialog — le texte sur l'écran principal est
+                // invisible derrière ce dialogue encore ouvert.
+                if (name.isBlank()) dialogBinding.etXtreamName.error = getString(R.string.setup_error_empty_name)
+                if (host.isBlank()) dialogBinding.etXtreamHost.error = getString(R.string.setup_error_empty_name)
+                if (user.isBlank()) dialogBinding.etXtreamUser.error = getString(R.string.setup_error_empty_name)
+                if (pass.isBlank()) dialogBinding.etXtreamPass.error = getString(R.string.setup_error_empty_name)
+                android.widget.Toast.makeText(this@SetupActivity, R.string.setup_error_empty_xtream, android.widget.Toast.LENGTH_LONG).show()
+                return@setOnClickListener
             }
             dialog.dismiss()
             setLoading(true)
