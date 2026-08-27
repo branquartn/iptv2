@@ -4,8 +4,6 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import androidx.room.migration.Migration
-import androidx.sqlite.db.SupportSQLiteDatabase
 import com.nicotv.iptv2.data.database.dao.ChannelDao
 import com.nicotv.iptv2.data.database.dao.EpisodeDao
 import com.nicotv.iptv2.data.database.dao.FavoriteDao
@@ -39,25 +37,18 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
 
-        // v2 -> v3 : ajout de movies.tmdbId (résolu à l'enrichissement TMDb, cf.
-        // PlaylistRepository.enrichMovies) — migration réelle plutôt que
-        // fallbackToDestructiveMigration ici, pour ne pas reperdre les profils
-        // sauvegardés (playlist_profiles vit dans la même base) à chaque montée
-        // de version du schéma catalogue.
-        private val MIGRATION_2_3 = object : Migration(2, 3) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE movies ADD COLUMN tmdbId INTEGER NOT NULL DEFAULT 0")
-            }
-        }
-
+        // Pas de migration écrite à la main : fallbackToDestructiveMigration
+        // recrée la base à chaque montée de version (perd les profils sauvegardés
+        // une fois par bump de schéma, mais c'est le chemin vérifié/fiable de ce
+        // projet — une migration ALTER TABLE mal alignée avec le schéma attendu
+        // par Room fait planter l'app au démarrage, pire que perdre un profil).
         fun getInstance(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "iptv2_database"
-                ).addMigrations(MIGRATION_2_3)
-                    .fallbackToDestructiveMigration()
+                ).fallbackToDestructiveMigration()
                     .build().also { INSTANCE = it }
             }
     }

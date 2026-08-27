@@ -1,5 +1,6 @@
 package com.nicotv.iptv2.data.database.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -26,6 +27,13 @@ data class MovieEntity(
     // Résolu au chargement de la playlist (recherche TMDb par titre, cf.
     // PlaylistRepository.enrichMovies) — 0 si aucune correspondance trouvée.
     // Réutilisé par la fiche détail pour éviter de re-chercher à l'ouverture.
+    // @ColumnInfo(defaultValue) OBLIGATOIRE ici : sans lui, le schéma que Room
+    // attend (colonne NOT NULL sans DEFAULT) ne correspond plus à celui produit
+    // par MIGRATION_2_3 (ALTER TABLE ... DEFAULT 0 — SQLite l'exige pour ajouter
+    // une colonne NOT NULL à une table non vide) → Room refuse la migration et
+    // l'app crash au démarrage (IllegalStateException: Migration didn't
+    // properly handle...), même symptôme que "rien ne s'affiche".
+    @ColumnInfo(defaultValue = "0")
     val tmdbId: Int = 0,
     val updatedAt: Long = System.currentTimeMillis()
 ) {
