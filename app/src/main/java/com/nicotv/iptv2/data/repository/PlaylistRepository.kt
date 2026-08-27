@@ -313,6 +313,23 @@ class PlaylistRepository(
 
         val liveCats = client.getLiveCategories().associateBy { it.id }
         val liveStreams = client.getLiveStreams()
+        val vodCats = client.getVodCategories().associateBy { it.id }
+        val vodStreams = client.getVodStreams()
+        val seriesCats = client.getSeriesCategories().associateBy { it.id }
+        val seriesList = client.getSeriesList()
+
+        // login() a réussi (identifiants acceptés) mais les 3 catégories sont
+        // vides : panel avec API JSON (player_api.php) désactivée/restreinte
+        // pour ce compte — répond au login mais pas aux get_*_streams (ou par
+        // une erreur/un objet avalé silencieusement, cf. log XtreamClient).
+        // Courant chez certains fournisseurs. Repli sur l'export M3U classique
+        // (get.php), supporté par la quasi-totalité des panels Xtream — même
+        // pipeline que le mode M3U (classification par chemin d'URL /live/,
+        // /movie/, /series/ — particulièrement fiable sur un export Xtream).
+        if (liveStreams.isEmpty() && vodStreams.isEmpty() && seriesList.isEmpty()) {
+            return@withContext loadM3u(fetchUrl(client.playlistM3uUrl()))
+        }
+
         val channels = liveStreams.map {
             ChannelEntity(
                 name = it.name, streamUrl = client.liveStreamUrl(it.streamId),
@@ -320,8 +337,6 @@ class PlaylistRepository(
             )
         }
 
-        val vodCats = client.getVodCategories().associateBy { it.id }
-        val vodStreams = client.getVodStreams()
         val movies = enrichMoviesIfMissingArt(
             vodStreams.map {
                 MovieEntity(
@@ -332,8 +347,6 @@ class PlaylistRepository(
             }
         )
 
-        val seriesCats = client.getSeriesCategories().associateBy { it.id }
-        val seriesList = client.getSeriesList()
         // La plupart des panels Xtream fournissent déjà une cover ; recherche
         // TMDb seulement pour celles qui n'en ont pas.
         val seriesArt = fetchSeriesArt(seriesList.filter { it.cover.isBlank() }.map { it.name })
@@ -359,15 +372,7 @@ class PlaylistRepository(
         // Épisodes chargés à la demande (loadEpisodesForSeries) : des milliers de
         // séries impliqueraient sinon des milliers d'appels get_series_info au
         // chargement initial — bien trop long.
-        val total = channels.size + movies.size + seriesList.size
-        // login() a réussi (identifiants acceptés) mais les 3 catégories sont
-        // vides : presque toujours un panel qui répond par une erreur/un objet
-        // au lieu d'un tableau sur get_*_streams (avalé silencieusement par
-        // XtreamClient.callArray, cf. son log) plutôt qu'un compte réellement
-        // sans aucun contenu. Sans ce contrôle : succès silencieux, retour à un
-        // accueil vide sans aucun message pour comprendre pourquoi.
-        if (total == 0) throw LoadException("Connexion réussie mais aucun contenu reçu du panel (abonnement expiré, ou panel non standard — voir logcat XtreamClient)")
-        total
+        channels.size + movies.size + seriesList.size
     }
 
     /** Récupère les épisodes d'une série. Pour une série d'origine Xtream

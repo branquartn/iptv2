@@ -196,4 +196,10 @@ class XtreamClient(
     fun liveStreamUrl(streamId: String): String = "$base/live/${enc(username)}/${enc(password)}/$streamId.ts"
     fun vodStreamUrl(streamId: String, ext: String): String = "$base/movie/${enc(username)}/${enc(password)}/$streamId.$ext"
     fun seriesEpisodeUrl(episodeId: String, ext: String): String = "$base/series/${enc(username)}/${enc(password)}/$episodeId.$ext"
+
+    /** Export M3U classique (get.php), supporté par la quasi-totalité des
+     * panels Xtream même quand l'API JSON (player_api.php) est absente/
+     * restreinte pour ce compte — repli utilisé par [PlaylistRepository.loadXtream]
+     * quand cette dernière ne renvoie aucun flux malgré un login réussi. */
+    fun playlistM3uUrl(): String = "$base/get.php?username=${enc(username)}&password=${enc(password)}&type=m3u_plus&output=mpegts"
 }
