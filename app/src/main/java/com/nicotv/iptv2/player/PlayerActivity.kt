@@ -25,8 +25,11 @@ import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.PlayerView
 import com.nicotv.iptv2.IptvApplication
@@ -500,10 +503,19 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
             .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
             .build()
 
+        // Autorise les redirections cross-protocole (http→https typiquement) :
+        // beaucoup de panels IPTV/Xtream redirigent (303) le flux /live/.../id.ts
+        // vers un CDN — ExoPlayer refuse ces redirections par défaut
+        // (InvalidResponseCodeException 303), l'écran restait noir sans erreur
+        // visible.
+        val httpDataSourceFactory = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true)
+        val dataSourceFactory = DefaultDataSource.Factory(this, httpDataSourceFactory)
+
         player = ExoPlayer.Builder(this)
             .setTrackSelector(trackSelector)
             .setLoadControl(loadControl)
             .setAudioAttributes(audioAttributes, true)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
             .build()
             .also { exo ->
                 binding.playerView.player = exo

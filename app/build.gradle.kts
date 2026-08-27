@@ -10,10 +10,10 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 6
-val appVersionName = "1.0.5"
+val appVersionCode = 7
+val appVersionName = "1.0.6"
 // Changelog affiché dans le modal de mise à jour OTA — mis à jour à chaque bump.
-val appChangelog = "Xtream Codes : films/séries à 0 malgré des chaînes chargées corrigé (certains panels exigent un appel par catégorie sur get_vod_streams/get_series)."
+val appChangelog = "Lecture : écran noir sans erreur sur certains flux (redirection 303 refusée par ExoPlayer) corrigé + films/séries Xtream à 0 corrigé."
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
