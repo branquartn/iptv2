@@ -42,17 +42,11 @@ class SetupActivity : BaseActivity() {
         binding = ActivitySetupBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        val app = application as IptvApplication
-        val forceShow = intent.getBooleanExtra(EXTRA_FORCE_SHOW, false)
-
-        // Un profil est déjà actif (relance normale de l'app) : on saute
-        // directement à l'accueil, sauf si l'utilisateur est venu volontairement
-        // reconfigurer (bouton "Changer de source" de MainActivity).
-        if (!forceShow && app.playlistRepository.hasActiveProfile()) {
-            goToMain()
-            return
-        }
-
+        // Écran de choix TOUJOURS affiché au démarrage (comme IPTV Smarters Pro) :
+        // les profils déjà enregistrés sont listés juste au-dessus des 2 cartes,
+        // un tap dessus recharge la source sans rien retaper. Avant : on sautait
+        // directement à l'accueil dès qu'un profil était actif, donc l'écran de
+        // sélection restait invisible une fois le premier profil créé.
         checkForAppUpdate()
         setupProfilesList()
         setupTypeCards()

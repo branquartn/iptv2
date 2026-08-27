@@ -77,7 +77,17 @@ class PlaylistRepository(
     suspend fun getProfile(id: Long): PlaylistProfileEntity? =
         withContext(Dispatchers.IO) { db.playlistProfileDao().getById(id) }
 
-    fun hasActiveProfile(): Boolean = sourcePrefs.getActiveProfileId() != null
+    /** Vrai seulement si le profil actif existe ENCORE en base : l'id vit dans
+     * SharedPreferences (jamais effacé) alors que les profils vivent dans Room,
+     * que fallbackToDestructiveMigration vide à chaque montée de schéma — sans
+     * cette vérification, l'app croyait avoir une source active pointant vers un
+     * profil disparu (catalogue vide, impossible de recharger). */
+    suspend fun hasValidActiveProfile(): Boolean = withContext(Dispatchers.IO) {
+        val id = sourcePrefs.getActiveProfileId() ?: return@withContext false
+        val exists = db.playlistProfileDao().getById(id) != null
+        if (!exists) sourcePrefs.setActiveProfileId(null)
+        exists
+    }
 
     suspend fun saveM3uUrlProfile(name: String, url: String): Long = withContext(Dispatchers.IO) {
         db.playlistProfileDao().insert(PlaylistProfileEntity(name = name, type = SourceType.M3U_URL.name, m3uUrl = url))
