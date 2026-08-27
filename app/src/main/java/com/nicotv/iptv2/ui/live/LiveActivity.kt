@@ -33,6 +33,7 @@ class LiveActivity : BaseActivity() {
         binding.btnBack.setOnClickListener { finish() }
         applyRing(binding.btnBack, binding.btnBackRing, 1.25f)
         applyRing(binding.btnFavoritesFilter, binding.btnFavoritesFilterRing, 1.2f)
+        applyRing(binding.btnFrenchFilter, binding.btnFrenchFilterRing, 1.2f)
 
         channelAdapter = ChannelAdapter(
             onClick = { channel ->
@@ -55,6 +56,14 @@ class LiveActivity : BaseActivity() {
             viewModel.favoritesOnly.value = on
             binding.ivFavoritesFilter.imageTintList = ContextCompat.getColorStateList(
                 this, if (on) R.color.favorite_yellow else R.color.text_primary
+            )
+        }
+
+        binding.btnFrenchFilter.setOnClickListener {
+            val on = viewModel.frenchOnly.value != true
+            viewModel.frenchOnly.value = on
+            binding.tvFrenchFilter.setTextColor(
+                ContextCompat.getColor(this, if (on) R.color.accent else R.color.text_primary)
             )
         }
 
