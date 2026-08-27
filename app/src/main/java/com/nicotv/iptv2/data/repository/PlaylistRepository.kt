@@ -2,7 +2,6 @@ package com.nicotv.iptv2.data.repository
 
 import android.content.Context
 import android.net.Uri
-import com.nicotv.iptv2.data.PlaylistSource
 import com.nicotv.iptv2.data.PlaylistSourcePrefs
 import com.nicotv.iptv2.data.SourceType
 import com.nicotv.iptv2.data.database.AppDatabase
@@ -10,6 +9,7 @@ import com.nicotv.iptv2.data.database.entity.ChannelEntity
 import com.nicotv.iptv2.data.database.entity.EpisodeEntity
 import com.nicotv.iptv2.data.database.entity.FavoriteEntity
 import com.nicotv.iptv2.data.database.entity.MovieEntity
+import com.nicotv.iptv2.data.database.entity.PlaylistProfileEntity
 import com.nicotv.iptv2.data.database.entity.SeriesEntity
 import com.nicotv.iptv2.data.database.entity.WatchHistoryEntity
 import com.nicotv.iptv2.data.m3u.M3uEntry
@@ -32,10 +32,12 @@ import java.io.IOException
  * Point central : charge la playlist (M3U url/fichier ou Xtream Codes) dans le
  * cache Room, puis expose films/séries/chaînes joints aux favoris et à la
  * reprise de lecture. Remplace MediaRepository (NicoTV) — pas de backend, pas
- * de compte, une seule source active à la fois (cf. PlaylistSourcePrefs).
+ * de compte. Plusieurs profils peuvent être sauvegardés (PlaylistProfileEntity,
+ * nommés par l'utilisateur), un seul chargé à la fois (cf. PlaylistSourcePrefs
+ * pour l'id du profil actif).
  *
  * Limite connue (héritée du même choix que NicoTV, cf. MovieEntity/SeriesEntity) :
- * un rechargement de playlist redistribue de nouveaux id Room (autoIncrement) —
+ * charger/recharger un profil redistribue de nouveaux id Room (autoIncrement) —
  * les favoris/la reprise d'un titre disparu-puis-revenu ne sont pas rattachés
  * automatiquement. Acceptable pour une v1 : la source ne change pas souvent.
  */
@@ -53,28 +55,52 @@ class PlaylistRepository(
 
     class LoadException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
-    // ── Chargement de la source active ──────────────────────────────────────
+    // ── Profils sauvegardés ──────────────────────────────────────────────────
 
-    suspend fun loadFromCurrentSource(): Result<Int> {
-        val source = sourcePrefs.get()
+    fun getProfiles(): Flow<List<PlaylistProfileEntity>> = db.playlistProfileDao().getAll()
+
+    suspend fun getProfile(id: Long): PlaylistProfileEntity? =
+        withContext(Dispatchers.IO) { db.playlistProfileDao().getById(id) }
+
+    fun hasActiveProfile(): Boolean = sourcePrefs.getActiveProfileId() != null
+
+    suspend fun saveM3uUrlProfile(name: String, url: String): Long = withContext(Dispatchers.IO) {
+        db.playlistProfileDao().insert(PlaylistProfileEntity(name = name, type = SourceType.M3U_URL.name, m3uUrl = url))
+    }
+
+    suspend fun saveM3uFileProfile(name: String, uri: String): Long = withContext(Dispatchers.IO) {
+        db.playlistProfileDao().insert(PlaylistProfileEntity(name = name, type = SourceType.M3U_FILE.name, m3uFileUri = uri))
+    }
+
+    suspend fun saveXtreamProfile(name: String, host: String, username: String, password: String): Long = withContext(Dispatchers.IO) {
+        db.playlistProfileDao().insert(
+            PlaylistProfileEntity(name = name, type = SourceType.XTREAM.name, xtreamHost = host, xtreamUsername = username, xtreamPassword = password)
+        )
+    }
+
+    suspend fun deleteProfile(id: Long) = withContext(Dispatchers.IO) {
+        db.playlistProfileDao().delete(id)
+        if (sourcePrefs.getActiveProfileId() == id) sourcePrefs.setActiveProfileId(null)
+    }
+
+    /** Charge (ou recharge) un profil sauvegardé : dispatch selon son type,
+     * remplace le catalogue Room, le marque actif si le chargement réussit —
+     * en cas d'échec le profil reste sauvegardé (pas de retype des identifiants
+     * pour réessayer). */
+    suspend fun loadProfile(profileId: Long): Result<Int> {
+        val profile = withContext(Dispatchers.IO) { db.playlistProfileDao().getById(profileId) }
+            ?: return Result.failure(LoadException("Profil introuvable"))
         return try {
-            val count = when (source.type) {
-                SourceType.M3U_URL -> loadM3u(fetchUrl(source.m3uUrl))
-                SourceType.M3U_FILE -> loadM3u(readLocalFile(source.m3uFileUri))
-                SourceType.XTREAM -> loadXtream(source)
-                SourceType.NONE -> throw LoadException("Aucune source configurée")
+            val count = when (SourceType.valueOf(profile.type)) {
+                SourceType.M3U_URL -> loadM3u(fetchUrl(profile.m3uUrl))
+                SourceType.M3U_FILE -> loadM3u(readLocalFile(profile.m3uFileUri))
+                SourceType.XTREAM -> loadXtream(profile)
             }
+            sourcePrefs.setActiveProfileId(profileId)
+            db.playlistProfileDao().touchLastUsed(profileId)
             Result.success(count)
         } catch (e: Exception) {
             Result.failure(if (e is LoadException) e else LoadException(e.message ?: "Erreur de chargement", e))
-        }
-    }
-
-    /** Test de connexion Xtream depuis l'écran de config, sans toucher au cache
-     * Room ni à la source active tant que l'utilisateur n'a pas validé. */
-    suspend fun testXtream(host: String, username: String, password: String) {
-        withContext(Dispatchers.IO) {
-            XtreamClient(okHttpClient, host, username, password).login()
         }
     }
 
@@ -177,11 +203,11 @@ class PlaylistRepository(
 
     // ── Xtream Codes ─────────────────────────────────────────────────────────
 
-    private fun xtreamClientFor(source: PlaylistSource): XtreamClient =
-        XtreamClient(okHttpClient, source.xtreamHost, source.xtreamUsername, source.xtreamPassword)
+    private fun xtreamClientFor(profile: PlaylistProfileEntity): XtreamClient =
+        XtreamClient(okHttpClient, profile.xtreamHost, profile.xtreamUsername, profile.xtreamPassword)
 
-    private suspend fun loadXtream(source: PlaylistSource): Int = withContext(Dispatchers.IO) {
-        val client = xtreamClientFor(source)
+    private suspend fun loadXtream(profile: PlaylistProfileEntity): Int = withContext(Dispatchers.IO) {
+        val client = xtreamClientFor(profile)
         client.login()
 
         val liveCats = client.getLiveCategories().associateBy { it.id }
@@ -233,9 +259,10 @@ class PlaylistRepository(
         val cached = db.episodeDao().getEpisodesForSeries(series.id)
         if (cached.isNotEmpty() || series.xtreamSeriesId.isBlank()) return@withContext cached
 
-        val source = sourcePrefs.get()
-        if (source.type != SourceType.XTREAM) return@withContext cached
-        val client = xtreamClientFor(source)
+        val activeId = sourcePrefs.getActiveProfileId() ?: return@withContext cached
+        val profile = db.playlistProfileDao().getById(activeId) ?: return@withContext cached
+        if (profile.type != SourceType.XTREAM.name) return@withContext cached
+        val client = xtreamClientFor(profile)
         val info = client.getSeriesInfo(series.xtreamSeriesId)
         val episodes = info.episodesBySeason.values.flatten().map { ep ->
             val fileKey = "${series.title}/${ep.seasonNumber}x${ep.episodeNumber}"
@@ -372,9 +399,11 @@ class PlaylistRepository(
         return Triple(movies, series, channels)
     }
 
+    /** Vide le catalogue chargé (garde les profils sauvegardés) et désactive le
+     * profil actif — prochain démarrage : retour à l'écran de démarrage. */
     suspend fun clearAllData() = withContext(Dispatchers.IO) {
         db.channelDao().deleteAll(); db.movieDao().deleteAll(); db.seriesDao().deleteAll()
         db.favoriteDao().deleteAll(); db.watchHistoryDao().deleteAll()
-        sourcePrefs.clear()
+        sourcePrefs.setActiveProfileId(null)
     }
 }

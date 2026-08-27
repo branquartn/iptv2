@@ -15,99 +15,229 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:gravity="center_horizontal"
-            android:padding="32dp">
+            android:padding="32dp"
+            android:clipChildren="false"
+            android:clipToPadding="false">
 
             <ImageView
                 android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_marginTop="16dp"
-                android:layout_marginBottom="8dp"
+                android:layout_height="36dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="24dp"
                 android:src="@drawable/ic_nicotv_wordmark"
                 android:scaleType="fitCenter" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="28dp"
-                android:text="@string/setup_subtitle"
-                android:textColor="@color/text_secondary"
-                android:textSize="14sp"
-                android:gravity="center" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:maxWidth="520dp"
-                android:orientation="vertical">
+                android:maxWidth="640dp"
+                android:orientation="vertical"
+                android:clipChildren="false"
+                android:clipToPadding="false">
 
-                <!-- Fichier local -->
+                <!-- Profils sauvegardés -->
                 <LinearLayout
+                    android:id="@+id/section_profiles"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:background="@drawable/bg_card"
-                    android:padding="20dp"
-                    android:layout_marginBottom="16dp">
+                    android:layout_marginBottom="24dp"
+                    android:visibility="gone">
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="@string/setup_file_title"
-                        android:textColor="@android:color/white"
+                        android:layout_marginBottom="10dp"
+                        android:text="@string/setup_profiles_title"
+                        android:textColor="@color/text_primary"
                         android:textSize="16sp"
                         android:textStyle="bold" />
 
-                    <TextView
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rv_profiles"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:layout_marginBottom="14dp"
-                        android:text="@string/setup_file_desc"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="13sp" />
-
-                    <Button
-                        android:id="@+id/btn_pick_file"
-                        style="?android:attr/borderlessButtonStyle"
-                        android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:background="@drawable/bg_btn_secondary"
-                        android:text="@string/setup_file_pick"
-                        android:textAllCaps="false"
-                        android:textColor="@android:color/white" />
-
-                    <TextView
-                        android:id="@+id/tv_file_name"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp"
-                        android:visibility="gone" />
+                        android:nestedScrollingEnabled="false" />
                 </LinearLayout>
 
-                <!-- URL M3U -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="14dp"
+                    android:text="@string/setup_add_title"
+                    android:textColor="@color/text_primary"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <!-- Choix du type de source (grille de cartes) -->
                 <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:clipChildren="false"
+                    android:clipToPadding="false">
+
+                    <FrameLayout
+                        android:id="@+id/card_type_url"
+                        android:layout_width="0dp"
+                        android:layout_height="120dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="10dp"
+                        android:background="@drawable/bg_card"
+                        android:focusable="true"
+                        android:clipChildren="false"
+                        android:clipToPadding="false">
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:gravity="center"
+                            android:orientation="vertical">
+
+                            <ImageView
+                                android:layout_width="28dp"
+                                android:layout_height="28dp"
+                                android:src="@drawable/ic_refresh"
+                                app:tint="@color/text_primary" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="10dp"
+                                android:gravity="center"
+                                android:text="@string/setup_type_url"
+                                android:textColor="@color/text_primary"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <com.nicotv.iptv2.ui.common.RotatingBorderView
+                            android:id="@+id/card_type_url_ring"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            app:cornerRadius="12dp"
+                            app:borderColor="@android:color/white"
+                            android:visibility="invisible" />
+                    </FrameLayout>
+
+                    <FrameLayout
+                        android:id="@+id/card_type_file"
+                        android:layout_width="0dp"
+                        android:layout_height="120dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="10dp"
+                        android:background="@drawable/bg_card"
+                        android:focusable="true"
+                        android:clipChildren="false"
+                        android:clipToPadding="false">
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:gravity="center"
+                            android:orientation="vertical">
+
+                            <ImageView
+                                android:layout_width="28dp"
+                                android:layout_height="28dp"
+                                android:src="@drawable/ic_download"
+                                app:tint="@color/text_primary" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="10dp"
+                                android:gravity="center"
+                                android:text="@string/setup_type_file"
+                                android:textColor="@color/text_primary"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <com.nicotv.iptv2.ui.common.RotatingBorderView
+                            android:id="@+id/card_type_file_ring"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            app:cornerRadius="12dp"
+                            app:borderColor="@android:color/white"
+                            android:visibility="invisible" />
+                    </FrameLayout>
+
+                    <FrameLayout
+                        android:id="@+id/card_type_xtream"
+                        android:layout_width="0dp"
+                        android:layout_height="120dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_card"
+                        android:focusable="true"
+                        android:clipChildren="false"
+                        android:clipToPadding="false">
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:gravity="center"
+                            android:orientation="vertical">
+
+                            <ImageView
+                                android:layout_width="28dp"
+                                android:layout_height="28dp"
+                                android:src="@drawable/ic_settings"
+                                app:tint="@color/text_primary" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="10dp"
+                                android:gravity="center"
+                                android:text="@string/setup_type_xtream"
+                                android:textColor="@color/text_primary"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <com.nicotv.iptv2.ui.common.RotatingBorderView
+                            android:id="@+id/card_type_xtream_ring"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            app:cornerRadius="12dp"
+                            app:borderColor="@android:color/white"
+                            android:visibility="invisible" />
+                    </FrameLayout>
+                </LinearLayout>
+
+                <!-- Formulaire URL M3U -->
+                <LinearLayout
+                    android:id="@+id/form_url"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:background="@drawable/bg_card"
                     android:padding="20dp"
-                    android:layout_marginBottom="16dp">
+                    android:layout_marginTop="16dp"
+                    android:visibility="gone">
 
-                    <TextView
+                    <EditText
+                        android:id="@+id/et_url_name"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/setup_url_title"
+                        android:layout_height="48dp"
+                        android:background="@drawable/bg_input"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:hint="@string/setup_name_hint"
                         android:textColor="@android:color/white"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
+                        android:textColorHint="@color/text_secondary"
+                        android:maxLines="1"
+                        android:singleLine="true" />
 
                     <EditText
                         android:id="@+id/et_m3u_url"
                         android:layout_width="match_parent"
                         android:layout_height="48dp"
-                        android:layout_marginTop="12dp"
+                        android:layout_marginTop="10dp"
                         android:background="@drawable/bg_input"
                         android:paddingStart="14dp"
                         android:paddingEnd="14dp"
@@ -130,28 +260,80 @@
                         android:textColor="@android:color/white" />
                 </LinearLayout>
 
-                <!-- Xtream Codes -->
+                <!-- Formulaire fichier local -->
                 <LinearLayout
+                    android:id="@+id/form_file"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:background="@drawable/bg_card"
                     android:padding="20dp"
-                    android:layout_marginBottom="16dp">
+                    android:layout_marginTop="16dp"
+                    android:visibility="gone">
+
+                    <EditText
+                        android:id="@+id/et_file_name"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:background="@drawable/bg_input"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:hint="@string/setup_name_hint"
+                        android:textColor="@android:color/white"
+                        android:textColorHint="@color/text_secondary"
+                        android:maxLines="1"
+                        android:singleLine="true" />
+
+                    <Button
+                        android:id="@+id/btn_pick_file"
+                        style="?android:attr/borderlessButtonStyle"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="10dp"
+                        android:background="@drawable/bg_btn_secondary"
+                        android:text="@string/setup_file_pick"
+                        android:textAllCaps="false"
+                        android:textColor="@android:color/white" />
 
                     <TextView
+                        android:id="@+id/tv_file_name"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="@string/setup_xtream_title"
+                        android:layout_marginTop="8dp"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp"
+                        android:visibility="gone" />
+                </LinearLayout>
+
+                <!-- Formulaire Xtream Codes -->
+                <LinearLayout
+                    android:id="@+id/form_xtream"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="@drawable/bg_card"
+                    android:padding="20dp"
+                    android:layout_marginTop="16dp"
+                    android:visibility="gone">
+
+                    <EditText
+                        android:id="@+id/et_xtream_name"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:background="@drawable/bg_input"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:hint="@string/setup_name_hint"
                         android:textColor="@android:color/white"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
+                        android:textColorHint="@color/text_secondary"
+                        android:maxLines="1"
+                        android:singleLine="true" />
 
                     <EditText
                         android:id="@+id/et_xtream_host"
                         android:layout_width="match_parent"
                         android:layout_height="48dp"
-                        android:layout_marginTop="12dp"
+                        android:layout_marginTop="10dp"
                         android:background="@drawable/bg_input"
                         android:paddingStart="14dp"
                         android:paddingEnd="14dp"
@@ -209,7 +391,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="16dp"
                     android:visibility="gone" />
 
                 <TextView

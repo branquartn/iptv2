@@ -8,19 +8,21 @@ import com.nicotv.iptv2.data.database.dao.ChannelDao
 import com.nicotv.iptv2.data.database.dao.EpisodeDao
 import com.nicotv.iptv2.data.database.dao.FavoriteDao
 import com.nicotv.iptv2.data.database.dao.MovieDao
+import com.nicotv.iptv2.data.database.dao.PlaylistProfileDao
 import com.nicotv.iptv2.data.database.dao.SeriesDao
 import com.nicotv.iptv2.data.database.dao.WatchHistoryDao
 import com.nicotv.iptv2.data.database.entity.ChannelEntity
 import com.nicotv.iptv2.data.database.entity.EpisodeEntity
 import com.nicotv.iptv2.data.database.entity.FavoriteEntity
 import com.nicotv.iptv2.data.database.entity.MovieEntity
+import com.nicotv.iptv2.data.database.entity.PlaylistProfileEntity
 import com.nicotv.iptv2.data.database.entity.SeriesEntity
 import com.nicotv.iptv2.data.database.entity.WatchHistoryEntity
 
 @Database(
     entities = [ChannelEntity::class, MovieEntity::class, SeriesEntity::class, EpisodeEntity::class,
-                FavoriteEntity::class, WatchHistoryEntity::class],
-    version = 1,
+                FavoriteEntity::class, WatchHistoryEntity::class, PlaylistProfileEntity::class],
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -30,6 +32,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun episodeDao(): EpisodeDao
     abstract fun favoriteDao(): FavoriteDao
     abstract fun watchHistoryDao(): WatchHistoryDao
+    abstract fun playlistProfileDao(): PlaylistProfileDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null

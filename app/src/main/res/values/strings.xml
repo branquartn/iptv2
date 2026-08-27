@@ -32,19 +32,21 @@
     <string name="live_empty_title">Aucune chaîne trouvée</string>
 
     <!-- Configuration de la source (écran de démarrage) -->
-    <string name="setup_subtitle">Charge une playlist pour commencer — aucun compte requis</string>
-    <string name="setup_file_title">Fichier M3U local</string>
-    <string name="setup_file_desc">Choisis un fichier .m3u/.m3u8 déjà présent sur cet appareil</string>
+    <string name="setup_profiles_title">Mes profils</string>
+    <string name="setup_add_title">Ajouter une source</string>
+    <string name="setup_type_url">URL M3U</string>
+    <string name="setup_type_file">Fichier local</string>
+    <string name="setup_type_xtream">Xtream Codes</string>
+    <string name="setup_name_hint">Nom du profil</string>
     <string name="setup_file_pick">Choisir un fichier</string>
-    <string name="setup_url_title">URL de playlist M3U</string>
     <string name="setup_url_hint">https://exemple.com/playlist.m3u</string>
-    <string name="setup_xtream_title">Compte Xtream Codes</string>
     <string name="setup_xtream_host_hint">Serveur (ex. http://serveur.com:8080)</string>
     <string name="setup_xtream_user_hint">Utilisateur</string>
     <string name="setup_xtream_pass_hint">Mot de passe</string>
     <string name="setup_success">%d éléments chargés</string>
-    <string name="setup_error_empty_url">Renseigne une URL</string>
-    <string name="setup_error_empty_xtream">Renseigne le serveur, l\'utilisateur et le mot de passe</string>
+    <string name="setup_error_empty_name">Donne un nom à ce profil</string>
+    <string name="setup_error_empty_url">Renseigne un nom et une URL</string>
+    <string name="setup_error_empty_xtream">Renseigne un nom, le serveur, l\'utilisateur et le mot de passe</string>
     <string name="setup_error_generic">Échec du chargement</string>
 
     <!-- Confirmation de sortie -->
