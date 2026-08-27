@@ -10,10 +10,10 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 10
-val appVersionName = "1.0.9"
+val appVersionCode = 11
+val appVersionName = "1.0.10"
 // Changelog affiché dans le modal de mise à jour OTA — mis à jour à chaque bump.
-val appChangelog = "Crash OutOfMemoryError au chargement Xtream sur un très gros catalogue VOD corrigé (largeHeap)."
+val appChangelog = "Xtream Codes : plus aucun appel TMDb (le panel fournit déjà icône/plot/note/cover) — chargement et navigation bien plus légers sur les gros catalogues."
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")

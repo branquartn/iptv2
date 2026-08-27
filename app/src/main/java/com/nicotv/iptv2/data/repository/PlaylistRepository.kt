@@ -222,32 +222,6 @@ class PlaylistRepository(
         }.awaitAll()
     }
 
-    /** Variante Xtream de [enrichMovies] : ne cherche sur TMDb que les entrées
-     * SANS jaquette, contrairement au M3U où l'enrichissement est systématique
-     * (tvg-logo souvent mort/générique — cf. [enrichMovies]). Un panel Xtream
-     * fournit déjà un stream_icon/plot/rating fiables dans l'immense majorité
-     * des cas : sur un catalogue de plusieurs milliers de VOD (courant chez les
-     * fournisseurs Xtream), interroger TMDb pour CHAQUE film faisait tourner le
-     * chargement pendant de longues minutes sans jamais échouer (donc sans
-     * message d'erreur) — l'app semblait figée indéfiniment sur l'écran de
-     * démarrage. */
-    private suspend fun enrichMoviesIfMissingArt(movies: List<MovieEntity>): List<MovieEntity> = coroutineScope {
-        movies.map { m ->
-            if (m.posterUrl.isNotBlank()) return@map async { m }
-            async {
-                val hit = tmdbSemaphore.withPermit { tmdbClient.searchMovie(m.title) } ?: return@async m
-                m.copy(
-                    tmdbId = hit.id,
-                    posterUrl = hit.posterUrl.ifBlank { m.posterUrl },
-                    backdropUrl = hit.backdropUrl.ifBlank { m.backdropUrl },
-                    overview = hit.overview.ifBlank { m.overview },
-                    releaseYear = hit.year.ifBlank { m.releaseYear },
-                    rating = if (hit.rating > 0f) hit.rating else m.rating
-                )
-            }
-        }.awaitAll()
-    }
-
     /** Même principe pour les séries dont le titre n'a pas encore de jaquette —
      * appelé avec seulement les titres qui en ont besoin (évite de chercher les
      * séries déjà pourvues d'une cover par le M3U/Xtream). */
@@ -359,33 +333,32 @@ class PlaylistRepository(
             )
         }
 
-        val movies = enrichMoviesIfMissingArt(
-            vodStreams.map {
-                MovieEntity(
-                    title = it.name, streamUrl = client.vodStreamUrl(it.streamId, it.containerExtension),
-                    posterUrl = it.icon, overview = it.plot, rating = it.rating,
-                    category = vodCats[it.categoryId]?.name.orEmpty()
-                )
-            }
-        )
-
-        // La plupart des panels Xtream fournissent déjà une cover ; recherche
-        // TMDb seulement pour celles qui n'en ont pas.
-        val seriesArt = fetchSeriesArt(seriesList.filter { it.cover.isBlank() }.map { it.name })
+        // Pas d'appel TMDb pour Xtream (contrairement au M3U, dont le tvg-logo
+        // est peu fiable) : le panel fournit déjà icône/plot/rating/cover pour
+        // la quasi-totalité de son catalogue. Sur un panel à plusieurs dizaines
+        // de milliers d'entrées (courant, cf. XtreamClient), enrichir même les
+        // seules entrées sans jaquette restait des milliers d'appels TMDb —
+        // lent et lourd (CPU/réseau) pour un gain marginal. Pas de secours TMDb
+        // possible ici de toute façon.
+        val movies = vodStreams.map {
+            MovieEntity(
+                title = it.name, streamUrl = client.vodStreamUrl(it.streamId, it.containerExtension),
+                posterUrl = it.icon, overview = it.plot, rating = it.rating,
+                category = vodCats[it.categoryId]?.name.orEmpty()
+            )
+        }
 
         db.channelDao().deleteAll(); db.movieDao().deleteAll(); db.seriesDao().deleteAll()
         db.channelDao().insertAll(channels)
         db.movieDao().insertAll(movies)
         for (s in seriesList) {
-            val art = seriesArt[s.name]
             db.seriesDao().insert(
                 SeriesEntity(
                     title = s.name,
-                    posterUrl = s.cover.ifBlank { art?.posterUrl.orEmpty() },
-                    backdropUrl = art?.backdropUrl.orEmpty(),
-                    overview = s.plot.ifBlank { art?.overview.orEmpty() },
-                    rating = if (s.rating > 0f) s.rating else (art?.rating ?: 0f),
-                    genres = s.genre, releaseYear = s.releaseDate.take(4).ifBlank { art?.year.orEmpty() },
+                    posterUrl = s.cover,
+                    overview = s.plot,
+                    rating = s.rating,
+                    genres = s.genre, releaseYear = s.releaseDate.take(4),
                     category = seriesCats[s.categoryId]?.name.orEmpty(),
                     xtreamSeriesId = s.seriesId
                 )
