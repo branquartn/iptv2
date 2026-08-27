@@ -1,6 +1,6 @@
 {
-  "versionCode": 15,
-  "versionName": "1.0.14",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.14.apk",
-  "changelog": "\"Mes profils\" remonté tout en haut de l'écran de démarrage (avant le logo)."
+  "versionCode": 16,
+  "versionName": "1.0.15",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.15.apk",
+  "changelog": "Profils Xtream/playlist désormais sauvegardés hors base de données : plus besoin de retaper les identifiants après une fermeture de l'app ou une mise à jour."
 }
