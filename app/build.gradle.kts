@@ -10,11 +10,10 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 292
-val appVersionName = "1.0.11.83"
-// Changelog affiché dans le modal de mise à jour OTA — mis à jour à chaque bump
-// (avant : texte générique en dur, jamais le vrai détail du fix apporté).
-val appChangelog = "Télécommande : molette D-pad plus grande et non rognée, pavé souris agrandi, sélection d'appareil plus facile à viser."
+val appVersionCode = 1
+val appVersionName = "1.0.0"
+// Changelog affiché dans le modal de mise à jour OTA — mis à jour à chaque bump.
+val appChangelog = "Première version : lecture d'une playlist M3U (fichier local ou URL) ou d'un compte Xtream Codes, sans compte ni connexion."
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
@@ -28,11 +27,11 @@ fun secretProperty(localName: String, envName: String): String =
         ?: ""
 
 android {
-    namespace = "com.nicotv.iptv"
+    namespace = "com.nicotv.iptv2"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.nicotv.iptv"
+        applicationId = "com.nicotv.iptv2"
         minSdk = 21
         targetSdk = 34
         versionCode = appVersionCode
@@ -47,10 +46,10 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("nicotv-release.jks")
-            storePassword = secretProperty("nicotvStorePassword", "NICOTV_STORE_PASSWORD")
-            keyAlias = secretProperty("nicotvKeyAlias", "NICOTV_KEY_ALIAS").ifBlank { "nicotv" }
-            keyPassword = secretProperty("nicotvKeyPassword", "NICOTV_KEY_PASSWORD")
+            storeFile = file("iptv2-release.jks")
+            storePassword = secretProperty("iptv2StorePassword", "IPTV2_STORE_PASSWORD")
+            keyAlias = secretProperty("iptv2KeyAlias", "IPTV2_KEY_ALIAS").ifBlank { "iptv2" }
+            keyPassword = secretProperty("iptv2KeyPassword", "IPTV2_KEY_PASSWORD")
         }
     }
 
@@ -101,8 +100,9 @@ dependencies {
     implementation(libs.androidx.leanback)
     implementation(libs.androidx.splashscreen)
 
-    // Media3 / ExoPlayer
+    // Media3 / ExoPlayer (HLS pour les flux live IPTV, en plus du MP4/TS direct)
     implementation(libs.media3.exoplayer)
+    implementation(libs.media3.exoplayer.hls)
     implementation(libs.media3.ui)
 
     // Lifecycle
@@ -114,7 +114,7 @@ dependencies {
     // Coroutines
     implementation(libs.coroutines.android)
 
-    // Network
+    // Network (Xtream Codes API + M3U par URL)
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)
     implementation(libs.okhttp)
@@ -124,23 +124,18 @@ dependencies {
     // Images
     implementation(libs.coil)
 
-    // Room
+    // Room (cache local de la playlist chargée)
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
 
-    // Navigation
-    implementation(libs.navigation.fragment.ktx)
-    implementation(libs.navigation.ui.ktx)
-
-    // DataStore
+    // DataStore (config de la source playlist active)
     implementation(libs.datastore.preferences)
-
 }
 
-tasks.register("publishReleaseToNicoUpdate") {
+tasks.register("publishReleaseToIptv2Update") {
     group = "publishing"
-    description = "Copie l'APK release et version.json dans le dossier update NicoTV."
+    description = "Copie l'APK release et version.json dans le dossier update iptv2.nicotv.ovh."
     dependsOn("assembleRelease")
 
     // Valeurs capturées au moment de la configuration (compatible configuration cache :
@@ -148,9 +143,9 @@ tasks.register("publishReleaseToNicoUpdate") {
     val versionCode = appVersionCode
     val versionName = appVersionName
     val changelog = appChangelog
-    val updateDirPath = providers.gradleProperty("nicotvUpdateDir")
-        .orElse(providers.environmentVariable("NICOTV_UPDATE_DIR"))
-        .orElse("Z:/update")
+    val updateDirPath = providers.gradleProperty("iptv2UpdateDir")
+        .orElse(providers.environmentVariable("IPTV2_UPDATE_DIR"))
+        .orElse("Z:/update-iptv2")
     val sourceApkFile = layout.buildDirectory.file("outputs/apk/release/app-release.apk")
 
     doLast {
@@ -164,7 +159,7 @@ tasks.register("publishReleaseToNicoUpdate") {
             throw GradleException("APK release introuvable: ${sourceApk.absolutePath}")
         }
 
-        val apkName = "iptv-$versionName.apk"
+        val apkName = "iptv2-$versionName.apk"
         val targetApk = updateDir.resolve(apkName)
         sourceApk.copyTo(targetApk, overwrite = true)
         targetApk.setReadable(true, false)
@@ -177,19 +172,18 @@ tasks.register("publishReleaseToNicoUpdate") {
             {
               "versionCode": $versionCode,
               "versionName": "$versionName",
-              "apkUrl": "https://update.nicotv.ovh/$apkName",
+              "apkUrl": "https://iptv2.nicotv.ovh/$apkName",
               "changelog": "$changelogEscaped"
             }
             """.trimIndent() + "\n"
         )
 
-        println("NicoTV update publie: ${targetApk.absolutePath}")
+        println("iptv2 update publie: ${targetApk.absolutePath}")
     }
 }
 
 afterEvaluate {
     tasks.named("assembleRelease") {
-        finalizedBy("publishReleaseToNicoUpdate")
+        finalizedBy("publishReleaseToIptv2Update")
     }
 }
-

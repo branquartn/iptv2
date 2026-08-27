@@ -152,7 +152,7 @@
         <!-- FileProvider pour installer l'APK de mise à jour -->
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="com.nicotv.iptv.fileprovider"
+            android:authorities="com.nicotv.iptv2.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data

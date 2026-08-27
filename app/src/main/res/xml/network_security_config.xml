@@ -1,13 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- IPs LAN fixes du serveur de dev/test (box + PC de dev) : cleartext HTTP
-         autorisé uniquement pour ces hôtes, jamais en dehors du LAN. À adapter
-         si le serveur de dev change d'adresse. -->
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">192.168.1.202</domain>
-        <domain includeSubdomains="true">192.168.1.100</domain>
-        <domain includeSubdomains="true">localhost</domain>
-    </domain-config>
-    <!-- Tout le trafic hors LAN passe en HTTPS : cleartext interdit par défaut. -->
-    <base-config cleartextTrafficPermitted="false" />
+    <!-- App grand public : la source (M3U ou Xtream Codes) est fournie par
+         l'utilisateur, hébergée sur un serveur IPTV tiers quelconque — la grande
+         majorité sont en HTTP simple (pas de certificat). Cleartext autorisé
+         globalement, contrairement à NicoTV (hôtes fixes, tout en HTTPS). -->
+    <base-config cleartextTrafficPermitted="true" />
 </network-security-config>

@@ -1,5 +1,5 @@
--keep class com.nicotv.iptv.data.** { *; }
--keep class com.nicotv.iptv.domain.** { *; }
+-keep class com.nicotv.iptv2.data.** { *; }
+-keep class com.nicotv.iptv2.domain.** { *; }
 -keep class androidx.media3.** { *; }
 -keep class androidx.leanback.** { *; }
 -dontwarn org.slf4j.impl.StaticLoggerBinder
