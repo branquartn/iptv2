@@ -54,6 +54,31 @@ montée de schéma → l'app pointait vers un profil disparu (catalogue vide,
 rechargement impossible). D'où `hasValidActiveProfile()`, qui vérifie l'existence
 en base et nettoie la prefs. Ne pas revenir à un simple test `!= null`.
 
+**Copie de secours hors Room** (`ProfileBackupPrefs`, ajoutée en 1.0.15) : les
+profils sont aussi sérialisés en JSON dans SharedPreferences, réécrits à chaque
+`save*Profile`/`deleteProfile`, et `restoreProfilesIfEmpty()` (appelée au
+démarrage de `SetupActivity`) les réinjecte si la table Room est vide alors que
+la sauvegarde ne l'est pas. Motivation : plainte répétée « je dois retaper mes
+identifiants Xtream à chaque ouverture » jamais reproduite en inspection de code
+(insert inconditionnel avant tout chargement, aucun wipe caché, signature de
+build stable) et jamais confirmée par un logcat. La cause exacte reste inconnue
+— cette copie couvre toutes les hypothèses (base recréée, incident d'écriture,
+nettoyage système) sans dépendre du diagnostic. **Si le problème persiste
+malgré ça**, c'est que le profil n'est jamais enregistré du tout : chercher du
+côté de la validation du formulaire (cf. section suivante) plutôt que de la
+persistance. Deux `Log.i` sont en place pour trancher (`SetupActivity` : contenu
+réel de la table à chaque affichage ; `PlaylistRepository` : restauration
+effectuée).
+
+⚠️ **Erreurs de formulaire invisibles** (corrigé en 1.0.12, à ne pas
+réintroduire) : les dialogues Playlist/Xtream utilisaient `showStatus()`, qui
+écrit dans un `TextView` de l'écran **principal** — donc caché derrière le
+dialogue encore ouvert. Un champ oublié (typiquement « Nom du profil », absent
+de la plupart des apps IPTV concurrentes) bloquait la validation sans aucun
+retour visible : rien ne se passait au clic, rien n'était enregistré. Tout
+message destiné à l'utilisateur pendant qu'un dialogue est ouvert doit passer
+par un `Toast` (et `.error` sur le champ concerné), jamais par `showStatus()`.
+
 Charger un profil **remplace tout le catalogue Room** (chaînes, films, séries —
 `PlaylistRepository.loadProfile()`), ré-attribuant de nouveaux id autoIncrement :
 favoris/reprise d'un ancien catalogue ne sont pas rattachés automatiquement après
@@ -72,7 +97,23 @@ un rechargement (même limite que NicoTV sur ses resynchronisations).
   `loadFromCurrentSource()`, mais **épisodes chargés à la demande**
   (`PlaylistRepository.loadEpisodesForSeries`, appel `get_series_info` à
   l'ouverture de `SeriesDetailActivity`) — un catalogue de plusieurs milliers
-  de séries rendrait un chargement upfront bien trop long.
+  de séries rendrait un chargement upfront bien trop long. Trois répliques
+  successives, toutes constatées sur un panel réel de test (~215 000 entrées :
+  47 405 chaînes / 136 693 films / 31 472 séries) :
+  1. **Identifiants non encodés** dans les URLs (`player_api.php` et flux
+     `/live|/movie|/series`) — un `+`, `&`, `%` ou espace cassait la requête
+     silencieusement. Toujours passer par `enc()` (`XtreamClient`).
+  2. **`get_vod_streams`/`get_series` sans `category_id` renvoient une liste
+     vide** sur certains panels, alors que `get_live_streams` répond
+     normalement → films/séries à 0 sans erreur. Repli : appel par catégorie
+     (`fetchVodStreamsByCategory`/`fetchSeriesByCategory`, parallélisme borné
+     par `xtreamSemaphore`).
+  3. **API JSON entièrement muette** malgré un login accepté → repli sur
+     l'export M3U `get.php?...&type=m3u_plus&output=mpegts`
+     (`XtreamClient.playlistM3uUrl()`), qui réutilise tel quel le pipeline M3U.
+  `android:largeHeap="true"` est nécessaire : le tas 256 Mo par défaut explosait
+  (`OutOfMemoryError` dans `JSONArray(body)`) en parsant `get_vod_streams` sur
+  ce panel.
 - **Favoris** : table unique `FavoriteEntity(itemId, itemType)`, `itemType` ∈
   MOVIE/SERIES/CHANNEL — pas de FK, juste un filtre par type.
 - **Reprise de lecture** : `WatchHistoryEntity`, clé `"m<id>"` (film) ou
@@ -82,19 +123,32 @@ un rechargement (même limite que NicoTV sur ses resynchronisations).
   position < 5s) — cf. `PlaylistRepository.saveWatchPosition`.
 - **Recherche** : locale uniquement (`PlaylistRepository.searchTitle`) — cherche
   dans ce que la playlist contient déjà, par titre.
+- **Filtre « FR »** (écran Chaînes, `LiveViewModel.isFrench`) : bouton bascule à
+  côté du filtre favoris. Ni Xtream ni M3U n'exposent de champ pays exploitable
+  et les catégories des panels réels ne suivent aucune norme (`AFR| AFRICA VIP
+  HD/4K`, `4K| 24/7 UHD 3840P`…) → heuristique sur nom + catégorie : token exact
+  `FR` (délimité, sinon `AFR`/`OFFER` matcheraient) ou sous-chaîne
+  `FRANCE`/`FRENCH`.
 
 ## TMDb — jaquettes et fiche film
 
 Aucun backend : l'app interroge TMDb directement (clé dans `AppConfig.Tmdb`).
 
-- **Au chargement de la playlist** (`enrichMovies`) : recherche par titre pour
-  **chaque** film, en parallèle borné à 6 requêtes simultanées (`tmdbSemaphore`).
-  Jaquette/synopsis/note/année TMDb **prioritaires** sur celles de la source —
-  un `tvg-logo`/`stream_icon` de M3U public est souvent un lien mort ou une
-  icône générique. N'enrichir *que* les entrées sans jaquette (version
+- **Au chargement d'un M3U seulement** (`enrichMovies`) : recherche par titre
+  pour **chaque** film, en parallèle borné à 6 requêtes simultanées
+  (`tmdbSemaphore`). Jaquette/synopsis/note/année TMDb **prioritaires** sur
+  celles de la source — un `tvg-logo` de M3U public est souvent un lien mort ou
+  une icône générique. N'enrichir *que* les entrées sans jaquette (version
   précédente) laissait donc des affiches cassées. `tmdbId` est stocké
   (`MovieEntity.tmdbId`) pour éviter une seconde recherche à l'ouverture de la
   fiche. Coût assumé : une recherche par film au chargement.
+- ⚠️ **Aucun appel TMDb côté Xtream** (depuis 1.0.10) : le panel fournit déjà
+  `stream_icon`/`plot`/`rating` (VOD) et `cover`/`plot`/`rating`/`genre`
+  (séries) pour la quasi-totalité de son catalogue. Sur un panel réel de
+  ~136 000 films, enrichir ne serait-ce que les entrées sans jaquette
+  représentait des milliers de requêtes : chargement interminable (perçu comme
+  un figeage) puis téléphone saturé en navigation. Ne pas réintroduire
+  d'enrichissement TMDb dans `loadXtream`.
 - **`TmdbClient.cleanTitle()`** nettoie les noms scene-release réels
   (`Movie.Title.2020.FRENCH.1080p.BluRay.x264-GROUP`) — séparateurs `._+`,
   année, tags qualité/langue, suffixe `-GROUPE` en fin de chaîne uniquement
@@ -119,13 +173,28 @@ voulu, ne pas restreindre sans en avoir reparlé avec l'utilisateur.
 ## Écran de démarrage (SetupActivity)
 
 Affiché **toujours** au lancement, jamais court-circuité — c'est la demande
-explicite (comportement IPTV Smarters Pro) : profils enregistrés listés en haut
-(tap = recharger, croix = supprimer), puis 2 cartes « Charger votre playlist »
-(URL M3U **ou** fichier local, un seul formulaire, un seul bouton qui priorise
-le fichier choisi) et « Xtream Codes ». Une version antérieure sautait à
-l'accueil dès qu'un profil était actif : l'écran de sélection devenait
-définitivement invisible après la première configuration. Ne pas réintroduire ce
-raccourci.
+explicite (comportement IPTV Smarters Pro) : profils enregistrés **tout en haut
+de l'écran, avant même le wordmark** (tap = recharger, crayon = modifier,
+croix = supprimer), puis 2 cartes « Charger votre playlist » (URL M3U **ou**
+fichier local, un seul formulaire, un seul bouton qui priorise le fichier
+choisi) et « Xtream Codes ». Une version antérieure sautait à l'accueil dès
+qu'un profil était actif : l'écran de sélection devenait définitivement
+invisible après la première configuration. Ne pas réintroduire ce raccourci.
+
+Les 2 formulaires s'ouvrent dans un **`AlertDialog` centré**
+(`dialog_form_playlist.xml` / `dialog_form_xtream.xml`) et non plus en dessous
+des cartes. Chacun est enveloppé dans un `ScrollView` : l'écran est en
+`sensorLandscape` (~360 dp de haut), le clavier ouvert sur le dernier champ
+faisait sortir le bouton « Charger »/« Se connecter » de la zone visible.
+
+⚠️ **`installSplashScreen()` obligatoire** : `SetupActivity` déclare
+`android:theme="@style/Theme.IPTV.Splash"` dans le manifeste (parent
+`Theme.SplashScreen`, chrome clair). Sans l'appel `installSplashScreen()` **avant
+`super.onCreate()`**, le thème ne bascule jamais vers `postSplashScreenTheme`
+(`Theme.IPTV`, sombre) : l'activité reste sur le thème splash toute sa vie, d'où
+un bandeau clair permanent affichant le nom de l'app en haut de l'écran. Piège
+vécu — un premier correctif posant `windowNoTitle` sur `Theme.IPTV` visait le
+mauvais thème et n'avait donc aucun effet.
 
 ## Room — migrations
 
@@ -135,10 +204,11 @@ INTEGER NOT NULL DEFAULT 0`) a fait planter l'app au démarrage : SQLite exige u
 `DEFAULT` pour ajouter une colonne `NOT NULL`, mais le schéma attendu par Room
 n'en déclarait pas (`@ColumnInfo(defaultValue)` manquant) → `IllegalStateException:
 Migration didn't properly handle…` dès le premier accès à la base. Coût du choix
-retenu : la base est recréée à chaque bump de `version` (profils enregistrés
-perdus, à re-saisir). Si une vraie migration devient nécessaire, il **faut**
-aligner `@ColumnInfo(defaultValue = "…")` sur le SQL — et la tester sur un vrai
-upgrade, pas seulement sur une install neuve.
+retenu : la base est recréée à chaque bump de `version` — les profils, eux, sont
+désormais rattrapés par `ProfileBackupPrefs` (cf. « Modèle de données »), mais
+catalogue/favoris/reprise restent perdus. Si une vraie migration devient
+nécessaire, il **faut** aligner `@ColumnInfo(defaultValue = "…")` sur le SQL — et
+la tester sur un vrai upgrade, pas seulement sur une install neuve.
 
 ## Conventions UI reprises de NicoTV (inchangées)
 
@@ -160,6 +230,14 @@ vitesse, PiP, prompt épisode suivant, filet anti-blocage fin de flux) —
 heartbeat de présence, téléchargements hors-ligne (aucun sens sans compte
 serveur). `historyKey` calculé depuis `seriesId`/`fileKeyExtra` (voir
 `PlayerActivity.historyKey`) plutôt que transmis en extra séparé.
+
+⚠️ **Redirections cross-protocole obligatoires** (corrigé en 1.0.6) :
+`DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true)`, passé au
+player via un `DefaultMediaSourceFactory` dédié. Sans ça, les flux d'un panel
+qui redirige (`303` vers un CDN, cas du panel de test) échouaient sur
+`InvalidResponseCodeException: Response code: 303` — écran noir, `00:00`, aucune
+erreur affichée à l'utilisateur. Contrairement à NicoTV (hôtes fixes maîtrisés),
+la source ici est fournie par l'utilisateur : la redirection est la norme.
 
 ## Mise à jour OTA + panel de build
 
