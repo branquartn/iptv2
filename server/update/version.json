@@ -1,6 +1,6 @@
 {
-  "versionCode": 8,
-  "versionName": "1.0.7",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.7.apk",
-  "changelog": "Chaînes : bouton FR pour filtrer les chaînes françaises (heuristique nom/catégorie)."
+  "versionCode": 9,
+  "versionName": "1.0.8",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.8.apk",
+  "changelog": "Mes profils : bouton crayon pour modifier un profil enregistré (nom/URL/identifiants) sans le recréer."
 }
