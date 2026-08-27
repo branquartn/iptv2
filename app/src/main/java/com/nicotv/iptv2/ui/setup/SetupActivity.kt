@@ -70,6 +70,10 @@ class SetupActivity : BaseActivity() {
 
         lifecycleScope.launch {
             (application as IptvApplication).playlistRepository.getProfiles().collect { profiles ->
+                // Diagnostic profils "disparus" signalés en test — grep logcat
+                // "SetupActivity" pour voir si la table playlist_profiles est
+                // vraiment vide à l'ouverture ou si le souci est ailleurs.
+                android.util.Log.i("SetupActivity", "Profils en base : ${profiles.size} (${profiles.joinToString { "${it.id}:${it.name}" }})")
                 binding.sectionProfiles.visibility = if (profiles.isEmpty()) View.GONE else View.VISIBLE
                 profileAdapter.submitList(profiles)
             }

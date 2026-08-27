@@ -9,6 +9,13 @@
         <item name="android:editTextColor">@color/text_primary</item>
         <item name="android:colorControlActivated">@color/accent</item>
         <item name="android:colorControlHighlight">#334361EE</item>
+        <!-- Chaque écran a déjà son propre bandeau (titre + retour) dans son
+             layout — Theme.Leanback affichait par-dessus une ActionBar système
+             blanche avec le nom de l'app ("IPTV2"), jamais stylée en sombre. -->
+        <item name="windowNoTitle">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="windowActionBar">false</item>
+        <item name="android:windowActionBar">false</item>
     </style>
 
     <!-- Écran de démarrage : fond sombre sans icône (le wordmark NICOTV est
