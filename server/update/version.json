@@ -1,6 +1,6 @@
 {
-  "versionCode": 9,
-  "versionName": "1.0.8",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.8.apk",
-  "changelog": "Mes profils : bouton crayon pour modifier un profil enregistré (nom/URL/identifiants) sans le recréer."
+  "versionCode": 10,
+  "versionName": "1.0.9",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.9.apk",
+  "changelog": "Crash OutOfMemoryError au chargement Xtream sur un très gros catalogue VOD corrigé (largeHeap)."
 }
