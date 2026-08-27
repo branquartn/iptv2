@@ -1,6 +1,6 @@
 {
-  "versionCode": 2,
-  "versionName": "1.0.1",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.1.apk",
-  "changelog": "Écran de démarrage toujours affiché (profils enregistrés + Playlist / Xtream Codes), jaquettes et fiches films complétées via TMDb (casting, réalisateur, films similaires, bande-annonce), classement M3U films/séries/chaînes plus fiable, correction d'un plantage au démarrage."
+  "versionCode": 3,
+  "versionName": "1.0.2",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.2.apk",
+  "changelog": "Chargement Xtream Codes qui restait bloqué sur les gros catalogues corrigé, identifiants avec caractères spéciaux, formulaires Playlist/Xtream Codes désormais dans un dialogue centré."
 }
