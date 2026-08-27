@@ -214,6 +214,32 @@ class PlaylistRepository(
         }.awaitAll()
     }
 
+    /** Variante Xtream de [enrichMovies] : ne cherche sur TMDb que les entrées
+     * SANS jaquette, contrairement au M3U où l'enrichissement est systématique
+     * (tvg-logo souvent mort/générique — cf. [enrichMovies]). Un panel Xtream
+     * fournit déjà un stream_icon/plot/rating fiables dans l'immense majorité
+     * des cas : sur un catalogue de plusieurs milliers de VOD (courant chez les
+     * fournisseurs Xtream), interroger TMDb pour CHAQUE film faisait tourner le
+     * chargement pendant de longues minutes sans jamais échouer (donc sans
+     * message d'erreur) — l'app semblait figée indéfiniment sur l'écran de
+     * démarrage. */
+    private suspend fun enrichMoviesIfMissingArt(movies: List<MovieEntity>): List<MovieEntity> = coroutineScope {
+        movies.map { m ->
+            if (m.posterUrl.isNotBlank()) return@map async { m }
+            async {
+                val hit = tmdbSemaphore.withPermit { tmdbClient.searchMovie(m.title) } ?: return@async m
+                m.copy(
+                    tmdbId = hit.id,
+                    posterUrl = hit.posterUrl.ifBlank { m.posterUrl },
+                    backdropUrl = hit.backdropUrl.ifBlank { m.backdropUrl },
+                    overview = hit.overview.ifBlank { m.overview },
+                    releaseYear = hit.year.ifBlank { m.releaseYear },
+                    rating = if (hit.rating > 0f) hit.rating else m.rating
+                )
+            }
+        }.awaitAll()
+    }
+
     /** Même principe pour les séries dont le titre n'a pas encore de jaquette —
      * appelé avec seulement les titres qui en ont besoin (évite de chercher les
      * séries déjà pourvues d'une cover par le M3U/Xtream). */
@@ -296,7 +322,7 @@ class PlaylistRepository(
 
         val vodCats = client.getVodCategories().associateBy { it.id }
         val vodStreams = client.getVodStreams()
-        val movies = enrichMovies(
+        val movies = enrichMoviesIfMissingArt(
             vodStreams.map {
                 MovieEntity(
                     title = it.name, streamUrl = client.vodStreamUrl(it.streamId, it.containerExtension),

@@ -7,6 +7,7 @@ import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
+import java.net.URLEncoder
 
 /** Client Xtream Codes (player_api.php) : login + catégories + flux live/VOD/
  * séries. Parsing JSON à la main (org.json), tolérant aux variations de type
@@ -27,11 +28,17 @@ class XtreamClient(
 
     class XtreamException(message: String) : IOException(message)
 
+    // Encodage indispensable : un identifiant/mot de passe avec '+', '&', '%',
+    // espace... casse silencieusement la requête sinon (paramètre tronqué ou
+    // mal interprété par le panel) — cause fréquente d'échec de connexion Xtream
+    // jamais remontée comme erreur explicite.
+    private fun enc(v: String): String = URLEncoder.encode(v, "UTF-8")
+
     private suspend fun callRaw(action: String?, extraParams: Map<String, String> = emptyMap()): String =
         withContext(Dispatchers.IO) {
-            val urlBuilder = StringBuilder("$base/player_api.php?username=$username&password=$password")
+            val urlBuilder = StringBuilder("$base/player_api.php?username=${enc(username)}&password=${enc(password)}")
             if (!action.isNullOrBlank()) urlBuilder.append("&action=$action")
-            extraParams.forEach { (k, v) -> urlBuilder.append("&$k=$v") }
+            extraParams.forEach { (k, v) -> urlBuilder.append("&$k=${enc(v)}") }
             val request = Request.Builder().url(urlBuilder.toString()).build()
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) throw XtreamException("HTTP ${response.code}")
@@ -173,7 +180,7 @@ class XtreamClient(
         return XtSeriesInfo(finalSeasons, episodesBySeason)
     }
 
-    fun liveStreamUrl(streamId: String): String = "$base/live/$username/$password/$streamId.ts"
-    fun vodStreamUrl(streamId: String, ext: String): String = "$base/movie/$username/$password/$streamId.$ext"
-    fun seriesEpisodeUrl(episodeId: String, ext: String): String = "$base/series/$username/$password/$episodeId.$ext"
+    fun liveStreamUrl(streamId: String): String = "$base/live/${enc(username)}/${enc(password)}/$streamId.ts"
+    fun vodStreamUrl(streamId: String, ext: String): String = "$base/movie/${enc(username)}/${enc(password)}/$streamId.$ext"
+    fun seriesEpisodeUrl(episodeId: String, ext: String): String = "$base/series/${enc(username)}/${enc(password)}/$episodeId.$ext"
 }
