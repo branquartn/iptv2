@@ -61,13 +61,15 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    /** Casting, réalisateur, films similaires — une seule fois par film (résolution
-     * du tmdbId par titre, pas de champ stocké). */
-    fun loadExtras(movieId: Long, title: String) {
+    /** Casting, réalisateur, films similaires — une seule fois par film. Utilise
+     * le tmdbId déjà résolu au chargement de la playlist (MovieEntity.tmdbId,
+     * cf. PlaylistRepository.enrichMovies) ; ne re-cherche par titre que pour un
+     * film chargé avant l'ajout de ce champ (tmdbId=0 en base). */
+    fun loadExtras(movieId: Long, movieTmdbId: Int, title: String) {
         if (extrasLoadedFor == movieId) return
         extrasLoadedFor = movieId
         viewModelScope.launch {
-            val tmdbId = repository.resolveTmdbMovieId(title)
+            val tmdbId = movieTmdbId.takeIf { it > 0 } ?: repository.resolveTmdbMovieId(title)
             if (tmdbId == null) { _hasTmdbMatch.value = false; return@launch }
             tmdbMovieId = tmdbId
             _hasTmdbMatch.value = true

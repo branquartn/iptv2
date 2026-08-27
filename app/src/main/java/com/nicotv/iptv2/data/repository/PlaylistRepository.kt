@@ -178,20 +178,27 @@ class PlaylistRepository(
         channels.size + movies.size + seriesEpisodes.size
     }
 
-    /** Complète en parallèle (borné par [tmdbSemaphore]) les films sans jaquette
-     * (M3U sans tvg-logo, ou Xtream avec stream_icon vide) via une recherche
-     * TMDb par titre — best-effort, ne bloque jamais sur un échec individuel. */
+    /** Recherche TMDb par titre pour CHAQUE film (en parallèle, borné par
+     * [tmdbSemaphore]) — pas seulement ceux sans jaquette : un tvg-logo/
+     * stream_icon fourni par la playlist est souvent un lien mort ou une icône
+     * générique (fréquent sur les M3U publics), donc pas digne de confiance.
+     * La jaquette/synopsis/note TMDb sont **prioritaires** quand trouvés — c'est
+     * la même présentation que NicoTV, dont le catalogue était systématiquement
+     * lié à TMDb. Résultat aussi utilisé pour stocker tmdbId (MovieEntity),
+     * réutilisé par la fiche détail (casting/similaires/bande-annonce) sans
+     * repasser par une recherche. Best-effort : un échec individuel (réseau,
+     * aucune correspondance) laisse simplement l'entrée d'origine intacte. */
     private suspend fun enrichMovies(movies: List<MovieEntity>): List<MovieEntity> = coroutineScope {
         movies.map { m ->
             async {
-                if (m.posterUrl.isNotBlank()) return@async m
                 val hit = tmdbSemaphore.withPermit { tmdbClient.searchMovie(m.title) } ?: return@async m
                 m.copy(
-                    posterUrl = hit.posterUrl,
-                    backdropUrl = m.backdropUrl.ifBlank { hit.backdropUrl },
-                    overview = m.overview.ifBlank { hit.overview },
-                    releaseYear = m.releaseYear.ifBlank { hit.year },
-                    rating = if (m.rating <= 0f) hit.rating else m.rating
+                    tmdbId = hit.id,
+                    posterUrl = hit.posterUrl.ifBlank { m.posterUrl },
+                    backdropUrl = hit.backdropUrl.ifBlank { m.backdropUrl },
+                    overview = hit.overview.ifBlank { m.overview },
+                    releaseYear = hit.year.ifBlank { m.releaseYear },
+                    rating = if (hit.rating > 0f) hit.rating else m.rating
                 )
             }
         }.awaitAll()

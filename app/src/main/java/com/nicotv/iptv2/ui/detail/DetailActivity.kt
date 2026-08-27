@@ -191,7 +191,7 @@ class DetailActivity : BaseActivity() {
         binding.btnPlay.setOnClickListener { play(movie, resume = currentResumePos > 0) }
         binding.btnRestart.setOnClickListener { play(movie, resume = false) }
 
-        viewModel.loadExtras(movie.id, movie.title)
+        viewModel.loadExtras(movie.id, movie.tmdbId, movie.title)
         binding.btnTrailer.setOnClickListener {
             binding.btnTrailer.isEnabled = false
             lifecycleScope.launch {

@@ -12,6 +12,9 @@ data class Movie(
     val rating: Float = 0f,
     val genres: List<String> = emptyList(),
     val category: String = "",
+    // Résolu au chargement de la playlist (recherche TMDb par titre) — 0 si
+    // aucune correspondance. Réutilisé par la fiche détail (casting/similaires).
+    val tmdbId: Int = 0,
     val isFavorite: Boolean = false,
     // Progression de lecture en cours (0 = jamais lu, 100 = terminé).
     val watchProgress: Int = 0,

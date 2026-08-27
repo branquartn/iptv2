@@ -23,6 +23,10 @@ data class MovieEntity(
     val rating: Float = 0f,
     val genres: String = "",
     val category: String = "",
+    // Résolu au chargement de la playlist (recherche TMDb par titre, cf.
+    // PlaylistRepository.enrichMovies) — 0 si aucune correspondance trouvée.
+    // Réutilisé par la fiche détail pour éviter de re-chercher à l'ouverture.
+    val tmdbId: Int = 0,
     val updatedAt: Long = System.currentTimeMillis()
 ) {
     fun toDomain(
@@ -41,6 +45,7 @@ data class MovieEntity(
         rating = rating,
         genres = if (genres.isBlank()) emptyList() else genres.split(","),
         category = category,
+        tmdbId = tmdbId,
         isFavorite = isFavorite,
         watchProgress = watchProgress,
         isFinished = isFinished
