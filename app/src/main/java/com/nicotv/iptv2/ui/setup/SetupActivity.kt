@@ -11,6 +11,8 @@ import com.nicotv.iptv2.IptvApplication
 import com.nicotv.iptv2.R
 import com.nicotv.iptv2.data.database.entity.PlaylistProfileEntity
 import com.nicotv.iptv2.databinding.ActivitySetupBinding
+import com.nicotv.iptv2.databinding.DialogFormPlaylistBinding
+import com.nicotv.iptv2.databinding.DialogFormXtreamBinding
 import com.nicotv.iptv2.ui.common.BaseActivity
 import com.nicotv.iptv2.ui.common.RotatingBorderView
 import com.nicotv.iptv2.ui.main.MainActivity
@@ -22,8 +24,10 @@ import kotlinx.coroutines.launch
  * sauvegardés (nommés par l'utilisateur, un par source M3U/Xtream) — tap pour
  * recharger l'un d'eux — et 2 cartes pour en ajouter un nouveau : "Charger
  * votre playlist" (URL M3U ou fichier local, un seul formulaire) et "Xtream
- * Codes". Réutilisé pour "Changer de source" depuis MainActivity
- * (EXTRA_FORCE_SHOW).
+ * Codes". Chaque carte ouvre son formulaire dans un dialogue centré
+ * (AlertDialog) plutôt que de l'étaler sous les cartes — avant, le formulaire
+ * apparaissait en dessous et poussait le reste de l'écran, peu lisible.
+ * Réutilisé pour "Changer de source" depuis MainActivity (EXTRA_FORCE_SHOW).
  */
 class SetupActivity : BaseActivity() {
 
@@ -32,6 +36,10 @@ class SetupActivity : BaseActivity() {
     // Uri du fichier M3U choisi (formulaire "fichier local"), en attente du nom
     // avant de sauvegarder le profil.
     private var pickedFileUri: Uri? = null
+    // Binding du dialogue playlist actuellement affiché — nécessaire pour que
+    // le retour du sélecteur de fichier (callback enregistré une seule fois à
+    // onCreate) puisse mettre à jour le nom de fichier dans CE dialogue.
+    private var playlistDialogBinding: DialogFormPlaylistBinding? = null
 
     private val pickFileLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) onFilePicked(uri)
@@ -50,7 +58,6 @@ class SetupActivity : BaseActivity() {
         checkForAppUpdate()
         setupProfilesList()
         setupTypeCards()
-        setupForms()
     }
 
     private fun setupProfilesList() {
@@ -83,30 +90,39 @@ class SetupActivity : BaseActivity() {
 
     private fun setupTypeCards() {
         val cards = listOf(
-            Triple(binding.cardTypePlaylist, binding.cardTypePlaylistRing, binding.formPlaylist),
-            Triple(binding.cardTypeXtream, binding.cardTypeXtreamRing, binding.formXtream)
+            Triple(binding.cardTypePlaylist, binding.cardTypePlaylistRing) { showPlaylistDialog() },
+            Triple(binding.cardTypeXtream, binding.cardTypeXtreamRing) { showXtreamDialog() }
         )
-        cards.forEach { (card, ring, form) ->
-            card.setOnClickListener {
-                // Un seul formulaire visible à la fois.
-                cards.forEach { (_, _, f) -> f.visibility = if (f === form) View.VISIBLE else View.GONE }
-            }
+        cards.forEach { (card, ring, onOpen) ->
+            card.setOnClickListener { onOpen() }
             applyRing(card, ring, 1.04f)
         }
     }
 
-    private fun setupForms() {
-        binding.btnPickFile.setOnClickListener { pickFileLauncher.launch(arrayOf("*/*")) }
+    // ── Dialogue "Charger votre playlist" (M3U url/fichier) ────────────────
 
-        // Un seul bouton pour le formulaire playlist : fichier choisi = priorité,
-        // sinon l'URL saisie.
-        binding.btnLoadPlaylist.setOnClickListener {
-            val name = binding.etPlaylistName.text.toString().trim()
-            val url = binding.etM3uUrl.text.toString().trim()
+    private fun showPlaylistDialog() {
+        val dialogBinding = DialogFormPlaylistBinding.inflate(layoutInflater)
+        playlistDialogBinding = dialogBinding
+        pickedFileUri = null
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.setup_type_playlist)
+            .setView(dialogBinding.root)
+            .setNegativeButton("Annuler", null)
+            .create()
+        dialog.window?.setBackgroundDrawableResource(R.drawable.bg_dialog)
+        dialog.setOnDismissListener { playlistDialogBinding = null }
+
+        dialogBinding.btnPickFile.setOnClickListener { pickFileLauncher.launch(arrayOf("*/*")) }
+        dialogBinding.btnLoadPlaylist.setOnClickListener {
+            val name = dialogBinding.etPlaylistName.text.toString().trim()
+            val url = dialogBinding.etM3uUrl.text.toString().trim()
             val fileUri = pickedFileUri
             if (name.isBlank() || (url.isBlank() && fileUri == null)) {
                 showStatus(getString(R.string.setup_error_empty_url)); return@setOnClickListener
             }
+            dialog.dismiss()
             setLoading(true)
             lifecycleScope.launch {
                 val app = application as IptvApplication
@@ -119,21 +135,7 @@ class SetupActivity : BaseActivity() {
             }
         }
 
-        binding.btnLoadXtream.setOnClickListener {
-            val name = binding.etXtreamName.text.toString().trim()
-            val host = binding.etXtreamHost.text.toString().trim()
-            val user = binding.etXtreamUser.text.toString().trim()
-            val pass = binding.etXtreamPass.text.toString()
-            if (name.isBlank() || host.isBlank() || user.isBlank() || pass.isBlank()) {
-                showStatus(getString(R.string.setup_error_empty_xtream)); return@setOnClickListener
-            }
-            setLoading(true)
-            lifecycleScope.launch {
-                val app = application as IptvApplication
-                val id = app.playlistRepository.saveXtreamProfile(name, host, user, pass)
-                loadProfile(id)
-            }
-        }
+        dialog.show()
     }
 
     private fun onFilePicked(uri: Uri) {
@@ -146,12 +148,45 @@ class SetupActivity : BaseActivity() {
             // la lecture immédiate ci-dessous fonctionnera quand même pour cette session.
         }
         pickedFileUri = uri
-        binding.tvFileName.visibility = View.VISIBLE
+        val dialogBinding = playlistDialogBinding ?: return
+        dialogBinding.tvFileName.visibility = View.VISIBLE
         val fileName = uri.lastPathSegment ?: uri.toString()
-        binding.tvFileName.text = fileName
-        if (binding.etPlaylistName.text.isNullOrBlank()) {
-            binding.etPlaylistName.setText(fileName.substringAfterLast('/').substringBeforeLast('.'))
+        dialogBinding.tvFileName.text = fileName
+        if (dialogBinding.etPlaylistName.text.isNullOrBlank()) {
+            dialogBinding.etPlaylistName.setText(fileName.substringAfterLast('/').substringBeforeLast('.'))
         }
+    }
+
+    // ── Dialogue "Xtream Codes" ──────────────────────────────────────────────
+
+    private fun showXtreamDialog() {
+        val dialogBinding = DialogFormXtreamBinding.inflate(layoutInflater)
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.setup_type_xtream)
+            .setView(dialogBinding.root)
+            .setNegativeButton("Annuler", null)
+            .create()
+        dialog.window?.setBackgroundDrawableResource(R.drawable.bg_dialog)
+
+        dialogBinding.btnLoadXtream.setOnClickListener {
+            val name = dialogBinding.etXtreamName.text.toString().trim()
+            val host = dialogBinding.etXtreamHost.text.toString().trim()
+            val user = dialogBinding.etXtreamUser.text.toString().trim()
+            val pass = dialogBinding.etXtreamPass.text.toString()
+            if (name.isBlank() || host.isBlank() || user.isBlank() || pass.isBlank()) {
+                showStatus(getString(R.string.setup_error_empty_xtream)); return@setOnClickListener
+            }
+            dialog.dismiss()
+            setLoading(true)
+            lifecycleScope.launch {
+                val app = application as IptvApplication
+                val id = app.playlistRepository.saveXtreamProfile(name, host, user, pass)
+                loadProfile(id)
+            }
+        }
+
+        dialog.show()
     }
 
     private fun loadProfile(profileId: Long) {
@@ -170,7 +205,6 @@ class SetupActivity : BaseActivity() {
 
     private fun setLoading(loading: Boolean) {
         binding.progressLoading.visibility = if (loading) View.VISIBLE else View.GONE
-        listOf(binding.btnPickFile, binding.btnLoadPlaylist, binding.btnLoadXtream).forEach { it.isEnabled = !loading }
     }
 
     private fun showStatus(text: String) {
