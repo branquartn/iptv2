@@ -111,8 +111,14 @@ class XtreamClient(
         }
     }
 
-    suspend fun getVodStreams(): List<XtStream> = buildList {
-        val arr = callArray("get_vod_streams")
+    /** [categoryId] optionnel : certains panels renvoient une liste VIDE sur
+     * get_vod_streams/get_series sans category_id (contrairement à
+     * get_live_streams, qui lui répond toujours) — ils exigent un appel par
+     * catégorie. Repli géré côté appelant (cf. PlaylistRepository.loadXtream) :
+     * essai global d'abord (1 seul appel, cas le plus courant), puis par
+     * catégorie seulement si besoin. */
+    suspend fun getVodStreams(categoryId: String? = null): List<XtStream> = buildList {
+        val arr = callArray("get_vod_streams", categoryId?.let { mapOf("category_id" to it) } ?: emptyMap())
         for (i in 0 until arr.length()) {
             val o = arr.optJSONObject(i) ?: continue
             add(
@@ -129,8 +135,9 @@ class XtreamClient(
         }
     }
 
-    suspend fun getSeriesList(): List<XtSeriesItem> = buildList {
-        val arr = callArray("get_series")
+    /** [categoryId] optionnel : même repli que [getVodStreams]. */
+    suspend fun getSeriesList(categoryId: String? = null): List<XtSeriesItem> = buildList {
+        val arr = callArray("get_series", categoryId?.let { mapOf("category_id" to it) } ?: emptyMap())
         for (i in 0 until arr.length()) {
             val o = arr.optJSONObject(i) ?: continue
             add(

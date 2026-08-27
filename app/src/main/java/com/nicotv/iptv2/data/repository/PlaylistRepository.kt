@@ -69,6 +69,10 @@ class PlaylistRepository(
     // (un M3U avec des centaines de films sans jaquette ne doit pas matraquer
     // l'API d'un coup — ni bloquer le chargement en les faisant en série).
     private val tmdbSemaphore = Semaphore(6)
+    // Même principe pour le repli par catégorie Xtream (fetchVodStreamsByCategory/
+    // fetchSeriesByCategory) — un panel avec une centaine de catégories ne doit
+    // pas partir en rafale de requêtes simultanées.
+    private val xtreamSemaphore = Semaphore(6)
 
     // ── Profils sauvegardés ──────────────────────────────────────────────────
 
@@ -307,6 +311,20 @@ class PlaylistRepository(
     private fun xtreamClientFor(profile: PlaylistProfileEntity): XtreamClient =
         XtreamClient(okHttpClient, profile.xtreamHost, profile.xtreamUsername, profile.xtreamPassword)
 
+    /** Repli pour les panels où get_vod_streams sans category_id renvoie une
+     * liste vide (contrairement à get_live_streams) — appel un par un sur
+     * chaque catégorie VOD connue, en parallèle borné, puis fusion. */
+    private suspend fun fetchVodStreamsByCategory(client: XtreamClient, categoryIds: Collection<String>): List<com.nicotv.iptv2.data.xtream.XtStream> =
+        coroutineScope {
+            categoryIds.map { id -> async { xtreamSemaphore.withPermit { client.getVodStreams(id) } } }.awaitAll().flatten()
+        }
+
+    /** Même repli que [fetchVodStreamsByCategory] pour get_series. */
+    private suspend fun fetchSeriesByCategory(client: XtreamClient, categoryIds: Collection<String>): List<com.nicotv.iptv2.data.xtream.XtSeriesItem> =
+        coroutineScope {
+            categoryIds.map { id -> async { xtreamSemaphore.withPermit { client.getSeriesList(id) } } }.awaitAll().flatten()
+        }
+
     private suspend fun loadXtream(profile: PlaylistProfileEntity): Int = withContext(Dispatchers.IO) {
         val client = xtreamClientFor(profile)
         client.login()
@@ -314,9 +332,9 @@ class PlaylistRepository(
         val liveCats = client.getLiveCategories().associateBy { it.id }
         val liveStreams = client.getLiveStreams()
         val vodCats = client.getVodCategories().associateBy { it.id }
-        val vodStreams = client.getVodStreams()
         val seriesCats = client.getSeriesCategories().associateBy { it.id }
-        val seriesList = client.getSeriesList()
+        val vodStreams = client.getVodStreams().ifEmpty { fetchVodStreamsByCategory(client, vodCats.keys) }
+        val seriesList = client.getSeriesList().ifEmpty { fetchSeriesByCategory(client, seriesCats.keys) }
 
         // login() a réussi (identifiants acceptés) mais les 3 catégories sont
         // vides : panel avec API JSON (player_api.php) désactivée/restreinte
