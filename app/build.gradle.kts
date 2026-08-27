@@ -10,10 +10,10 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 8
-val appVersionName = "1.0.7"
+val appVersionCode = 9
+val appVersionName = "1.0.8"
 // Changelog affiché dans le modal de mise à jour OTA — mis à jour à chaque bump.
-val appChangelog = "Chaînes : bouton FR pour filtrer les chaînes françaises (heuristique nom/catégorie)."
+val appChangelog = "Mes profils : bouton crayon pour modifier un profil enregistré (nom/URL/identifiants) sans le recréer."
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")

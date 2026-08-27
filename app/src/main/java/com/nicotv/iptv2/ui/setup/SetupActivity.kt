@@ -63,6 +63,7 @@ class SetupActivity : BaseActivity() {
     private fun setupProfilesList() {
         profileAdapter = ProfileAdapter(
             onClick = { profile -> loadProfile(profile.id) },
+            onEdit = { profile -> editProfile(profile) },
             onDelete = { profile -> confirmDelete(profile) }
         )
         binding.rvProfiles.adapter = profileAdapter
@@ -90,8 +91,8 @@ class SetupActivity : BaseActivity() {
 
     private fun setupTypeCards() {
         val cards = listOf(
-            Triple(binding.cardTypePlaylist, binding.cardTypePlaylistRing) { showPlaylistDialog() },
-            Triple(binding.cardTypeXtream, binding.cardTypeXtreamRing) { showXtreamDialog() }
+            Triple(binding.cardTypePlaylist, binding.cardTypePlaylistRing) { showPlaylistDialog(null) },
+            Triple(binding.cardTypeXtream, binding.cardTypeXtreamRing) { showXtreamDialog(null) }
         )
         cards.forEach { (card, ring, onOpen) ->
             card.setOnClickListener { onOpen() }
@@ -99,12 +100,30 @@ class SetupActivity : BaseActivity() {
         }
     }
 
-    // ── Dialogue "Charger votre playlist" (M3U url/fichier) ────────────────
+    /** Ouvre le dialogue correspondant, pré-rempli avec les valeurs actuelles
+     * du profil (bouton crayon sur "Mes profils"). */
+    private fun editProfile(profile: PlaylistProfileEntity) {
+        when (profile.type) {
+            "M3U_URL", "M3U_FILE" -> showPlaylistDialog(profile)
+            "XTREAM" -> showXtreamDialog(profile)
+        }
+    }
 
-    private fun showPlaylistDialog() {
+    // ── Dialogue "Charger votre playlist" (M3U url/fichier) ────────────────
+    // [editing] non-null : dialogue ouvert en modification (pré-rempli, la
+    // sauvegarde réutilise son id — cf. PlaylistRepository.saveM3u*Profile).
+
+    private fun showPlaylistDialog(editing: PlaylistProfileEntity?) {
         val dialogBinding = DialogFormPlaylistBinding.inflate(layoutInflater)
         playlistDialogBinding = dialogBinding
         pickedFileUri = null
+        if (editing != null) {
+            dialogBinding.etPlaylistName.setText(editing.name)
+            dialogBinding.etM3uUrl.setText(editing.m3uUrl)
+            // Le fichier local n'est pas re-proposé (l'Uri SAF d'origine reste
+            // valide tel quel) : modifier ne touche que le nom/l'URL ici — pour
+            // changer de fichier, il faut recréer le profil.
+        }
 
         val dialog = AlertDialog.Builder(this)
             .setTitle(R.string.setup_type_playlist)
@@ -119,17 +138,18 @@ class SetupActivity : BaseActivity() {
             val name = dialogBinding.etPlaylistName.text.toString().trim()
             val url = dialogBinding.etM3uUrl.text.toString().trim()
             val fileUri = pickedFileUri
-            if (name.isBlank() || (url.isBlank() && fileUri == null)) {
+            if (name.isBlank() || (url.isBlank() && fileUri == null && editing?.m3uFileUri.isNullOrBlank())) {
                 showStatus(getString(R.string.setup_error_empty_url)); return@setOnClickListener
             }
             dialog.dismiss()
             setLoading(true)
             lifecycleScope.launch {
                 val app = application as IptvApplication
-                val id = if (fileUri != null) {
-                    app.playlistRepository.saveM3uFileProfile(name, fileUri.toString())
-                } else {
-                    app.playlistRepository.saveM3uUrlProfile(name, url)
+                val existingId = editing?.id ?: 0
+                val id = when {
+                    fileUri != null -> app.playlistRepository.saveM3uFileProfile(name, fileUri.toString(), existingId)
+                    url.isNotBlank() -> app.playlistRepository.saveM3uUrlProfile(name, url, existingId)
+                    else -> app.playlistRepository.saveM3uFileProfile(name, editing!!.m3uFileUri, existingId)
                 }
                 loadProfile(id)
             }
@@ -158,9 +178,17 @@ class SetupActivity : BaseActivity() {
     }
 
     // ── Dialogue "Xtream Codes" ──────────────────────────────────────────────
+    // [editing] non-null : dialogue ouvert en modification (pré-rempli, id
+    // réutilisé à la sauvegarde — cf. PlaylistRepository.saveXtreamProfile).
 
-    private fun showXtreamDialog() {
+    private fun showXtreamDialog(editing: PlaylistProfileEntity?) {
         val dialogBinding = DialogFormXtreamBinding.inflate(layoutInflater)
+        if (editing != null) {
+            dialogBinding.etXtreamName.setText(editing.name)
+            dialogBinding.etXtreamHost.setText(editing.xtreamHost)
+            dialogBinding.etXtreamUser.setText(editing.xtreamUsername)
+            dialogBinding.etXtreamPass.setText(editing.xtreamPassword)
+        }
 
         val dialog = AlertDialog.Builder(this)
             .setTitle(R.string.setup_type_xtream)
@@ -181,7 +209,7 @@ class SetupActivity : BaseActivity() {
             setLoading(true)
             lifecycleScope.launch {
                 val app = application as IptvApplication
-                val id = app.playlistRepository.saveXtreamProfile(name, host, user, pass)
+                val id = app.playlistRepository.saveXtreamProfile(name, host, user, pass, editing?.id ?: 0)
                 loadProfile(id)
             }
         }

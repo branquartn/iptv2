@@ -13,6 +13,7 @@ import com.nicotv.iptv2.databinding.ItemProfileBinding
 
 class ProfileAdapter(
     private val onClick: (PlaylistProfileEntity) -> Unit,
+    private val onEdit: (PlaylistProfileEntity) -> Unit,
     private val onDelete: (PlaylistProfileEntity) -> Unit
 ) : ListAdapter<PlaylistProfileEntity, ProfileAdapter.VH>(DIFF) {
 
@@ -47,6 +48,7 @@ class ProfileAdapter(
                 }
             )
             b.root.setOnClickListener { onClick(profile) }
+            b.btnEdit.setOnClickListener { onEdit(profile) }
             b.btnDelete.setOnClickListener { onDelete(profile) }
         }
     }

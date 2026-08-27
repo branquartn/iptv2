@@ -93,17 +93,21 @@ class PlaylistRepository(
         exists
     }
 
-    suspend fun saveM3uUrlProfile(name: String, url: String): Long = withContext(Dispatchers.IO) {
-        db.playlistProfileDao().insert(PlaylistProfileEntity(name = name, type = SourceType.M3U_URL.name, m3uUrl = url))
+    // [existingId] : passé depuis le dialogue "Modifier" (ProfileAdapter.onEdit)
+    // — insert() est en OnConflictStrategy.REPLACE, donc réutiliser l'id
+    // existant écrase la même ligne (édition) au lieu d'en créer une nouvelle.
+    // Laissé à 0 (défaut) pour un nouveau profil : Room lui assigne un id.
+    suspend fun saveM3uUrlProfile(name: String, url: String, existingId: Long = 0): Long = withContext(Dispatchers.IO) {
+        db.playlistProfileDao().insert(PlaylistProfileEntity(id = existingId, name = name, type = SourceType.M3U_URL.name, m3uUrl = url))
     }
 
-    suspend fun saveM3uFileProfile(name: String, uri: String): Long = withContext(Dispatchers.IO) {
-        db.playlistProfileDao().insert(PlaylistProfileEntity(name = name, type = SourceType.M3U_FILE.name, m3uFileUri = uri))
+    suspend fun saveM3uFileProfile(name: String, uri: String, existingId: Long = 0): Long = withContext(Dispatchers.IO) {
+        db.playlistProfileDao().insert(PlaylistProfileEntity(id = existingId, name = name, type = SourceType.M3U_FILE.name, m3uFileUri = uri))
     }
 
-    suspend fun saveXtreamProfile(name: String, host: String, username: String, password: String): Long = withContext(Dispatchers.IO) {
+    suspend fun saveXtreamProfile(name: String, host: String, username: String, password: String, existingId: Long = 0): Long = withContext(Dispatchers.IO) {
         db.playlistProfileDao().insert(
-            PlaylistProfileEntity(name = name, type = SourceType.XTREAM.name, xtreamHost = host, xtreamUsername = username, xtreamPassword = password)
+            PlaylistProfileEntity(id = existingId, name = name, type = SourceType.XTREAM.name, xtreamHost = host, xtreamUsername = username, xtreamPassword = password)
         )
     }
 
