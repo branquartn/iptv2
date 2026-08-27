@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="64dp"
+    android:layout_height="wrap_content"
+    android:layout_margin="4dp"
+    android:focusable="true"
+    android:clickable="true"
+    android:clipChildren="false"
+    android:clipToPadding="false">
+
+    <!-- Hauteur dérivée du ratio 2:3 (affiche), PAS une hauteur fixe : sinon une
+         largeur de cellule variable (grille 3 colonnes selon la largeur du dialog,
+         qui change entre TV/tablette/téléphone) donne une jaquette carrée/déformée
+         au lieu du bon format. Largeur = 0dp pinné start/end → dimension "fixe",
+         ratio calcule la hauteur à partir d'elle (pas de contrainte bottom, sinon
+         sur-contraint). -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/card_view"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:cardCornerRadius="6dp"
+        app:cardElevation="3dp"
+        app:cardBackgroundColor="@color/bg_card"
+        app:layout_constraintDimensionRatio="2:3"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <ImageView
+            android:id="@+id/iv_poster"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/bg_card"
+            android:scaleType="centerCrop" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_gravity="bottom"
+            android:background="@drawable/poster_title_scrim" />
+
+        <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="24dp"
+            android:paddingBottom="7dp"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textColor="@android:color/white"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <com.nicotv.iptv2.ui.common.RotatingBorderView
+            android:id="@+id/focus_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="invisible" />
+
+        <!-- Type "Film"/"Série" (cf. .poster .badge PWA), coin opposé au badge ✓/+. -->
+        <TextView
+            android:id="@+id/tv_badge_type"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
+            android:layout_margin="4dp"
+            android:background="@drawable/bg_badge_type"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
+            android:textColor="@android:color/white"
+            android:textSize="9sp"
+            android:textStyle="bold"
+            android:elevation="10dp"
+            android:visibility="gone" />
+
+        <!-- ✓ déjà dans la médiathèque / + pas encore ajouté (cf. .poster .addbtn PWA).
+             Cliquable indépendamment de la carte : + ajoute/✓ ouvre, alors que le
+             reste de la carte (jaquette/titre) ouvre l'aperçu (synopsis+bande-annonce). -->
+        <TextView
+            android:id="@+id/tv_badge_owned"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_gravity="top|end"
+            android:layout_margin="4dp"
+            android:gravity="center"
+            android:textColor="@android:color/white"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:elevation="10dp"
+            android:focusable="true"
+            android:clickable="true" />
+
+    </androidx.cardview.widget.CardView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -14,11 +14,14 @@ import com.nicotv.iptv2.data.database.entity.SeriesEntity
 import com.nicotv.iptv2.data.database.entity.WatchHistoryEntity
 import com.nicotv.iptv2.data.m3u.M3uEntry
 import com.nicotv.iptv2.data.m3u.M3uParser
+import com.nicotv.iptv2.AppConfig
 import com.nicotv.iptv2.data.tmdb.TmdbClient
 import com.nicotv.iptv2.data.xtream.XtreamClient
 import com.nicotv.iptv2.domain.model.Channel
 import com.nicotv.iptv2.domain.model.EpisodeProgress
 import com.nicotv.iptv2.domain.model.Movie
+import com.nicotv.iptv2.domain.model.OpenTarget
+import com.nicotv.iptv2.domain.model.SimilarWork
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -392,6 +395,63 @@ class PlaylistRepository(
     }
 
     suspend fun getSeriesEntityById(id: Long): SeriesEntity? = withContext(Dispatchers.IO) { db.seriesDao().getById(id) }
+
+    // ── Fiche film enrichie (casting, réalisateur, similaires, bande-annonce) ──
+    // Même présentation que NicoTV, appelée directement à l'ouverture de la fiche
+    // (pas au chargement de la playlist — un catalogue de plusieurs milliers de
+    // titres ne peut pas tous être résolus contre TMDb d'un coup).
+
+    /** Résout l'id TMDb d'un titre (pour les appels credits/recommendations/videos
+     * qui suivent) — recherche par titre, pas de tmdbId stocké en base. */
+    suspend fun resolveTmdbMovieId(title: String): Int? =
+        tmdbClient.searchMovie(title)?.id?.takeIf { it > 0 }
+
+    suspend fun getMovieCredits(tmdbId: Int) = tmdbClient.getMovieCredits(tmdbId)
+
+    suspend fun getMovieTrailerKey(tmdbId: Int) = tmdbClient.getTrailerKey(tmdbId, isTv = false)
+
+    suspend fun getWorkTrailerKey(tmdbId: Int, isTv: Boolean) = tmdbClient.getTrailerKey(tmdbId, isTv)
+
+    suspend fun getWorkGenresAndRuntime(tmdbId: Int, isTv: Boolean) = tmdbClient.getGenresAndRuntime(tmdbId, isTv)
+
+    suspend fun getMovieRecommendations(tmdbId: Int): List<SimilarWork> = withContext(Dispatchers.IO) {
+        tmdbClient.getMovieRecommendations(tmdbId).map { toSimilarWork(it) }
+    }
+
+    suspend fun getPerson(personId: Int) = tmdbClient.getPerson(personId)
+
+    suspend fun getPersonFilmography(personId: Int): List<SimilarWork> = withContext(Dispatchers.IO) {
+        val (cast, _) = tmdbClient.getPersonCombinedCredits(personId)
+        cast.filter { it.posterPath != null }.map { toSimilarWork(it) }
+    }
+
+    /** Films/séries réalisés (crew, job=Director) — pas la filmographie d'acteur. */
+    suspend fun getPersonDirected(personId: Int): List<SimilarWork> = withContext(Dispatchers.IO) {
+        val (_, crew) = tmdbClient.getPersonCombinedCredits(personId)
+        crew.filter { it.job == "Director" && it.posterPath != null }.map { toSimilarWork(it) }
+    }
+
+    private suspend fun toSimilarWork(work: com.nicotv.iptv2.data.tmdb.TmdbWork): SimilarWork {
+        val owned = if (work.isTv) db.seriesDao().findByTitle(work.title) != null
+                    else db.movieDao().findByTitle(work.title) != null
+        return SimilarWork(
+            tmdbId = work.id, isTv = work.isTv, title = work.title, year = work.year,
+            posterUrl = work.posterPath?.let { AppConfig.Tmdb.IMAGE_BASE_W500 + it }.orEmpty(),
+            owned = owned, overview = work.overview,
+            backdropUrl = work.backdropPath?.let { AppConfig.Tmdb.IMAGE_BASE_W780 + it }.orEmpty(),
+            rating = work.rating
+        )
+    }
+
+    /** Déjà dans le catalogue → cible de navigation ; sinon null (pas de backend
+     * pour l'ajouter — contrairement à NicoTV, cf. domain.SimilarWork). */
+    suspend fun resolveOpenTarget(work: SimilarWork): OpenTarget? = withContext(Dispatchers.IO) {
+        if (work.isTv) {
+            db.seriesDao().findByTitle(work.title)?.let { OpenTarget.SeriesTarget(it.id, it.title, it.posterUrl) }
+        } else {
+            db.movieDao().findByTitle(work.title)?.let { OpenTarget.MovieTarget(it.id) }
+        }
+    }
 
     suspend fun isSeriesFavorite(id: Long): Boolean = withContext(Dispatchers.IO) { db.favoriteDao().isFavorite(id, FavoriteEntity.Type.SERIES) }
 

@@ -3,193 +3,404 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg_dark">
+    android:background="@color/bg_dark"
+    android:clipChildren="false"
+    android:clipToPadding="false">
 
+    <!-- Backdrop plein écran -->
     <ImageView
         android:id="@+id/iv_backdrop"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:scaleType="centerCrop"
-        android:alpha="0.55" />
+        android:alpha="0.5" />
 
     <View
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@drawable/gradient_detail" />
 
-    <!-- Retour -->
-    <FrameLayout
-        android:id="@+id/btn_back"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_margin="24dp"
-        android:focusable="true"
-        android:clickable="true"
-        android:clipChildren="false"
-        android:clipToPadding="false"
-        android:defaultFocusHighlightEnabled="false">
-
-        <ImageView
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:layout_gravity="center"
-            android:src="@drawable/ic_pwa_back"
-            app:tint="@android:color/white" />
-
-        <com.nicotv.iptv2.ui.common.RotatingBorderView
-            android:id="@+id/btn_back_ring"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            app:circular="true"
-            app:borderColor="@android:color/white"
-            android:visibility="invisible" />
-    </FrameLayout>
-
-    <ScrollView
+    <!-- [zone défilante (poster+infos, casting, films similaires)][boutons fixes] -->
+    <LinearLayout
+        android:id="@+id/content_root"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true">
+        android:orientation="vertical"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:paddingStart="48dp"
+        android:paddingEnd="48dp"
+        android:paddingTop="48dp"
+        android:paddingBottom="48dp">
 
+        <FrameLayout
+            android:id="@+id/scroll_frame"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_marginBottom="24dp"
+            android:clipChildren="true"
+            android:clipToPadding="true">
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipChildren="true"
+                android:clipToPadding="true"
+                android:overScrollMode="never"
+                android:scrollbars="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <!-- Tête : poster + infos -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <androidx.cardview.widget.CardView
+                            android:id="@+id/card_poster"
+                            android:layout_width="150dp"
+                            android:layout_height="225dp"
+                            android:layout_marginEnd="32dp"
+                            app:cardCornerRadius="10dp"
+                            app:cardElevation="6dp"
+                            app:cardBackgroundColor="@color/bg_card">
+
+                            <com.nicotv.iptv2.ui.common.PosterImageView
+                                android:id="@+id/iv_poster"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:scaleType="centerCrop" />
+                        </androidx.cardview.widget.CardView>
+
+                        <LinearLayout
+                            android:id="@+id/ll_info_column"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/tv_title"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:textColor="@color/text_primary"
+                                android:textSize="36sp"
+                                android:textStyle="bold" />
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="10dp"
+                                android:layout_marginBottom="10dp"
+                                android:orientation="horizontal">
+
+                                <TextView
+                                    android:id="@+id/tv_year"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginEnd="16dp"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="15sp" />
+
+                                <TextView
+                                    android:id="@+id/tv_runtime"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginEnd="16dp"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="15sp" />
+
+                                <TextView
+                                    android:id="@+id/tv_rating"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:textColor="@color/rating_color"
+                                    android:textSize="15sp" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/tv_genres"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginBottom="8dp"
+                                android:textColor="@color/accent"
+                                android:textSize="13sp" />
+
+                            <TextView
+                                android:id="@+id/tv_overview"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginBottom="12dp"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="14sp"
+                                android:lineSpacingMultiplier="1.5"
+                                android:maxLines="3"
+                                android:ellipsize="end" />
+
+                            <TextView
+                                android:id="@+id/tv_overview_toggle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:layout_marginBottom="16dp"
+                                android:paddingStart="6dp"
+                                android:paddingEnd="6dp"
+                                android:text="@string/overview_more"
+                                android:textColor="@color/accent"
+                                android:textSize="13sp"
+                                android:textStyle="bold"
+                                android:focusable="true"
+                                android:clickable="true"
+                                android:visibility="gone" />
+
+                            <!-- Réalisateur : clic ouvre sa fiche/filmographie -->
+                            <LinearLayout
+                                android:id="@+id/ll_director"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginBottom="16dp"
+                                android:orientation="horizontal"
+                                android:visibility="gone">
+
+                                <TextView
+                                    android:id="@+id/tv_director_label"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_gravity="center_vertical"
+                                    android:text="@string/directed_by_label"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="13sp" />
+
+                                <TextView
+                                    android:id="@+id/tv_director"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="2dp"
+                                    android:paddingStart="6dp"
+                                    android:paddingEnd="6dp"
+                                    android:textColor="@color/accent"
+                                    android:textSize="13sp"
+                                    android:textStyle="bold"
+                                    android:focusable="true"
+                                    android:clickable="true" />
+                            </LinearLayout>
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <!-- Casting : pleine largeur -->
+                    <TextView
+                        android:id="@+id/tv_cast_title"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:layout_marginBottom="6dp"
+                        android:text="@string/title_casting"
+                        android:textColor="@color/text_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rv_cast"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:layout_marginBottom="10dp"
+                        android:orientation="horizontal"
+                        android:clipChildren="false"
+                        android:clipToPadding="false"
+                        android:visibility="gone" />
+
+                    <!-- Films similaires : pleine largeur -->
+                    <TextView
+                        android:id="@+id/tv_similar_title"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="6dp"
+                        android:text="@string/title_similar_movies"
+                        android:textColor="@color/text_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rv_similar"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:layout_marginBottom="4dp"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="8dp"
+                        android:paddingTop="8dp"
+                        android:paddingBottom="8dp"
+                        android:orientation="horizontal"
+                        android:clipChildren="false"
+                        android:clipToPadding="false"
+                        android:visibility="gone" />
+
+                </LinearLayout>
+            </ScrollView>
+        </FrameLayout>
+
+        <!-- Boutons fixes -->
         <LinearLayout
+            android:id="@+id/ll_buttons_row"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="bottom"
-            android:paddingStart="40dp"
-            android:paddingEnd="40dp"
-            android:paddingTop="120dp"
-            android:paddingBottom="40dp"
             android:clipChildren="false"
             android:clipToPadding="false">
 
-            <androidx.cardview.widget.CardView
-                android:id="@+id/card_poster"
-                android:layout_width="180dp"
-                android:layout_height="260dp"
-                android:layout_marginEnd="32dp"
-                app:cardCornerRadius="10dp"
-                app:cardElevation="12dp"
-                app:cardBackgroundColor="@color/bg_card">
+            <FrameLayout
+                android:id="@+id/btn_play"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:focusable="true"
+                android:clickable="true"
+                android:clipChildren="false"
+                android:clipToPadding="false">
 
-                <com.nicotv.iptv2.ui.common.PosterImageView
-                    android:id="@+id/iv_poster"
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_pwa_play" />
+
+                <com.nicotv.iptv2.ui.common.RotatingBorderView
+                    android:id="@+id/btn_play_ring"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:scaleType="centerCrop" />
-            </androidx.cardview.widget.CardView>
+                    app:circular="true"
+                    app:borderColor="@android:color/white"
+                    android:visibility="invisible" />
+            </FrameLayout>
 
-            <LinearLayout
-                android:layout_width="0dp"
+            <FrameLayout
+                android:id="@+id/btn_favorite"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="8dp"
+                android:focusable="true"
+                android:clickable="true"
+                android:clipChildren="false"
+                android:clipToPadding="false">
+
+                <ImageView
+                    android:id="@+id/iv_favorite"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_favorite_border" />
+
+                <com.nicotv.iptv2.ui.common.RotatingBorderView
+                    android:id="@+id/btn_favorite_ring"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    app:circular="true"
+                    app:borderColor="@android:color/white"
+                    android:visibility="invisible" />
+            </FrameLayout>
+
+            <!-- ⟳ Recommencer (visible seulement si reprise disponible) -->
+            <FrameLayout
+                android:id="@+id/btn_restart"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="8dp"
+                android:focusable="true"
+                android:clickable="true"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:visibility="gone">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_pwa_restart"
+                    app:tint="@color/text_secondary" />
+
+                <com.nicotv.iptv2.ui.common.RotatingBorderView
+                    android:id="@+id/btn_restart_ring"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    app:circular="true"
+                    app:borderColor="@android:color/white"
+                    android:visibility="invisible" />
+            </FrameLayout>
+
+            <!-- Bande-annonce -->
+            <FrameLayout
+                android:id="@+id/btn_trailer"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="8dp"
+                android:focusable="true"
+                android:clickable="true"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:visibility="gone">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_movies" />
+
+                <com.nicotv.iptv2.ui.common.RotatingBorderView
+                    android:id="@+id/btn_trailer_ring"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    app:circular="true"
+                    app:borderColor="@android:color/white"
+                    android:visibility="invisible" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/tv_play_runtime"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
+                android:layout_gravity="center_vertical"
+                android:layout_marginStart="8dp"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp"
+                android:visibility="gone" />
 
-                <TextView
-                    android:id="@+id/tv_title"
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <FrameLayout
+                android:id="@+id/btn_back"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:focusable="true"
+                android:clickable="true"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:defaultFocusHighlightEnabled="false">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_pwa_back" />
+
+                <com.nicotv.iptv2.ui.common.RotatingBorderView
+                    android:id="@+id/btn_back_ring"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textColor="@android:color/white"
-                    android:textSize="30sp"
-                    android:textStyle="bold"
-                    android:maxLines="2"
-                    android:ellipsize="end" />
-
-                <TextView
-                    android:id="@+id/tv_meta"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="14sp" />
-
-                <TextView
-                    android:id="@+id/tv_genres"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="13sp" />
-
-                <TextView
-                    android:id="@+id/tv_overview"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp"
-                    android:lineSpacingMultiplier="1.2"
-                    android:maxLines="6"
-                    android:ellipsize="end" />
-
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="22dp"
-                    android:orientation="horizontal"
-                    android:clipChildren="false"
-                    android:clipToPadding="false">
-
-                    <FrameLayout
-                        android:id="@+id/btn_play"
-                        android:layout_width="wrap_content"
-                        android:layout_height="52dp"
-                        android:layout_marginEnd="16dp"
-                        android:background="@drawable/bg_btn_primary"
-                        android:focusable="true"
-                        android:clickable="true"
-                        android:clipChildren="false"
-                        android:clipToPadding="false">
-
-                        <TextView
-                            android:id="@+id/tv_play_label"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_gravity="center"
-                            android:paddingStart="28dp"
-                            android:paddingEnd="28dp"
-                            android:text="@string/action_play"
-                            android:textColor="@android:color/white"
-                            android:textSize="15sp"
-                            android:textStyle="bold" />
-
-                        <com.nicotv.iptv2.ui.common.RotatingBorderView
-                            android:id="@+id/btn_play_ring"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            app:cornerRadius="26dp"
-                            app:borderColor="@android:color/white"
-                            android:visibility="invisible" />
-                    </FrameLayout>
-
-                    <FrameLayout
-                        android:id="@+id/btn_favorite"
-                        android:layout_width="52dp"
-                        android:layout_height="52dp"
-                        android:background="@drawable/bg_btn_secondary"
-                        android:focusable="true"
-                        android:clickable="true"
-                        android:clipChildren="false"
-                        android:clipToPadding="false">
-
-                        <ImageView
-                            android:id="@+id/iv_favorite"
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_favorite_border"
-                            app:tint="@android:color/white" />
-
-                        <com.nicotv.iptv2.ui.common.RotatingBorderView
-                            android:id="@+id/btn_favorite_ring"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            app:circular="true"
-                            app:borderColor="@android:color/white"
-                            android:visibility="invisible" />
-                    </FrameLayout>
-                </LinearLayout>
-            </LinearLayout>
+                    android:layout_height="match_parent"
+                    android:layout_margin="3dp"
+                    app:circular="true"
+                    app:borderColor="@android:color/white"
+                    android:visibility="invisible" />
+            </FrameLayout>
         </LinearLayout>
-    </ScrollView>
-
+    </LinearLayout>
 </FrameLayout>

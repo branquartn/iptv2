@@ -7,7 +7,12 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.nicotv.iptv2.IptvApplication
 import com.nicotv.iptv2.data.database.entity.FavoriteEntity
+import com.nicotv.iptv2.data.tmdb.TmdbCastMember
+import com.nicotv.iptv2.data.tmdb.TmdbCrewMember
+import com.nicotv.iptv2.data.tmdb.TmdbPerson
 import com.nicotv.iptv2.domain.model.Movie
+import com.nicotv.iptv2.domain.model.OpenTarget
+import com.nicotv.iptv2.domain.model.SimilarWork
 import kotlinx.coroutines.launch
 
 class DetailViewModel(application: Application) : AndroidViewModel(application) {
@@ -20,6 +25,25 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _resumePositionMs = MutableLiveData(0L)
     val resumePositionMs: LiveData<Long> = _resumePositionMs
+
+    private val _cast = MutableLiveData<List<TmdbCastMember>>(emptyList())
+    val cast: LiveData<List<TmdbCastMember>> = _cast
+
+    private val _director = MutableLiveData<TmdbCrewMember?>(null)
+    val director: LiveData<TmdbCrewMember?> = _director
+
+    private val _similar = MutableLiveData<List<SimilarWork>>(emptyList())
+    val similar: LiveData<List<SimilarWork>> = _similar
+
+    // true dès qu'un match TMDb a été trouvé pour ce titre — pilote la visibilité
+    // du bouton bande-annonce (async, résolu dans loadExtras).
+    private val _hasTmdbMatch = MutableLiveData(false)
+    val hasTmdbMatch: LiveData<Boolean> = _hasTmdbMatch
+
+    // Id TMDb résolu pour ce film (recherche par titre) — 0 tant que loadExtras()
+    // n'a pas trouvé de correspondance. Utilisé par le bouton bande-annonce.
+    private var tmdbMovieId: Int = 0
+    private var extrasLoadedFor = -1L
 
     fun load(movieId: Long) {
         viewModelScope.launch {
@@ -36,4 +60,37 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
             _movie.value = m.copy(isFavorite = !m.isFavorite)
         }
     }
+
+    /** Casting, réalisateur, films similaires — une seule fois par film (résolution
+     * du tmdbId par titre, pas de champ stocké). */
+    fun loadExtras(movieId: Long, title: String) {
+        if (extrasLoadedFor == movieId) return
+        extrasLoadedFor = movieId
+        viewModelScope.launch {
+            val tmdbId = repository.resolveTmdbMovieId(title)
+            if (tmdbId == null) { _hasTmdbMatch.value = false; return@launch }
+            tmdbMovieId = tmdbId
+            _hasTmdbMatch.value = true
+            val credits = repository.getMovieCredits(tmdbId)
+            _cast.value = credits.cast.filter { !it.profilePath.isNullOrBlank() }.take(20)
+            _director.value = credits.crew.firstOrNull { it.job == "Director" }
+            _similar.value = repository.getMovieRecommendations(tmdbId)
+        }
+    }
+
+    suspend fun loadTrailerKey(): String? = if (tmdbMovieId <= 0) null else repository.getMovieTrailerKey(tmdbMovieId)
+
+    suspend fun loadTrailerKeyFor(tmdbId: Int, isTv: Boolean): String? =
+        if (tmdbId <= 0) null else repository.getWorkTrailerKey(tmdbId, isTv)
+
+    suspend fun loadWorkGenresAndRuntime(tmdbId: Int, isTv: Boolean): Pair<String, Int> =
+        if (tmdbId <= 0) "" to 0 else repository.getWorkGenresAndRuntime(tmdbId, isTv)
+
+    suspend fun loadPerson(personId: Int): TmdbPerson? = repository.getPerson(personId)
+
+    suspend fun loadPersonFilmography(personId: Int): List<SimilarWork> = repository.getPersonFilmography(personId)
+
+    suspend fun loadPersonDirected(personId: Int): List<SimilarWork> = repository.getPersonDirected(personId)
+
+    suspend fun resolveTarget(work: SimilarWork): OpenTarget? = repository.resolveOpenTarget(work)
 }

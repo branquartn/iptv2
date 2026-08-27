@@ -20,6 +20,18 @@
     <string name="action_load">Charger</string>
     <string name="action_connect">Se connecter</string>
 
+    <!-- Fiche film (casting/réalisateur/similaires, portage NicoTV) -->
+    <string name="overview_more">+ Lire la suite</string>
+    <string name="overview_less">Réduire</string>
+    <string name="title_casting">Casting</string>
+    <string name="directed_by_label">Réalisé par</string>
+    <string name="title_similar_movies">Films similaires</string>
+    <string name="title_filmography">Filmographie</string>
+    <string name="title_directed_films">Films réalisés</string>
+    <string name="no_overview">Pas de description disponible.</string>
+    <string name="not_available_yet">Pas encore de bande-annonce disponible</string>
+    <string name="work_not_in_playlist">Pas dans votre playlist</string>
+
     <!-- Recherche -->
     <string name="search_hint_all">Rechercher un film, une série, une chaîne…</string>
     <string name="search_hint_channel">Rechercher une chaîne…</string>

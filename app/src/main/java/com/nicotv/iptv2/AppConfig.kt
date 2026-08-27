@@ -15,6 +15,7 @@ object AppConfig {
         // jaquette (cf. PlaylistRepository.enrichArtwork).
         const val API_KEY = "be621d27c02423535518d21ff252ca0c"
         const val BASE_URL = "https://api.themoviedb.org/3/"
+        const val IMAGE_BASE_W185 = "https://image.tmdb.org/t/p/w185"
         const val IMAGE_BASE_W500 = "https://image.tmdb.org/t/p/w500"
         const val IMAGE_BASE_W780 = "https://image.tmdb.org/t/p/w780"
         const val LANGUAGE = "fr-FR"

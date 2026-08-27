@@ -12,6 +12,11 @@ interface MovieDao {
     @Query("SELECT * FROM movies WHERE id = :id LIMIT 1")
     suspend fun getMovieById(id: Long): MovieEntity?
 
+    // "Déjà dans le catalogue ?" pour le badge ✓/+ des films similaires/filmographie
+    // acteur (pas de tmdbId stocké — nos films viennent d'un M3U/Xtream, pas de TMDb).
+    @Query("SELECT * FROM movies WHERE title = :title COLLATE NOCASE LIMIT 1")
+    suspend fun findByTitle(title: String): MovieEntity?
+
     @Query("SELECT DISTINCT category FROM movies WHERE category != '' ORDER BY category ASC")
     fun getCategories(): Flow<List<String>>
 
