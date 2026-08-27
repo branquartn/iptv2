@@ -1,6 +1,6 @@
 {
   "versionCode": 1,
   "versionName": "1.0.0",
-  "apkUrl": "https://iptv2.nicotv.ovh/iptv2-1.0.0.apk",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.0.apk",
   "changelog": "Première version : lecture d'une playlist M3U (fichier local ou URL) ou d'un compte Xtream Codes, sans compte ni connexion."
 }

@@ -172,7 +172,7 @@ tasks.register("publishReleaseToIptv2Update") {
             {
               "versionCode": $versionCode,
               "versionName": "$versionName",
-              "apkUrl": "https://iptv2.nicotv.ovh/$apkName",
+              "apkUrl": "https://iptv2.nicotv.ovh/update/$apkName",
               "changelog": "$changelogEscaped"
             }
             """.trimIndent() + "\n"

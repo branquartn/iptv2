@@ -96,16 +96,20 @@ heartbeat de présence, téléchargements hors-ligne (aucun sens sans compte
 serveur). `historyKey` calculé depuis `seriesId`/`fileKeyExtra` (voir
 `PlayerActivity.historyKey`) plutôt que transmis en extra séparé.
 
-## Mise à jour OTA
+## Mise à jour OTA + panel de build
 
 - `UpdateManager.checkForUpdate()` lit `AppConfig.Update.VERSION_URL`
-  (`https://iptv2.nicotv.ovh/version.json`), propose la MAJ si
+  (`https://iptv2.nicotv.ovh/update/version.json`), propose la MAJ si
   `remote.versionCode > BuildConfig.VERSION_CODE`.
 - Déclenché dans `SetupActivity.onCreate()` (avant tout chargement) et
   `MainActivity.onStart()`, throttlé à 2 min.
-- Process de release détaillé : [`server/README.md`](server/README.md).
+- `iptv2.nicotv.ovh` héberge **aussi** un panel de build (Git Pull/Build,
+  calqué sur `apk2.nicotv.ovh`) — racine du domaine protégée par Cloudflare
+  Access, `/update/` en bypass explicite (2 Access Applications distinctes,
+  sinon l'app ne peut pas lire `version.json`). Détail complet, y compris le
+  script `iptv2-builder.sh` et les unités systemd : [`server/README.md`](server/README.md).
   **Consigne fixe** : Claude bumpe/commit/push, ne compile **jamais** — le
-  build (debug inclus) et le déploiement restent toujours à l'utilisateur.
+  build (via le panel ou en local) reste toujours à l'utilisateur.
 
 ## Branding — à finaliser
 
