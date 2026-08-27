@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Contenu du dialogue "Charger votre playlist" (carte Playlist sur l'écran
      de démarrage) — affiché centré via AlertDialog au lieu de s'étaler sous
-     les cartes de choix. -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+     les cartes de choix. ScrollView : cf. commentaire équivalent dans
+     dialog_form_xtream.xml (clavier + paysage = bouton hors zone visible). -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:maxHeight="320dp"
+    android:fillViewport="true">
+
+<LinearLayout
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
@@ -77,3 +84,4 @@
         android:textColor="@android:color/white" />
 
 </LinearLayout>
+</ScrollView>

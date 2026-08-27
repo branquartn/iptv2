@@ -1,8 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Contenu du dialogue "Xtream Codes" (carte Xtream sur l'écran de démarrage)
      — affiché centré via AlertDialog au lieu de s'étaler sous les cartes de
-     choix. -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+     choix. ScrollView : en paysage (écran forcé sensorLandscape) le clavier
+     prend une bonne partie des ~360dp de hauteur dispo, sans ça le bouton
+     "Se connecter" sortait de la zone visible dès que le clavier était ouvert
+     sur le dernier champ. -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:maxHeight="320dp"
+    android:fillViewport="true">
+
+<LinearLayout
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
@@ -78,3 +87,4 @@
         android:textColor="@android:color/white" />
 
 </LinearLayout>
+</ScrollView>
