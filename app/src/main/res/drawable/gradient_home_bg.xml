@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Assombrit le fond aléatoire de l'accueil du haut vers le bas — mêmes valeurs
+     que le dégradé .hero::after de la PWA (45% → 80% → fond plein). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:type="linear"
+        android:angle="270"
+        android:startColor="#730F0F1A"
+        android:centerColor="#CC0F0F1A"
+        android:centerY="0.55"
+        android:endColor="#FF0F0F1A" />
+</shape>

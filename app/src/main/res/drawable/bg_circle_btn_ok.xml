@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Rond OK au centre de la molette : sombre/quasi noir (#0D0D14), pas bleu accent —
+     même contraste que la référence photo et le fix PWA (incident 2026-08-04). -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="#33333f">
+    <item android:id="@android:id/mask">
+        <shape android:shape="oval">
+            <solid android:color="@android:color/white" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="#0D0D14" />
+        </shape>
+    </item>
+</ripple>

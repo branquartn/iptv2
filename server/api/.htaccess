@@ -1,0 +1,9 @@
+# Protège la base SQLite : interdit l'accès direct au dossier data/ via HTTP.
+RedirectMatch 404 ^/api/data/
+
+# Route toutes les requêtes vers index.php (si mod_rewrite est actif).
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>

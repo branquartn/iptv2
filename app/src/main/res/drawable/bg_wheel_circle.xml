@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Couleur en dur (pas @color/bg_surface) pour matcher exactement le disque de la
+     PWA (#3A3A4C) — contraste net avec le rond OK (bg_circle_btn_ok, #0D0D14),
+     incident 2026-08-04 "je ne vois pas la différence de couleur". -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <solid android:color="#3A3A4C" />
+</shape>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icônes du player : blanches au repos, bleues (accent) au focus. Le bouton
+     lecture (exo_play_pause) n'est pas concerné : icône blanche fixe + anneau bleu
+     tournant (RotatingBorderView), cf. player_control_view.xml. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true" android:color="@color/accent" />
+    <item android:color="@android:color/white" />
+</selector>

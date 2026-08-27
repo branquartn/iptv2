@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Bouton play/pause centré (Media3 swap l'icône selon état) : icône blanche fixe
+         + anneau bleu tournant (RotatingBorderView), au lieu du tint rouge au focus. -->
+    <FrameLayout
+        android:layout_width="88dp"
+        android:layout_height="88dp"
+        android:layout_gravity="center"
+        android:clipChildren="false"
+        android:clipToPadding="false">
+
+        <ImageButton
+            android:id="@id/exo_play_pause"
+            android:layout_width="72dp"
+            android:layout_height="72dp"
+            android:layout_gravity="center"
+            android:src="@drawable/exo_styled_controls_play"
+            android:tint="@android:color/white"
+            android:background="@android:color/transparent"
+            android:scaleType="fitCenter"
+            android:contentDescription="Lecture / Pause" />
+
+        <com.nicotv.iptv.ui.common.RotatingBorderView
+            android:id="@+id/play_pause_ring"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:circular="true"
+            app:borderColor="@color/accent"
+            android:visibility="invisible" />
+
+    </FrameLayout>
+
+    <!-- Barre bas : position · défilement · durée · ⚙ -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="8dp"
+        android:paddingBottom="12dp">
+
+        <TextView
+            android:id="@id/exo_position"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@android:color/white"
+            android:textSize="13sp"
+            android:paddingEnd="8dp" />
+
+        <com.nicotv.iptv.player.PlayerSeekBar
+            android:id="@+id/player_seekbar"
+            android:layout_width="0dp"
+            android:layout_height="32dp"
+            android:layout_weight="1"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@id/exo_duration"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@android:color/white"
+            android:textSize="13sp"
+            android:paddingStart="8dp"
+            android:paddingEnd="4dp" />
+
+        <ImageButton
+            android:id="@+id/btn_settings_ctrl"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:padding="6dp"
+            android:src="@drawable/ic_player_settings"
+            android:tint="@color/player_icon_tint"
+            android:background="@android:color/transparent"
+            android:contentDescription="Paramètres"
+            android:focusable="true"
+            android:scaleType="fitCenter" />
+
+    </LinearLayout>
+
+</FrameLayout>

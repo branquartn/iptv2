@@ -1,0 +1,10 @@
+-keep class com.nicotv.iptv.data.** { *; }
+-keep class com.nicotv.iptv.domain.** { *; }
+-keep class androidx.media3.** { *; }
+-keep class androidx.leanback.** { *; }
+-dontwarn org.slf4j.impl.StaticLoggerBinder
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-dontwarn javax.annotation.**
+-keepattributes Signature
+-keepattributes *Annotation*

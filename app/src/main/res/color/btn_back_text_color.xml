@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bouton "Retour" (et autres boutons secondaires sur bg_btn_back) : texte
+     accent bleu au focus, remplace l'ancien soulignement blanc de bg_btn_back. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true" android:color="@color/accent" />
+    <item android:color="@color/text_primary" />
+</selector>

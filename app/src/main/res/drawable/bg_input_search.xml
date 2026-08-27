@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Comme bg_input, mais sans le contour blanc au focus (superposé par
+     RotatingBorderView, cf. search_ring dans les layouts de recherche) —
+     bg_input garde son contour pour login/password/création d'utilisateur. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#252535" />
+    <stroke android:width="1dp" android:color="#3A3A5C" />
+    <corners android:radius="8dp" />
+</shape>

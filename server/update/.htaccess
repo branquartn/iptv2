@@ -1,0 +1,5 @@
+# Interdit l'accès direct au log du webhook.
+<Files "webhook.log">
+    Order Allow,Deny
+    Deny from all
+</Files>

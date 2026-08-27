@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="RotatingBorderView">
+        <attr name="borderColor" format="color" />
+        <attr name="circular" format="boolean" />
+        <!-- Rayon des coins (défaut 6dp). À aligner sur le fond de la vue entourée
+             (ex. grandes cartes accueil = 16dp). Ignoré si circular=true. -->
+        <attr name="cornerRadius" format="dimension" />
+    </declare-styleable>
+
+    <declare-styleable name="MaxHeightScrollView">
+        <attr name="chromeReserveDp" format="integer" />
+    </declare-styleable>
+</resources>

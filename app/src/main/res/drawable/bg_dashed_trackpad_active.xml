@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- État actif du pavé tactile pendant un glissé — même logique que .remote-trackpad-
+     full.active côté PWA (incident 2026-08-04, uniformiser l'apparence). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#252535" />
+    <stroke android:width="2dp" android:color="@color/accent" android:dashWidth="8dp" android:dashGap="6dp" />
+    <corners android:radius="18dp" />
+</shape>

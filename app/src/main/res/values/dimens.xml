@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="nav_width">220dp</dimen>
+    <dimen name="card_width">200dp</dimen>
+    <dimen name="card_height">130dp</dimen>
+    <dimen name="content_padding">40dp</dimen>
+    <dimen name="banner_height">380dp</dimen>
+    <!-- Télécommande : diamètre de la molette D-pad. Volontairement prudent en
+         largeur par défaut (téléphones étroits en portrait : le disque était rogné
+         sur les côtés) ; agrandi via values-sw360dp/values-sw400dp. -->
+    <dimen name="remote_wheel_size">240dp</dimen>
+    <!-- Hauteur du pavé tactile de l'onglet Souris. -->
+    <dimen name="remote_touchpad_height">340dp</dimen>
+</resources>

@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="4dp"
+    android:focusable="true"
+    android:clickable="true"
+    android:clipChildren="false"
+    android:clipToPadding="false">
+
+    <androidx.cardview.widget.CardView
+        android:id="@+id/card_view"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:cardCornerRadius="6dp"
+        app:cardElevation="3dp"
+        app:cardBackgroundColor="@color/bg_card"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <com.nicotv.iptv.ui.common.PosterImageView
+            android:id="@+id/iv_poster"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/bg_card"
+            android:scaleType="centerCrop" />
+
+        <!-- Dégradé + titre superposés en bas de l'affiche (comme la PWA .poster .cap) :
+             toujours visible, indépendant du chargement de la jaquette. -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_gravity="bottom"
+            android:background="@drawable/poster_title_scrim" />
+
+        <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="24dp"
+            android:paddingBottom="7dp"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textColor="@android:color/white"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <ImageView
+            android:id="@+id/iv_favorite"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_gravity="top|end"
+            android:layout_margin="5dp"
+            android:src="@drawable/ic_favorite_filled"
+            android:visibility="gone" />
+
+        <!-- Badge reprise (film commencé non terminé), équivalent de la pastille lecture PWA. -->
+        <FrameLayout
+            android:id="@+id/badge_resume"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:layout_gravity="top|start"
+            android:layout_margin="5dp"
+            android:background="@drawable/bg_badge_resume"
+            android:visibility="gone">
+
+            <ImageView
+                android:layout_width="10dp"
+                android:layout_height="10dp"
+                android:layout_gravity="center"
+                android:layout_marginStart="1dp"
+                android:src="@drawable/ic_pwa_play" />
+        </FrameLayout>
+
+        <!-- Badge « ✓ Vu » (film regardé jusqu'à la fin). -->
+        <TextView
+            android:id="@+id/tv_badge_seen"
+            android:layout_width="wrap_content"
+            android:layout_height="20dp"
+            android:layout_gravity="bottom|end"
+            android:layout_margin="5dp"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp"
+            android:background="@drawable/bg_badge_seen"
+            android:gravity="center"
+            android:text="✓ Vu"
+            android:textColor="@android:color/white"
+            android:textSize="8sp"
+            android:textStyle="bold"
+            android:elevation="10dp"
+            android:visibility="gone" />
+
+        <!-- Téléchargement local (mode avion) : visible UNIQUEMENT si déjà téléchargé
+             (pas un bouton de lancement) — coin bas-droite, icône seule, petite. -->
+        <FrameLayout
+            android:id="@+id/badge_download"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_gravity="bottom|end"
+            android:layout_margin="5dp"
+            android:background="@drawable/bg_badge_resume"
+            android:elevation="10dp"
+            android:focusable="true"
+            android:clickable="true"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/iv_badge_download"
+                android:layout_width="9dp"
+                android:layout_height="9dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_download" />
+
+        </FrameLayout>
+
+        <!-- Badge « NOUVEAU » (titre récemment ajouté au catalogue). Placé dans la
+             CardView pour être rogné aux bords arrondis de l'affiche (overflow hidden). -->
+        <TextView
+            android:id="@+id/tv_badge_new"
+            android:layout_width="60dp"
+            android:layout_height="20dp"
+            android:layout_gravity="top|start"
+            android:layout_marginTop="8dp"
+            android:layout_marginStart="-16dp"
+            android:background="@drawable/bg_badge_new"
+            android:gravity="center"
+            android:rotation="-45"
+            android:text="@string/badge_new"
+            android:textColor="@android:color/white"
+            android:textSize="8sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.05"
+            android:elevation="10dp"
+            android:visibility="gone" />
+
+        <!-- Contour focus télécommande TV (rogné aux coins par CardView) : dégradé
+             qui tourne en continu tant que la vue a le focus (RotatingBorderView). -->
+        <com.nicotv.iptv.ui.common.RotatingBorderView
+            android:id="@+id/focus_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="invisible" />
+
+    </androidx.cardview.widget.CardView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

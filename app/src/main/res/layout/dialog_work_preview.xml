@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Racine : LinearLayout vertical, PAS directement le ScrollView — la ligne
+     bande-annonce/+ doit rester FIXE en bas (toujours visible sans scroller),
+     comme la barre de boutons de la fiche film normale (ll_buttons_row,
+     activity_detail.xml), au lieu de défiler avec le reste. Seuls poster+infos+
+     synopsis scrollent (MaxHeightScrollView : wrap_content jusqu'à un plafond,
+     scroll interne au-delà). -->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <!-- En-tête custom (titre + ✕) : mobile seulement (GONE par défaut, montré en
+         Kotlin) — remplace le titre/bouton OK de l'AlertDialog par un ✕ en haut à
+         droite, comme le modal-head de la PWA. Sur TV, le builder garde
+         setTitle/setNegativeButton (OK), cette rangée reste masquée. -->
+    <LinearLayout
+        android:id="@+id/preview_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="8dp"
+        android:layout_marginBottom="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <!-- ellipsize+maxLines : sans ça un titre long pousse le ✕ hors de la
+             fenêtre au lieu de tronquer (rangée horizontal_width=0dp+weight=1
+             wrap mais ne raccourcit pas le texte lui-même sans ça). -->
+        <TextView
+            android:id="@+id/tv_preview_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textColor="@color/text_primary"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/btn_preview_close"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="8dp"
+            android:gravity="center"
+            android:text="✕"
+            android:textColor="@color/text_secondary"
+            android:textSize="18sp"
+            android:focusable="true"
+            android:clickable="true" />
+
+    </LinearLayout>
+
+<com.nicotv.iptv.ui.common.MaxHeightScrollView
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:overScrollMode="never"
+    android:scrollbars="none">
+
+<LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <!-- Poster (150x225, ratio 2:3) + colonne infos à droite : même taille et
+         disposition que la fiche film normale (card_poster, activity_detail.xml) —
+         avant : grande affiche 190dp pleine largeur en haut. -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="110dp"
+            android:layout_height="165dp"
+            android:layout_marginEnd="16dp"
+            app:cardCornerRadius="10dp"
+            app:cardElevation="6dp"
+            app:cardBackgroundColor="@color/bg_card">
+
+            <ImageView
+                android:id="@+id/iv_preview_poster"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop" />
+
+        </androidx.cardview.widget.CardView>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <!-- Année / durée / note : mêmes infos que la fiche film normale (.meta). -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="6dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/tv_preview_year"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="14dp"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/tv_preview_runtime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="14dp"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/tv_preview_rating"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/rating_color"
+                    android:textSize="13sp"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+
+            <!-- Genres : même style que la fiche film normale (tv_genres, couleur accent). -->
+            <TextView
+                android:id="@+id/tv_preview_genres"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:textColor="@color/accent"
+                android:textSize="12sp"
+                android:visibility="gone" />
+
+            <!-- Synopsis DANS la colonne infos, à côté du poster — comme la fiche
+                 film normale (tv_overview dans ll_info_column), pas en pleine
+                 largeur en dessous. -->
+            <TextView
+                android:id="@+id/tv_preview_overview"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp"
+                android:lineSpacingMultiplier="1.4" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</LinearLayout>
+</com.nicotv.iptv.ui.common.MaxHeightScrollView>
+
+    <!-- « + Ajouter »/« ✓ Ouvrir » à côté de la bande-annonce : TV/Shield/Fire TV
+         seulement (SimilarWorkAdapter masque déjà le badge séparé sur ces
+         appareils — un seul clic sur la carte ouvre CET aperçu, qui centralise
+         donc les deux actions plutôt que d'exiger un focus D-pad séparé).
+         FIXE (hors du scroll ci-dessus) : toujours visible direct, comme la
+         barre de boutons de la fiche film normale. -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="8dp">
+
+        <!-- Bande-annonce : icône seule (ic_movies, comme btn_trailer de la fiche
+             film) + anneau blanc tournant — avant : bouton texte "Bande-annonce". -->
+        <FrameLayout
+            android:id="@+id/btn_preview_trailer"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="10dp"
+            android:focusable="true"
+            android:clickable="true"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:defaultFocusHighlightEnabled="false"
+            android:nextFocusRight="@id/btn_preview_add_wrap">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_movies"
+                android:layout_gravity="center" />
+
+            <com.nicotv.iptv.ui.common.RotatingBorderView
+                android:id="@+id/trailer_ring"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                app:circular="true"
+                app:borderColor="@android:color/white"
+                android:visibility="invisible" />
+
+        </FrameLayout>
+
+        <!-- Icône seule +/✓, EXACTEMENT comme le badge des vignettes (tv_badge_owned,
+             item_similar_movie.xml : 24dp, 13sp) — pas un bouton texte "Ajouter"/
+             "Ouvrir". Zone focusable/cliquable 40dp (le FrameLayout, pas
+             l'icône elle-même) : 24dp seul était trop petit pour le curseur D-pad,
+             souvent sauté par l'algorithme de recherche de focus TV. -->
+        <FrameLayout
+            android:id="@+id/btn_preview_add_wrap"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_gravity="center_vertical"
+            android:focusable="true"
+            android:clickable="true"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:defaultFocusHighlightEnabled="false"
+            android:nextFocusLeft="@id/btn_preview_trailer">
+
+            <TextView
+                android:id="@+id/btn_preview_add"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:textColor="@android:color/white"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <com.nicotv.iptv.ui.common.RotatingBorderView
+                android:id="@+id/add_ring"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                app:circular="true"
+                app:borderColor="@android:color/white"
+                android:visibility="invisible" />
+
+        </FrameLayout>
+
+    </LinearLayout>
+
+</LinearLayout>

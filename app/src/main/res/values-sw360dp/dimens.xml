@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Téléphones de largeur normale (≥360dp) : molette D-pad et pavé tactile plus
+         grands. La valeur par défaut (values/dimens.xml) reste prudente pour les
+         écrans étroits, où le disque débordait et se retrouvait rogné sur les côtés. -->
+    <dimen name="remote_wheel_size">288dp</dimen>
+    <dimen name="remote_touchpad_height">380dp</dimen>
+</resources>

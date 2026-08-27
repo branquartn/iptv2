@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pastille pleine largeur « N nouveautés » (accueil), même couleur que le ruban
+     NOUVEAU des affiches (bg_badge_new) mais en forme de pilule. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/error" />
+    <corners android:radius="100dp" />
+</shape>
