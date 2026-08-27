@@ -10,10 +10,10 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 14
-val appVersionName = "1.0.13"
+val appVersionCode = 15
+val appVersionName = "1.0.14"
 // Changelog affiché dans le modal de mise à jour OTA — mis à jour à chaque bump.
-val appChangelog = "Bouton Charger/Se connecter qui sortait de l'écran quand le clavier était ouvert (paysage) corrigé — dialogues Playlist/Xtream scrollables."
+val appChangelog = "\"Mes profils\" remonté tout en haut de l'écran de démarrage (avant le logo)."
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
