@@ -8,8 +8,8 @@ data class M3uEntry(
     val url: String
 )
 
-/** Parseur M3U/M3U8 minimal (#EXTINF + attributs tvg-*/group-title, puis l'URL
- * sur la ligne suivante) — pas de dépendance externe, format IPTV standard. */
+/** Parseur M3U/M3U8 minimal (#EXTINF + attributs tvg-xxx / group-title, puis
+ * l'URL sur la ligne suivante) — pas de dépendance externe, format IPTV standard. */
 object M3uParser {
 
     // Chaîne normale (pas de raw string """...""") : le motif se termine par un
