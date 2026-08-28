@@ -7,6 +7,15 @@
     android:clipChildren="false"
     android:clipToPadding="false">
 
+    <!-- Fond plein écran aléatoire (film/série du catalogue chargé), stable pour
+         la session — même principe que NicoTV (MainActivity.maybeSetHomeBg). -->
+    <ImageView
+        android:id="@+id/iv_home_bg"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:alpha="0.26" />
+
     <View
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -258,7 +267,12 @@
             android:focusable="true"
             android:focusableInTouchMode="true">
 
+            <!-- Remplacée par une jaquette/backdrop du catalogue en rotation dès
+                 qu'il y en a une (cf. MainActivity.loadRotatingHubImage) — hub_films
+                 reste le repli tant que rien n'est chargé (M3U vide, pas encore
+                 de profil...). -->
             <ImageView
+                android:id="@+id/iv_films_bg"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:alpha="0.5"
@@ -324,7 +338,9 @@
             android:focusable="true"
             android:focusableInTouchMode="true">
 
+            <!-- Cf. iv_films_bg juste au-dessus : même principe pour les séries. -->
             <ImageView
+                android:id="@+id/iv_series_bg"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:alpha="0.5"

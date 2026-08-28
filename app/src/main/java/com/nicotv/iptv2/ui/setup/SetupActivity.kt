@@ -260,6 +260,9 @@ class SetupActivity : BaseActivity() {
             setLoading(false)
             result.onSuccess { count ->
                 showStatus(getString(R.string.setup_success, count))
+                // Nouveau catalogue chargé : le fond aléatoire de l'accueil ne doit
+                // pas garder une jaquette de l'ancienne source.
+                com.nicotv.iptv2.ui.main.MainActivity.resetHomeBg()
                 goToMain()
             }.onFailure { e ->
                 showStatus(e.message ?: getString(R.string.setup_error_generic))

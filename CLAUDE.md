@@ -266,6 +266,47 @@ la tester sur un vrai upgrade, pas seulement sur une install neuve.
   en lecture). Redondant avec le flag déjà posé par `PlayerActivity` — sans
   conséquence, jamais retiré nulle part.
 
+## Accueil (MainActivity) — jaquettes en rotation + fond aléatoire
+
+Porté depuis NicoTV (28/08/2026, demande explicite « ressemble plus à mon
+apli NicoTV ») : `iv_films_bg`/`iv_series_bg` affichent une jaquette/backdrop
+du catalogue chargé, tirée dans les 12 titres les plus récents
+(`updatedAt`), et tournent toutes les 45s (`loadRotatingHubImage`, offset
+décalé entre films/séries pour ne pas changer en même temps). `iv_home_bg`
+(plein écran, alpha 0.26) tire un fond au hasard parmi films+séries, **stable
+pour tout le process** (`MainActivity.cachedHomeBgUrl`, companion) — remis à
+`null` par `SetupActivity.loadProfile()` quand un nouveau catalogue est
+chargé (`resetHomeBg()`), sinon l'ancien fond resterait affiché après un
+changement de source. **Carte Chaînes (`card_live`) volontairement exclue** :
+pas de jaquette pertinente pour du live, elle reste icône + libellé — demande
+explicite, ne pas lui ajouter de rotation.
+
+## Fiche série (SeriesDetailActivity) — 2 colonnes, pas un empilement vertical
+
+⚠️ **Bug vécu (corrigé 28/08/2026)** : l'ancien layout empilait bandeau
+(260dp) + affiche + titre + résumé **au-dessus** de saisons/épisodes dans une
+seule colonne verticale, avec `paddingTop="150dp"`. Sur un écran bas
+(téléphone en `sensorLandscape`, hauteur limitée), ce bloc fixe consommait à
+lui seul presque toute la hauteur disponible — `rv_episodes` (`layout_height=
+"0dp" layout_weight="1"`) héritait d'un reste proche de zéro : quasiment rien
+à l'écran, et rien à scroller puisqu'il n'y avait presque plus de hauteur à
+l'intérieur du RecyclerView lui-même. Diagnostiqué via screencap adb
+(connexion wireless debugging au téléphone Android du user, pas besoin d'USB) :
+le bas de l'écran ne montrait qu'un filet de contenu sous le résumé.
+
+Repris de **NicoTV** (même fichier, structure identique) : layout **2
+colonnes horizontales**. Colonne gauche (260dp, affiche/titre/résumé) dans
+son propre `ScrollView` — quelle que soit sa hauteur de contenu, elle ne peut
+plus jamais réduire l'espace de la colonne droite. Colonne droite (poids 1,
+`match_parent` en hauteur) : onglets saisons (`wrap_content`) + `rv_episodes`
+(poids 1) qui récupère donc **tout** le reste de la hauteur d'écran, peu
+importe ce qu'il y a à gauche. `iv_backdrop` passé en plein écran (au lieu de
+260dp fixe) avec `gradient_detail` par-dessus, comme NicoTV. Si un autre écran
+empile un bloc de hauteur variable au-dessus d'une liste qui doit rester
+utilisable, préférer ce découpage en colonnes/un `ScrollView` dédié plutôt
+qu'un simple empilement vertical avec `layout_weight` sur le dernier élément —
+`layout_weight` protège contre l'overflow mais pas contre un reste ridicule.
+
 ## Lecteur (PlayerActivity)
 
 Repris quasiment tel quel de NicoTV (ExoPlayer, pistes audio/sous-titres,
