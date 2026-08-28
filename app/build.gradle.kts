@@ -10,10 +10,10 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 35
-val appVersionName = "1.0.34"
+val appVersionCode = 36
+val appVersionName = "1.0.35"
 // Changelog affiché dans le modal de mise à jour OTA — mis à jour à chaque bump.
-val appChangelog = "Chaînes : la sidebar catégories ne garde que celles de la langue sélectionnée (Réglages > Langue du contenu), préfixe retiré. Films : même nettoyage du préfixe (\"FR - Action\" → \"Action\")."
+val appChangelog = "Correctif Langue du contenu : le filtre excluait tout le contenu sans préfixe de langue explicite (séries entières, beIN Sport...). Ne filtre plus que les préfixes d'une autre langue explicite, le reste est conservé."
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")

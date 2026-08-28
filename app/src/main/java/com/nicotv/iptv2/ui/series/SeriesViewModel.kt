@@ -24,11 +24,16 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
     private val allSeries = repository.getSeries().asLiveData()
 
     // Réglage persistant (Réglages > Langue du contenu) — cf. MoviesViewModel,
-    // même principe (filtre exact par code, pas l'heuristique isFrenchLabel).
+    // même principe (filtre par code, pas l'heuristique isFrenchLabel).
+    // ⚠️ Pas un "exact match" (corrigé 28/08/2026, régression signalée par
+    // l'utilisateur : plus aucune série visible) — cf. MoviesViewModel.
+    // applyLanguageFilter pour le détail : garde si aucun préfixe détecté OU
+    // préfixe == contentLanguage, exclut seulement un préfixe explicite d'une
+    // AUTRE langue.
     private val contentLanguage = app.contentLanguagePrefs.getLanguage()
     private fun applyLanguageFilter(list: List<Movie>): List<Movie> =
         if (contentLanguage == null) list
-        else list.filter { extractLeadingLanguageCode(it.category) == contentLanguage }
+        else list.filter { val c = extractLeadingLanguageCode(it.category); c == null || c == contentLanguage }
 
     val searchQuery = MutableLiveData("")
     // null = "Toutes" — cf. LiveViewModel/MoviesViewModel, même principe.

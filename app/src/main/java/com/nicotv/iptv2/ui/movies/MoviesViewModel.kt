@@ -32,9 +32,17 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
     // pas une heuristique substring comme isFrenchLabel (utilisée seulement
     // pour trier les catégories France en premier, cf. plus bas).
     private val contentLanguage = app.contentLanguagePrefs.getLanguage()
+    // ⚠️ Pas un "exact match" (corrigé 28/08/2026, régression signalée par
+    // l'utilisateur : plus aucune série/film sans préfixe visible) — la
+    // plupart des catégories françaises de ce panel n'ont AUCUN préfixe (pas
+    // de norme, seuls certains bouquets étrangers sont explicitement marqués
+    // "CA -"/"AL -"...). Exiger "FR" pour garder excluait donc tout le
+    // catalogue non marqué. Garde si aucun préfixe détecté OU préfixe ==
+    // contentLanguage ; exclut seulement un préfixe explicite d'une AUTRE
+    // langue — même principe que LiveViewModel.
     private fun applyLanguageFilter(list: List<Movie>): List<Movie> =
         if (contentLanguage == null) list
-        else list.filter { extractLeadingLanguageCode(it.category) == contentLanguage }
+        else list.filter { val c = extractLeadingLanguageCode(it.category); c == null || c == contentLanguage }
 
     /** Nom de catégorie affiché dans la sidebar — retire le préfixe langue
      * ("FR - Action" → "Action") quand il correspond à contentLanguage, même

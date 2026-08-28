@@ -495,9 +495,22 @@ sens** : ouvrait `SetupActivity` directement jusqu'ici, ouvre maintenant
   câblée en dur (`PlaylistRepository.getAvailableContentLanguages()` scanne
   le catalogue chargé — noms de chaîne + catégories films/séries — et
   découvre les codes réellement présents : "FR", "AF", "CA"... chaque panel a
-  les siens). Filtre **exact** sur le code en tête (`util.LanguageCode`,
-  extrait le 28/08/2026 après une confusion avec `isFrenchLabel` — voir
-  paragraphe suivant), pas une heuristique substring. Null = Toutes.
+  les siens). Filtre sur le code en tête (`util.LanguageCode`, extrait le
+  28/08/2026 après une confusion avec `isFrenchLabel` — voir paragraphe
+  suivant), pas une heuristique substring. Null = Toutes.
+  ⚠️ **Pas un "exact match obligatoire"** (corrigé le jour même, régression
+  signalée par l'utilisateur : plus aucune série, "beIN Sport" disparu des
+  Chaînes) — un premier passage exigeait `extractLeadingLanguageCode(...) ==
+  contentLanguage` pour garder un item, ce qui excluait tout item **sans
+  aucun préfixe**. Or sur ce panel, la plupart des chaînes/catégories
+  françaises n'ont justement AUCUN préfixe (pas de norme, seuls certains
+  bouquets étrangers sont explicitement marqués `"CA:"`/`"AL - "`...) : exiger
+  "FR" en tête revenait à ne garder qu'une poignée d'items marqués, effaçant
+  tout le reste. Règle retenue partout où ce filtre s'applique
+  (`LiveViewModel.filteredChannels`/`categories`,
+  `Movies|SeriesViewModel.applyLanguageFilter`) : garder si **aucun préfixe
+  détecté** OU préfixe == `contentLanguage` ; exclure seulement un préfixe
+  explicite d'une **autre** langue.
   ⚠️ **Deux conventions de délimiteur différentes constatées sur un panel
   réel** — d'où `extractLeadingLanguageCode()` teste les deux : noms de
   chaîne en `"FR: TF1 HD"`/`"AF: TF1"` (deux-points, parfois barre verticale

@@ -32,10 +32,19 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
 
     // Réglage persistant (Réglages > Langue du contenu) — n'importe quel code
     // découvert dans le catalogue (pas seulement "FR", cf. SettingsActivity).
-    // Filtre EXACT sur le préfixe du nom de chaîne ("FR: TF1" → code "FR") et
-    // le retire de l'affichage une fois filtré — demande explicite 28/08/2026 :
+    // Filtre sur le préfixe du nom de chaîne ("FR: TF1" → code "FR") et le
+    // retire de l'affichage une fois filtré — demande explicite 28/08/2026 :
     // "si fr selected... voir que celle qui commence par FR|... enlève le
     // FR|" (délimiteur réel constaté : ":", pas "|", cf. util.LanguageCode).
+    // ⚠️ Ni "exact match obligatoire" (corrigé le jour même, régression
+    // signalée par l'utilisateur : "beIN Sport" disparu) — la plupart des
+    // chaînes françaises de ce panel n'ont AUCUN préfixe (pas de norme, seuls
+    // certains bouquets étrangers sont explicitement marqués "CA:"/"AL:"...).
+    // Exiger le préfixe "FR" pour garder une chaîne excluait donc tout le
+    // catalogue non marqué. Règle retenue : garder si aucun préfixe détecté
+    // OU préfixe == contentLanguage ; exclure seulement un préfixe explicite
+    // d'une AUTRE langue. Même principe côté catégories un peu plus bas et
+    // dans Movies/SeriesViewModel.applyLanguageFilter.
     private val contentLanguage = app.contentLanguagePrefs.getLanguage()
 
     // Pré-coché si le réglage est spécifiquement Français (bouton FR déjà
@@ -48,13 +57,14 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
     val categories: LiveData<List<String>> = MediatorLiveData<List<String>>().apply {
         addSource(allChannels) { list ->
             // Catégories France en premier (demande explicite) — cf. isFrenchLabel.
-            // Ne garde que les catégories dont le PROPRE préfixe correspond au
-            // réglage "Langue du contenu" (demande explicite 28/08/2026 : la
-            // sidebar affichait encore "CA|"/"AL|"... à côté des catégories FR
-            // une fois nettoyées) — même principe que MoviesViewModel.
-            // applyLanguageFilter, appliqué ici sur la catégorie et non le nom.
+            // N'exclut que les catégories dont le PROPRE préfixe désigne
+            // explicitement une AUTRE langue (demande explicite 28/08/2026 :
+            // la sidebar affichait encore "CA|"/"AL|"... à côté des catégories
+            // FR une fois nettoyées) — garde les catégories sans préfixe du
+            // tout (cf. commentaire sur contentLanguage plus haut : pas un
+            // "exact match", sinon "Sport" sans préfixe disparaissait aussi).
             val base = if (contentLanguage == null) list
-                       else list.filter { extractLeadingLanguageCode(it.category) == contentLanguage }
+                       else list.filter { val c = extractLeadingLanguageCode(it.category); c == null || c == contentLanguage }
             value = base.map { displayCategory(it.category) }.filter { it.isNotBlank() }.distinct()
                 .sortedWith(compareByDescending<String> { isFrenchLabel(it) }.thenBy { it })
         }
@@ -80,14 +90,21 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
                 val onlyFrench = frenchOnly.value == true
                 if (onlyFrench) base = base.filter { isFrench(it) }
 
-                // Réglage persistant "Langue du contenu" : filtre EXACT sur le
-                // préfixe du nom ("FR: TF1" → garde seulement code == "FR") et
-                // le retire de l'affichage ("FR: TF1" → "TF1") — cf. commentaire
-                // sur contentLanguage plus haut.
+                // Réglage persistant "Langue du contenu" : exclut seulement un
+                // préfixe explicite d'une AUTRE langue ("FR: TF1" avec réglage
+                // "AF" → exclu) et retire le préfixe quand il correspond
+                // ("FR: TF1" → "TF1") — une chaîne sans préfixe du tout est
+                // gardée telle quelle, cf. commentaire sur contentLanguage
+                // plus haut (pas un "exact match", régression "beIN Sport"
+                // corrigée le 28/08/2026).
                 if (contentLanguage != null) {
                     base = base.mapNotNull { channel ->
-                        if (extractLeadingLanguageCode(channel.name) != contentLanguage) null
-                        else channel.copy(name = stripLeadingLanguageCode(channel.name, contentLanguage))
+                        val code = extractLeadingLanguageCode(channel.name)
+                        when {
+                            code == null -> channel
+                            code == contentLanguage -> channel.copy(name = stripLeadingLanguageCode(channel.name, contentLanguage))
+                            else -> null
+                        }
                     }
                 }
 
