@@ -34,7 +34,7 @@ class SeriesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         adapter = PosterAdapter(onClick = { item ->
             startActivity(Intent(this, SeriesDetailActivity::class.java).apply {
                 putExtra(SeriesDetailActivity.EXTRA_SERIES_ID, item.id)
-                putExtra(SeriesDetailActivity.EXTRA_SERIES_TITLE, item.title)
+                putExtra(SeriesDetailActivity.EXTRA_SERIES_TITLE, item.displayTitle)
                 putExtra(SeriesDetailActivity.EXTRA_POSTER_URL, item.posterUrl)
             })
         })

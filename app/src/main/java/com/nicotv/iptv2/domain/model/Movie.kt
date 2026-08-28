@@ -1,5 +1,7 @@
 package com.nicotv.iptv2.domain.model
 
+import com.nicotv.iptv2.util.stripReleaseTags
+
 data class Movie(
     val id: Long,
     val title: String,
@@ -33,6 +35,14 @@ data class Movie(
     val xtreamStreamId: String = ""
 ) {
     enum class Type { MOVIE, EPISODE, SERIES }
+
+    /** Titre "propre" pour l'affichage (mur d'affiches, fiche) — retire les
+     * tags qualité/langue/codec de la playlist source ("4K-EN - Avatar (2009)"
+     * → "Avatar (2009)"). `title` brut reste utilisé pour la recherche locale
+     * (searchByTitle en SQL cherche aussi dans les tags, ce qui est voulu :
+     * taper "4K" doit encore trouver ces titres). */
+    val displayTitle: String get() = title.stripReleaseTags().ifBlank { title }
+
     val genresFormatted: String get() = genres.joinToString(" • ")
     val ratingFormatted: String get() = if (rating > 0) "★ ${"%.1f".format(rating)}" else ""
     val runtimeFormatted: String get() = if (runtime > 0) "${runtime / 60}h ${runtime % 60}min" else ""

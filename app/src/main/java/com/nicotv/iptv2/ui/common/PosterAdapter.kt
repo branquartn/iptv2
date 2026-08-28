@@ -64,7 +64,7 @@ class PosterAdapter(
             binding.root.animate().cancel()
             binding.root.scaleX = 1f
             binding.root.scaleY = 1f
-            binding.tvTitle.text = movie.title
+            binding.tvTitle.text = movie.displayTitle
             binding.ivFavorite.visibility = if (movie.isFavorite) View.VISIBLE else View.GONE
             binding.tvBadgeSeen.visibility = if (movie.isFinished) View.VISIBLE else View.GONE
 

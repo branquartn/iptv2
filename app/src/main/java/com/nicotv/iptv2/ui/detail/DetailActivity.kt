@@ -142,7 +142,7 @@ class DetailActivity : BaseActivity() {
     }
 
     private fun bind(movie: Movie) {
-        binding.tvTitle.text = movie.title
+        binding.tvTitle.text = movie.displayTitle
         binding.ivPoster.load(movie.posterUrl.ifBlank { movie.backdropUrl }) {
             crossfade(true)
             placeholder(R.drawable.ic_movie_placeholder)
@@ -398,7 +398,7 @@ class DetailActivity : BaseActivity() {
         startActivity(Intent(this, PlayerActivity::class.java).apply {
             putExtra(PlayerActivity.EXTRA_MOVIE_ID, movie.id)
             putExtra(PlayerActivity.EXTRA_STREAM_URL, movie.streamUrl)
-            putExtra(PlayerActivity.EXTRA_TITLE, movie.title)
+            putExtra(PlayerActivity.EXTRA_TITLE, movie.displayTitle)
             putExtra(PlayerActivity.EXTRA_RESUME, resume)
         })
     }

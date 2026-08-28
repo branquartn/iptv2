@@ -66,6 +66,13 @@ class LiveActivity : BaseActivity() {
             )
         }
 
+        // Couleur initiale reflétée dès l'ouverture (pré-coché si Réglages >
+        // Langue du contenu = Français, cf. LiveViewModel.frenchOnly) — avant,
+        // seul le clic mettait la couleur à jour, un filtre actif au chargement
+        // restait affiché comme inactif tant qu'on ne cliquait pas.
+        binding.tvFrenchFilter.setTextColor(
+            ContextCompat.getColor(this, if (viewModel.frenchOnly.value == true) R.color.accent else R.color.text_primary)
+        )
         binding.btnFrenchFilter.setOnClickListener {
             val on = viewModel.frenchOnly.value != true
             viewModel.frenchOnly.value = on

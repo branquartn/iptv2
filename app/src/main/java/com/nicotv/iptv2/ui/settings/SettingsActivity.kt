@@ -1,5 +1,6 @@
 package com.nicotv.iptv2.ui.settings
 
+import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.text.format.DateUtils
@@ -8,6 +9,7 @@ import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
 import com.nicotv.iptv2.IptvApplication
 import com.nicotv.iptv2.R
+import com.nicotv.iptv2.data.ContentLanguagePrefs
 import com.nicotv.iptv2.data.ImageCacheUtil
 import com.nicotv.iptv2.databinding.ActivitySettingsBinding
 import com.nicotv.iptv2.ui.common.BaseActivity
@@ -41,6 +43,8 @@ class SettingsActivity : BaseActivity() {
         }
 
         binding.btnRefreshCatalog.setOnClickListener { refreshCatalog() }
+        binding.btnContentLanguage.setOnClickListener { showContentLanguageDialog() }
+        updateContentLanguageLabel()
         binding.btnClearImageCache.setOnClickListener {
             ImageCacheUtil.clear(this)
             Toast.makeText(this, R.string.settings_cache_cleared, Toast.LENGTH_SHORT).show()
@@ -74,6 +78,39 @@ class SettingsActivity : BaseActivity() {
                 getString(R.string.settings_last_update, relative)
             }
         }
+    }
+
+    /** Chaque ViewModel (Movies/Series/Live) lit ce réglage une seule fois à sa
+     * création (cf. leur commentaire "contentLanguage") — pas besoin d'être
+     * réactif ici, un écran déjà ouvert n'est de toute façon jamais mis à jour
+     * en direct par un changement de Réglages ailleurs dans l'app. */
+    private fun updateContentLanguageLabel() {
+        val prefs = (application as IptvApplication).contentLanguagePrefs
+        binding.tvContentLanguage.text = if (prefs.getLanguage() == ContentLanguagePrefs.FRENCH) {
+            getString(R.string.settings_content_language_fr)
+        } else {
+            getString(R.string.settings_content_language_all)
+        }
+    }
+
+    private fun showContentLanguageDialog() {
+        val prefs = (application as IptvApplication).contentLanguagePrefs
+        val options = arrayOf(
+            getString(R.string.settings_content_language_all),
+            getString(R.string.settings_content_language_fr)
+        )
+        val current = if (prefs.getLanguage() == ContentLanguagePrefs.FRENCH) 1 else 0
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.settings_content_language)
+            .setSingleChoiceItems(options, current) { d, which ->
+                prefs.setLanguage(if (which == 1) ContentLanguagePrefs.FRENCH else null)
+                updateContentLanguageLabel()
+                d.dismiss()
+            }
+            .setNegativeButton(R.string.action_cancel, null)
+            .create()
+        dialog.window?.setBackgroundDrawableResource(R.drawable.bg_dialog)
+        dialog.show()
     }
 
     private fun refreshCatalog() {

@@ -13,6 +13,7 @@ import com.nicotv.iptv2.player.PlayerActivity
 import com.nicotv.iptv2.ui.common.BaseActivity
 import com.nicotv.iptv2.ui.common.PosterAdapter
 import com.nicotv.iptv2.ui.detail.DetailActivity
+import com.nicotv.iptv2.util.stripReleaseTags
 
 @UnstableApi
 class ResumeActivity : BaseActivity() {
@@ -39,14 +40,14 @@ class ResumeActivity : BaseActivity() {
                 startActivity(Intent(this, PlayerActivity::class.java).apply {
                     putExtra(PlayerActivity.EXTRA_MOVIE_ID, movie.id)
                     putExtra(PlayerActivity.EXTRA_STREAM_URL, movie.streamUrl)
-                    putExtra(PlayerActivity.EXTRA_TITLE, movie.title)
+                    putExtra(PlayerActivity.EXTRA_TITLE, movie.displayTitle)
                     putExtra(PlayerActivity.EXTRA_RESUME, true)
                     // Sans ça, PlayerActivity.seriesId reste -1L (valeur par défaut de
                     // l'extra manquant) → le prompt/enchaînement épisode suivant ne se
                     // déclenche jamais quand la lecture démarre depuis "Reprendre la
                     // lecture" (marchait déjà depuis la fiche série, qui les passe).
                     putExtra(PlayerActivity.EXTRA_SERIES_ID, movie.seriesId)
-                    putExtra(PlayerActivity.EXTRA_SERIES_TITLE, movie.seriesTitle)
+                    putExtra(PlayerActivity.EXTRA_SERIES_TITLE, movie.seriesTitle.stripReleaseTags())
                     putExtra(PlayerActivity.EXTRA_FILE_KEY, movie.episodeKey)
                 })
             }

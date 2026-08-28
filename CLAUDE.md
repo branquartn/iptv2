@@ -267,6 +267,36 @@ accepté : perte de l'insensibilité aux accents sur ces 3 champs de recherche
 (SQLite `LIKE` ne connaît pas `foldAccents()`) — déjà le cas côté recherche
 globale, jamais signalé comme un manque.
 
+## Titre "propre" à l'affichage (Movie.displayTitle) + réglage langue du contenu
+
+Demande explicite 28/08/2026 : "voir le vrai nom du film" — `util.
+stripReleaseTags()` (extrait des regex de `TmdbClient.cleanTitle`, partagé)
+retire les tags qualité/langue/codec ("4K-EN - Avatar (2009)" → "Avatar
+(2009)", garde l'année contrairement à `cleanTitle` qui la retire aussi pour
+la recherche TMDb). Exposé via `Movie.displayTitle` (computed property) —
+**mur d'affiches (`PosterAdapter`) et fiche film/série l'utilisent, pas
+`title`** (`title` brut reste utilisé pour `searchByTitle` en SQL : taper
+"4K" doit encore trouver ces titres). Callers qui passent un titre en `Intent`
+extra vers un autre écran (`SeriesActivity`/`FavoritesActivity`/
+`SearchActivity` → `SeriesDetailActivity`, `DetailActivity`/`ResumeActivity`
+→ `PlayerActivity`) le font aussi en `displayTitle` — l'écran de destination
+affiche tel quel ce qu'il reçoit, pas de nettoyage à refaire côté récepteur.
+
+⚠️ **Réglage "Langue du contenu" (Réglages, `ContentLanguagePrefs`)** : une
+seule valeur câblée aujourd'hui, "FR" (même heuristique `isFrenchLabel` que
+le filtre FR de Chaînes, appliquée ici titre+catégorie). Lu **une seule fois
+à la création du ViewModel** (`MoviesViewModel`/`SeriesViewModel`/
+`LiveViewModel` — un nouveau ViewModel à chaque ouverture d'écran, cf. section
+cache catalogue plus haut) : changer le réglage ne met PAS à jour un écran
+déjà ouvert, seulement le prochain. Sur Chaînes, ce réglage **pré-coche**
+`frenchOnly` (bouton FR déjà existant, qui reste décochable pour la session)
+plutôt que de dupliquer un mécanisme — `LiveActivity` doit refléter cet état
+initial dans la couleur du bouton dès `onCreate` (pas seulement au clic,
+piège corrigé le même jour). Sur Films/Séries, le filtre s'applique aussi aux
+catégories listées dans la sidebar (calculées sur le catalogue déjà filtré
+par langue) : pas de catégorie 100% non-FR proposée si "Français uniquement"
+est actif, elle donnerait toujours zéro résultat une fois sélectionnée.
+
 ## Tri "ordre TNT" des chaînes françaises (LiveViewModel)
 
 Demande explicite 28/08/2026 : quand le contexte est français (catégorie

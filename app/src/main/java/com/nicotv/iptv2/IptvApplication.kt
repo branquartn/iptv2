@@ -5,6 +5,7 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
+import com.nicotv.iptv2.data.ContentLanguagePrefs
 import com.nicotv.iptv2.data.PlaylistSourcePrefs
 import com.nicotv.iptv2.data.database.AppDatabase
 import com.nicotv.iptv2.data.repository.PlaylistRepository
@@ -23,6 +24,7 @@ class IptvApplication : Application(), ImageLoaderFactory {
 
     val database by lazy { AppDatabase.getInstance(this) }
     val sourcePrefs by lazy { PlaylistSourcePrefs(this) }
+    val contentLanguagePrefs by lazy { ContentLanguagePrefs(this) }
 
     // Timeouts généreux : certains panels IPTV/Xtream répondent lentement sous
     // charge (catalogues volumineux, hébergement modeste).

@@ -79,6 +79,10 @@
     <string name="settings_refresh_catalog">Actualiser le catalogue</string>
     <string name="settings_no_active_profile">Aucune source active</string>
     <string name="settings_last_update">Dernière mise à jour : %s</string>
+    <string name="settings_section_language">Langue du contenu</string>
+    <string name="settings_content_language">Films / Séries / Chaînes</string>
+    <string name="settings_content_language_all">Toutes langues</string>
+    <string name="settings_content_language_fr">Français uniquement</string>
     <string name="settings_section_image_cache">Cache images</string>
     <string name="settings_clear_image_cache">Vider le cache images</string>
     <string name="settings_clear_image_cache_sub">Jaquettes et logos (jusqu\'à 300 Mo) — se rechargent automatiquement</string>
@@ -86,6 +90,7 @@
     <string name="settings_clear_epg_cache">Vider le cache EPG</string>
     <string name="settings_clear_epg_cache_sub">Programmes en cours/à suivre — disponible avec une source Xtream Codes uniquement</string>
     <string name="settings_action_open">Ouvrir</string>
+    <string name="settings_action_change">Changer</string>
     <string name="settings_action_refresh">Actualiser</string>
     <string name="settings_action_clear">Vider</string>
     <string name="settings_refresh_success">Catalogue actualisé</string>

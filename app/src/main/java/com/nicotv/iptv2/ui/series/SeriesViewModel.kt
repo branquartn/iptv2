@@ -7,6 +7,7 @@ import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.asLiveData
 import com.nicotv.iptv2.IptvApplication
+import com.nicotv.iptv2.data.ContentLanguagePrefs
 import com.nicotv.iptv2.data.database.entity.FavoriteEntity
 import com.nicotv.iptv2.domain.model.Movie
 import com.nicotv.iptv2.util.isFrenchLabel
@@ -22,6 +23,14 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
 
     private val allSeries = repository.getSeries().asLiveData()
 
+    // Réglage persistant (Réglages > Langue du contenu) — cf. MoviesViewModel,
+    // même principe.
+    private val contentLanguage = app.contentLanguagePrefs.getLanguage()
+    private fun applyLanguageFilter(list: List<Movie>): List<Movie> =
+        if (contentLanguage == ContentLanguagePrefs.FRENCH) {
+            list.filter { isFrenchLabel(it.title) || isFrenchLabel(it.category) }
+        } else list
+
     val searchQuery = MutableLiveData("")
     // null = "Toutes" — cf. LiveViewModel/MoviesViewModel, même principe.
     val selectedCategory = MutableLiveData<String?>(null)
@@ -29,7 +38,7 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
     val categories: LiveData<List<String>> = MediatorLiveData<List<String>>().apply {
         // Catégories France en premier (demande explicite) — cf. isFrenchLabel.
         addSource(allSeries) { list ->
-            value = list.map { it.category }.filter { it.isNotBlank() }.distinct()
+            value = applyLanguageFilter(list).map { it.category }.filter { it.isNotBlank() }.distinct()
                 .sortedWith(compareByDescending<String> { isFrenchLabel(it) }.thenBy { it })
         }
     }
@@ -45,6 +54,7 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
                 val query = searchQuery.value.orEmpty().trim()
                 var series = if (query.isBlank()) allSeries.value ?: emptyList()
                              else repository.searchSeriesByTitle(query)
+                series = applyLanguageFilter(series)
                 selectedCategory.value?.let { cat -> series = series.filter { it.category == cat } }
                 value = series
             }

@@ -7,6 +7,7 @@ import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.asLiveData
 import com.nicotv.iptv2.IptvApplication
+import com.nicotv.iptv2.data.ContentLanguagePrefs
 import com.nicotv.iptv2.data.database.entity.FavoriteEntity
 import com.nicotv.iptv2.domain.model.Channel
 import com.nicotv.iptv2.util.foldAccents
@@ -26,7 +27,10 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
     val searchQuery = MutableLiveData("")
     val selectedCategory = MutableLiveData<String?>(null)
     val favoritesOnly = MutableLiveData(false)
-    val frenchOnly = MutableLiveData(false)
+    // Pré-coché si Réglages > Langue du contenu = Français (demande explicite
+    // 28/08/2026, "je veux que du fr aussi dans les chaines") — reste un bouton
+    // qu'on peut décocher pour la session, comme avant.
+    val frenchOnly = MutableLiveData(app.contentLanguagePrefs.getLanguage() == ContentLanguagePrefs.FRENCH)
 
     val categories: LiveData<List<String>> = MediatorLiveData<List<String>>().apply {
         addSource(allChannels) { list ->

@@ -1,6 +1,7 @@
 package com.nicotv.iptv2.data.tmdb
 
 import com.nicotv.iptv2.AppConfig
+import com.nicotv.iptv2.util.stripReleaseTags
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl
@@ -55,41 +56,18 @@ class TmdbClient(private val client: OkHttpClient) {
     )
 
     // Noms de fichiers scene-release réels ("Movie.Title.2020.FRENCH.1080p.
-    // BluRay.x264-GROUP") bien plus fréquents dans les M3U publics qu'un titre
+    // BluRay.x264-GROUP") bien plus fréquents dans les M3U/Xtream qu'un titre
     // propre — sans ce nettoyage, la recherche TMDb ne trouve simplement rien.
+    // Tags qualité/langue/codec + tirets de groupe de release : cf.
+    // util.stripReleaseTags (partagé avec Movie/SeriesEntity.displayTitle,
+    // qui lui garde l'année). Ici on la retire aussi : "Avatar 2009" gêne
+    // moins la recherche TMDb que "Avatar (2009)" sur certains titres ambigus.
     private val yearTag = Regex("""\(?\b(19|20)\d{2}\b\)?""")
-    // Xtream ajoute aussi 3D/HDR/DV/ATMOS et des codes langue bruts en préfixe
-    // ("4K-EN - Avatar", "3D-DE- Avatar") — absents avant ce lot, la recherche
-    // TMDb échouait silencieusement sur une grande partie du catalogue Xtream
-    // (cast/similaires jamais affichés, aucune erreur visible pour l'expliquer).
-    private val qualityTag = Regex(
-        """(?i)\b(4K|3D|2160p|1080p|720p|480p|UHD|FHD|HDR10?|DV|ATMOS|HD|SD|WEB[- ]?DL|WEBRip|BluRay|BDRip|DVDRip|HDRip|HDTV|CAM|TS|""" +
-        """x264|x265|HEVC|H264|H265|AAC|AC3|DTS|""" +
-        """VF|VFF|VFQ|VO|VOST|VOSTFR|MULTI|FRENCH|TRUEFRENCH|ENGLISH|SUBFRENCH|""" +
-        """EN|DE|ES|IT|PT|NL|PL|RU|AR|TR)\b"""
-    )
-    // Suffixe "-GROUPE" en toute fin de nom (groupe de release) : seulement en fin
-    // de chaîne, sinon un vrai tiret dans le titre ("Spider-Man") serait tronqué.
-    private val releaseGroupSuffix = Regex("""(?i)-[a-z0-9]{2,15}$""")
-    // Tirets/espaces résiduels après suppression des tags ci-dessus (ex.
-    // "4K-EN - Avatar" → "- - Avatar" une fois 4K et EN retirés) — seulement en
-    // DÉBUT/FIN de chaîne (^/$), jamais au milieu : ne touche pas "Spider-Man".
-    private val leftoverEdgeDashes = Regex("""^[\s\-]+|[\s\-]+$""")
 
     private fun cleanTitle(title: String): String {
-        // Points/underscores/tirets multiples utilisés comme séparateurs de mots
-        // (convention scene-release) → espaces, pour que le nettoyage suivant
-        // puisse isoler chaque mot par \b.
-        var t = title.replace(Regex("""[._+]"""), " ")
-        t = t.replace(releaseGroupSuffix, "")
+        var t = title.stripReleaseTags()
         t = t.replace(yearTag, " ")
-        t = t.replace(qualityTag, " ")
-        t = t.replace(Regex("""\s+"""), " ").trim()
-        // Peut laisser un tiret orphelin en bord de chaîne après les remplacements
-        // ci-dessus (les tags sont retirés, pas les tirets qui les entouraient,
-        // ex. "4K-EN - Avatar" → "- - Avatar") — [\s\-]+ regroupe toute la
-        // séquence en un seul remplacement, une passe suffit.
-        return t.replace(leftoverEdgeDashes, "").trim()
+        return t.replace(Regex("""\s+"""), " ").trim()
     }
 
     private fun urlFor(path: String, params: Map<String, String> = emptyMap()): HttpUrl {

@@ -7,6 +7,7 @@ import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.asLiveData
 import com.nicotv.iptv2.IptvApplication
+import com.nicotv.iptv2.data.ContentLanguagePrefs
 import com.nicotv.iptv2.data.database.entity.FavoriteEntity
 import com.nicotv.iptv2.domain.model.Movie
 import com.nicotv.iptv2.util.isFrenchLabel
@@ -22,6 +23,18 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
 
     private val allMovies = repository.getMovies().asLiveData()
 
+    // Réglage persistant (Réglages > Langue du contenu, 28/08/2026) — lu une
+    // fois à l'ouverture de l'écran (nouveau ViewModel à chaque visite, cf.
+    // CLAUDE.md), pas besoin d'être réactif en cours d'écran. Même heuristique
+    // que le filtre FR de l'écran Chaînes (util.isFrenchLabel), appliquée ici
+    // à TOUT le catalogue avant catégories/recherche, pas juste sur un bouton
+    // par écran.
+    private val contentLanguage = app.contentLanguagePrefs.getLanguage()
+    private fun applyLanguageFilter(list: List<Movie>): List<Movie> =
+        if (contentLanguage == ContentLanguagePrefs.FRENCH) {
+            list.filter { isFrenchLabel(it.title) || isFrenchLabel(it.category) }
+        } else list
+
     val searchQuery = MutableLiveData("")
     // null = "Toutes" — cf. LiveViewModel, même principe de filtre par catégorie
     // (sidebar gauche, comme IPTV Smarters Pro).
@@ -29,8 +42,11 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
 
     val categories: LiveData<List<String>> = MediatorLiveData<List<String>>().apply {
         // Catégories France en premier (demande explicite) — cf. isFrenchLabel.
+        // Calculées sur le catalogue déjà filtré par langue : pas de catégorie
+        // 100% non-FR listée si "Français uniquement" est actif, elle donnerait
+        // toujours zéro résultat une fois sélectionnée.
         addSource(allMovies) { list ->
-            value = list.map { it.category }.filter { it.isNotBlank() }.distinct()
+            value = applyLanguageFilter(list).map { it.category }.filter { it.isNotBlank() }.distinct()
                 .sortedWith(compareByDescending<String> { isFrenchLabel(it) }.thenBy { it })
         }
     }
@@ -53,6 +69,7 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
                 val query = searchQuery.value.orEmpty().trim()
                 var movies = if (query.isBlank()) allMovies.value ?: emptyList()
                              else repository.searchMoviesByTitle(query)
+                movies = applyLanguageFilter(movies)
                 selectedCategory.value?.let { cat -> movies = movies.filter { it.category == cat } }
                 value = movies
             }
