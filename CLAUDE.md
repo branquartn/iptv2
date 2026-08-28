@@ -233,6 +233,53 @@ logique EPG (fetch à la demande au bind, job annulé au recyclage) — accepté
 pas mutualisé pour éviter une abstraction commune forcée entre deux layouts
 très différents.
 
+## Cache catalogue chaud (PlaylistRepository) + recherche interne en SQL
+
+⚠️ **"Toujours long à recharger en revisitant Films" (corrigé 28/08/2026)** :
+`PlaylistRepository.getMovies()`/`getSeries()`/`getChannels()` créaient un
+**nouveau** `combine()` (requête SQL + mapping domaine + jointure favoris/
+historique sur tout le catalogue) à **chaque appel** — comme chaque visite de
+Films/Séries/Chaînes instancie un nouveau ViewModel (`getMovies().asLiveData()`
+dans son constructeur), rouvrir l'écran remappait les ~136 000 films à
+chaque fois, aucune réutilisation entre deux visites même dans la même
+session. Passés en `StateFlow` "chauds" au niveau du repository
+(`moviesFlow`/`seriesFlow`/`channelsFlow`, `by lazy` + `.stateIn(appScope,
+SharingStarted.Eagerly, emptyList())`) : calculés une fois, gardés en mémoire
+pour tout le process, recalculés seulement si movies/favoris/historique
+changent réellement (Room réémet) — pas à chaque ouverture d'écran.
+`MainActivity.observeData()` **préchauffe** les trois en les référençant dès
+l'accueil (suffit à déclencher le `by lazy`, pas besoin de collecter) : la
+plupart du temps, le coût est déjà payé avant même que l'utilisateur clique
+sur Films.
+
+⚠️ **Recherche interne Films/Séries/Chaînes "pas immédiate" comparée à
+l'accueil (corrigé le même jour)** : même une fois déplacé en coroutine
+(cf. section précédente sur ce point), filtrer `getMovies().value` en Kotlin
+avec `foldAccents()` (Normalizer) par titre restait notablement plus lent que
+l'écran Recherche global, déjà en SQL. `MoviesViewModel`/`SeriesViewModel`/
+`LiveViewModel` appellent maintenant `repository.searchMoviesByTitle`/
+`searchSeriesByTitle`/`searchChannelsByName` (mêmes requêtes `LIKE` que
+`searchTitle`, factorisées dans `PlaylistRepository` — `searchTitle` les
+appelle désormais toutes les trois au lieu de dupliquer la logique) dès qu'une
+recherche est en cours ; catégorie/favoris/FR appliqués ensuite sur le
+résultat déjà réduit, jamais sur les 136 000/47 000 lignes à la fois. Coût
+accepté : perte de l'insensibilité aux accents sur ces 3 champs de recherche
+(SQLite `LIKE` ne connaît pas `foldAccents()`) — déjà le cas côté recherche
+globale, jamais signalé comme un manque.
+
+## Tri "ordre TNT" des chaînes françaises (LiveViewModel)
+
+Demande explicite 28/08/2026 : quand le contexte est français (catégorie
+sélectionnée reconnue par `isFrenchLabel`, ou filtre FR actif), les chaînes
+sont triées par `tntRank()` (TF1, France 2, France 3, Canal+, France 5, M6,
+Arte, C8, W9, TMC, TFX, NRJ 12, LCP, France 4, BFM TV, CNews, CStar, Gulli,
+TF1 Séries Films, L'Équipe, 6ter, RMC Story, RMC Découverte, Chérie 25,
+franceinfo:) plutôt que l'ordre de la playlist. Comparaison par sous-chaîne
+sur le nom nettoyé (accents/casse, `foldAccents()`), tolérant aux préfixes de
+playlist ("FR| TF1 HD"...) — même limite heuristique que `isFrenchLabel` :
+un nom de chaîne hors norme n'est simplement pas reconnu (`Int.MAX_VALUE`,
+relégué en fin de liste). Hors contexte français, ordre inchangé.
+
 ## TMDb — jaquettes et fiche film
 
 Aucun backend : l'app interroge TMDb directement (clé dans `AppConfig.Tmdb`).
@@ -389,9 +436,21 @@ décalé entre films/séries pour ne pas changer en même temps). `iv_home_bg`
 pour tout le process** (`MainActivity.cachedHomeBgUrl`, companion) — remis à
 `null` par `SetupActivity.loadProfile()` quand un nouveau catalogue est
 chargé (`resetHomeBg()`), sinon l'ancien fond resterait affiché après un
-changement de source. **Carte Chaînes (`card_live`) volontairement exclue** :
-pas de jaquette pertinente pour du live, elle reste icône + libellé — demande
-explicite, ne pas lui ajouter de rotation.
+changement de source.
+
+⚠️ **Carte Chaînes (`card_live`/`iv_live_bg`) — revirement le jour même** :
+d'abord volontairement laissée sans image ("pas de jaquette pertinente pour
+du live", demande explicite du matin), **puis redemandée l'après-midi même**
+("je veux quand même une image"). A maintenant sa propre rotation
+(`HUB_LIVE_OFFSET`), mais sur des **logos de chaîne** (pas des posters) :
+`iv_live_bg` est en `scaleType="fitCenter"` + `padding` (pas `centerCrop`
+comme Films/Séries) — un logo est souvent transparent et pas prévu pour être
+rogné plein cadre, contrairement à un backdrop TMDb/Xtream. Pas de champ
+`updatedAt` sur `ChannelEntity` (contrairement à Movie/SeriesEntity) : la
+liste de rotation est un simple échantillon de logos non vides, pas un tri
+par ajout récent. **Ne pas re-proposer de retirer cette image sans redemander
+à l'utilisateur** — c'est un choix qui a déjà changé une fois dans la
+journée.
 
 ## Fiche série (SeriesDetailActivity) — 2 colonnes, pas un empilement vertical
 

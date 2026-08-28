@@ -34,12 +34,14 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
     private lateinit var binding: ActivityMainBinding
     private var movieRotationJob: Job? = null
     private var seriesRotationJob: Job? = null
+    private var channelRotationJob: Job? = null
 
     // Listes courantes des fonds de vignettes — mises à jour par Room, lues par
     // les jobs de rotation à chaque tick (mêmes noms/principe que NicoTV
     // MainActivity, cf. son CLAUDE.md).
     private var movieHubUrls: List<String> = emptyList()
     private var seriesHubUrls: List<String> = emptyList()
+    private var channelHubUrls: List<String> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -93,10 +95,8 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         }
     }
 
-    /** Chaînes (card_live) volontairement exclues : pas de jaquette pertinente
-     * pour du live, la tuile reste icône + libellé (demande explicite). */
     private fun applyHubCardClipping() {
-        listOf(binding.cardFilms, binding.cardSeries, binding.ivFilmsBg, binding.ivSeriesBg).forEach { view ->
+        listOf(binding.cardLive, binding.cardFilms, binding.cardSeries, binding.ivLiveBg, binding.ivFilmsBg, binding.ivSeriesBg).forEach { view ->
             view.outlineProvider = object : ViewOutlineProvider() {
                 override fun getOutline(view: View, outline: Outline) {
                     outline.setRoundRect(0, 0, view.width, view.height, dp())
@@ -167,10 +167,39 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
     private fun observeData() {
         val app = application as IptvApplication
 
+        // Préchauffe le cache StateFlow du repository (cf. PlaylistRepository.
+        // moviesFlow/seriesFlow/channelsFlow) pendant que l'utilisateur est
+        // encore sur l'accueil — juste référencer getMovies()/getSeries()/
+        // getChannels() suffit à déclencher le `by lazy` + le démarrage du
+        // partage `Eagerly` (tourne sur appScope, indépendant de cet écran).
+        // Sans ça, le premier visite de Films/Séries/Chaînes dans la session
+        // paie quand même le coût initial ; avec ça, il est déjà payé la
+        // plupart du temps le temps que l'utilisateur clique depuis l'accueil.
+        app.playlistRepository.getMovies()
+        app.playlistRepository.getSeries()
+        app.playlistRepository.getChannels()
+
         lifecycleScope.launch {
-            app.database.channelDao().getAllChannels().collect { list ->
-                binding.tvLiveCount.text = formatCount(list.size, "chaîne")
-            }
+            app.database.channelDao().getAllChannels()
+                .map { channels ->
+                    binding.tvLiveCount.text = formatCount(channels.size, "chaîne")
+                    // Pas de champ "ajouté récemment" côté chaîne (contrairement à
+                    // Movie/SeriesEntity.updatedAt) : simple échantillon des logos
+                    // présents, suffisant pour une rotation décorative.
+                    channels.map { it.logoUrl }.filter { it.isNotBlank() }.distinct().take(12)
+                }
+                .distinctUntilChanged()
+                .collect { channelUrls ->
+                    channelHubUrls = channelUrls
+                    if (channelRotationJob == null && channelUrls.isNotEmpty()) {
+                        channelRotationJob = lifecycleScope.launch {
+                            while (isActive) {
+                                loadRotatingHubImage(binding.ivLiveBg, channelHubUrls, HUB_LIVE_OFFSET)
+                                delay(HUB_ROTATION_INTERVAL_MS)
+                            }
+                        }
+                    }
+                }
         }
         lifecycleScope.launch {
             app.database.movieDao().getAllMovies()
@@ -251,6 +280,7 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         private const val HUB_CARD_RADIUS_DP = 16f
         private const val HUB_MOVIE_OFFSET = 0
         private const val HUB_SERIES_OFFSET = 5
+        private const val HUB_LIVE_OFFSET = 9
         // Fond plein écran : stable pour tout le process (survit à une
         // réouverture de l'accueil), remis à null quand le catalogue change
         // (nouveau profil chargé, cf. SetupActivity.loadProfile) pour ne pas

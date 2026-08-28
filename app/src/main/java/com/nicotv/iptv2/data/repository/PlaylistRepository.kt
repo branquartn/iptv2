@@ -25,13 +25,16 @@ import com.nicotv.iptv2.domain.model.EpisodeProgress
 import com.nicotv.iptv2.domain.model.Movie
 import com.nicotv.iptv2.domain.model.OpenTarget
 import com.nicotv.iptv2.domain.model.SimilarWork
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
@@ -56,7 +59,12 @@ class PlaylistRepository(
     private val context: Context,
     private val db: AppDatabase,
     private val okHttpClient: OkHttpClient,
-    private val sourcePrefs: PlaylistSourcePrefs
+    private val sourcePrefs: PlaylistSourcePrefs,
+    // Survit à la destruction d'une Activity/ViewModel — indispensable pour que
+    // getMovies()/getSeries()/getChannels() restent des StateFlow "chauds" au
+    // niveau du repository plutôt que recalculés à chaque écran (cf. leurs
+    // commentaires plus bas).
+    private val appScope: CoroutineScope
 ) {
     companion object {
         // Reprise affichée dès 5s de lecture (comme NicoTV) — sous ce seuil, pas
@@ -459,7 +467,19 @@ class PlaylistRepository(
 
     // ── Lecture (films / séries / chaînes + favoris + reprise) ─────────────
 
-    fun getMovies(): Flow<List<Movie>> =
+    // ⚠️ StateFlow "chaud" au niveau du repository, pas un simple Flow recréé à
+    // chaque appel (corrigé 28/08/2026) : un `combine()` classique relance sa
+    // requête SQL + le mapping domaine complet à chaque NOUVEAU collecteur —
+    // comme chaque écran (MoviesActivity/SeriesActivity/LiveActivity) crée un
+    // nouveau ViewModel à chaque ouverture, revisiter Films remappait les
+    // ~136 000 lignes à chaque fois ("toujours long à recharger"). `stateIn` +
+    // `SharingStarted.Eagerly` calcule UNE FOIS (démarré dès la création du
+    // repository, avant même que l'utilisateur touche Films) et garde le
+    // résultat en mémoire pour tout le process — un retour sur l'écran lit la
+    // valeur déjà prête, quasi instantané. Recalculé automatiquement si
+    // movies/favorites/watch_history changent (Room réémet), pas seulement au
+    // premier accès.
+    private val moviesFlow: Flow<List<Movie>> by lazy {
         combine(db.movieDao().getAllMovies(), db.favoriteDao().getFavoritesByType(FavoriteEntity.Type.MOVIE), db.watchHistoryDao().getAllHistory()) { movies, favs, history ->
             val favIds = favs.map { it.itemId }.toSet()
             val historyByKey = history.associateBy { it.historyKey }
@@ -467,19 +487,26 @@ class PlaylistRepository(
                 val h = historyByKey["m${m.id}"]
                 m.toDomain(isFavorite = m.id in favIds, watchProgress = h?.progressPercent ?: 0)
             }
-        }
+        }.stateIn(appScope, SharingStarted.Eagerly, emptyList())
+    }
 
-    fun getSeries(): Flow<List<Movie>> =
+    private val seriesFlow: Flow<List<Movie>> by lazy {
         combine(db.seriesDao().getAllSeries(), db.favoriteDao().getFavoritesByType(FavoriteEntity.Type.SERIES)) { series, favs ->
             val favIds = favs.map { it.itemId }.toSet()
             series.map { it.toDomain(isFavorite = it.id in favIds) }
-        }
+        }.stateIn(appScope, SharingStarted.Eagerly, emptyList())
+    }
 
-    fun getChannels(): Flow<List<Channel>> =
+    private val channelsFlow: Flow<List<Channel>> by lazy {
         combine(db.channelDao().getAllChannels(), db.favoriteDao().getFavoritesByType(FavoriteEntity.Type.CHANNEL)) { channels, favs ->
             val favIds = favs.map { it.itemId }.toSet()
             channels.map { it.toDomain(isFavorite = it.id in favIds) }
-        }
+        }.stateIn(appScope, SharingStarted.Eagerly, emptyList())
+    }
+
+    fun getMovies(): Flow<List<Movie>> = moviesFlow
+    fun getSeries(): Flow<List<Movie>> = seriesFlow
+    fun getChannels(): Flow<List<Channel>> = channelsFlow
 
     fun getFavoriteMoviesAndSeries(): Flow<List<Movie>> =
         combine(getMovies(), getSeries()) { movies, series -> (movies + series).filter { it.isFavorite } }
@@ -630,28 +657,47 @@ class PlaylistRepository(
      * filtrer. Filtre désormais en SQL (`*Dao.searchByTitle`/`searchByName`,
      * LIKE) — ne mappe/joint que les résultats déjà filtrés, pas tout le
      * catalogue. */
-    suspend fun searchTitle(query: String): Triple<List<Movie>, List<Movie>, List<Channel>> = withContext(Dispatchers.IO) {
+    suspend fun searchTitle(query: String): Triple<List<Movie>, List<Movie>, List<Channel>> {
+        if (query.isBlank()) return Triple(emptyList(), emptyList(), emptyList())
+        return Triple(searchMoviesByTitle(query), searchSeriesByTitle(query), searchChannelsByName(query))
+    }
+
+    /** Recherche SQL directe (cf. MovieDao.searchByTitle) — utilisée par l'écran
+     * Recherche global ET par le champ recherche interne de l'écran Films
+     * (corrigé 28/08/2026) : ce dernier filtrait auparavant `getMovies().value`
+     * (catalogue déjà mappé) en Kotlin avec `foldAccents()` par titre à chaque
+     * frappe — lent même une fois déplacé en coroutine (des dizaines/centaines
+     * de milliers d'appels Normalizer). Repasser par la même requête SQL que la
+     * recherche globale (déjà rapide, cf. section CLAUDE.md dédiée) unifie les
+     * deux et règle le "pas immédiat" — au prix de l'insensibilité aux accents
+     * (SQLite LIKE ne connaît pas `foldAccents()`), déjà acceptée côté
+     * recherche globale sans regret signalé. */
+    suspend fun searchMoviesByTitle(query: String): List<Movie> = withContext(Dispatchers.IO) {
         val q = query.trim()
-        if (q.isBlank()) return@withContext Triple(emptyList(), emptyList(), emptyList())
-
-        val movieEntities = db.movieDao().searchByTitle(q)
-        val seriesEntities = db.seriesDao().searchByTitle(q)
-        val channelEntities = db.channelDao().searchByName(q)
-
-        val favMovieIds = db.favoriteDao().getFavoriteIds(FavoriteEntity.Type.MOVIE).toSet()
-        val favSeriesIds = db.favoriteDao().getFavoriteIds(FavoriteEntity.Type.SERIES).toSet()
-        val favChannelIds = db.favoriteDao().getFavoriteIds(FavoriteEntity.Type.CHANNEL).toSet()
+        if (q.isBlank()) return@withContext emptyList()
+        val entities = db.movieDao().searchByTitle(q)
+        val favIds = db.favoriteDao().getFavoriteIds(FavoriteEntity.Type.MOVIE).toSet()
         // Reprise de lecture (barre de progression) : seulement pour les films
         // trouvés, pas tout l'historique — cf. getMovies() pour le même principe
         // appliqué au catalogue complet.
-        val historyByKey = db.watchHistoryDao().getPositions(movieEntities.map { "m${it.id}" }).associateBy { it.historyKey }
+        val historyByKey = db.watchHistoryDao().getPositions(entities.map { "m${it.id}" }).associateBy { it.historyKey }
+        entities.map { m -> m.toDomain(isFavorite = m.id in favIds, watchProgress = historyByKey["m${m.id}"]?.progressPercent ?: 0) }
+    }
 
-        val movies = movieEntities.map { m ->
-            m.toDomain(isFavorite = m.id in favMovieIds, watchProgress = historyByKey["m${m.id}"]?.progressPercent ?: 0)
-        }
-        val series = seriesEntities.map { it.toDomain(isFavorite = it.id in favSeriesIds) }
-        val channels = channelEntities.map { it.toDomain(isFavorite = it.id in favChannelIds) }
-        Triple(movies, series, channels)
+    /** Cf. searchMoviesByTitle. */
+    suspend fun searchSeriesByTitle(query: String): List<Movie> = withContext(Dispatchers.IO) {
+        val q = query.trim()
+        if (q.isBlank()) return@withContext emptyList()
+        val favIds = db.favoriteDao().getFavoriteIds(FavoriteEntity.Type.SERIES).toSet()
+        db.seriesDao().searchByTitle(q).map { it.toDomain(isFavorite = it.id in favIds) }
+    }
+
+    /** Cf. searchMoviesByTitle. */
+    suspend fun searchChannelsByName(query: String): List<Channel> = withContext(Dispatchers.IO) {
+        val q = query.trim()
+        if (q.isBlank()) return@withContext emptyList()
+        val favIds = db.favoriteDao().getFavoriteIds(FavoriteEntity.Type.CHANNEL).toSet()
+        db.channelDao().searchByName(q).map { it.toDomain(isFavorite = it.id in favIds) }
     }
 
     /** Vide le catalogue chargé (garde les profils sauvegardés) et désactive le

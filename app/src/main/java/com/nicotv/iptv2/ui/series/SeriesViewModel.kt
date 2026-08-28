@@ -9,13 +9,10 @@ import androidx.lifecycle.asLiveData
 import com.nicotv.iptv2.IptvApplication
 import com.nicotv.iptv2.data.database.entity.FavoriteEntity
 import com.nicotv.iptv2.domain.model.Movie
-import com.nicotv.iptv2.util.foldAccents
 import com.nicotv.iptv2.util.isFrenchLabel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import androidx.lifecycle.viewModelScope
 
 class SeriesViewModel(application: Application) : AndroidViewModel(application) {
@@ -37,24 +34,18 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    // ⚠️ Filtre en coroutine debouncée — cf. MoviesViewModel.filteredMovies,
-    // même raison (foldAccents() sur tout le catalogue à chaque frappe, en
-    // synchrone sur le thread principal, saccadait l'app).
+    // ⚠️ Recherche par titre en SQL — cf. MoviesViewModel.filteredMovies, même
+    // raison et même principe (repository.searchSeriesByTitle).
     val filteredSeries: LiveData<List<Movie>> = MediatorLiveData<List<Movie>>().apply {
         var job: Job? = null
         fun filter() {
             job?.cancel()
             job = viewModelScope.launch {
                 delay(150)
-                var series = allSeries.value ?: return@launch
-                selectedCategory.value?.let { cat -> series = series.filter { it.category == cat } }
                 val query = searchQuery.value.orEmpty().trim()
-                if (query.isNotBlank()) {
-                    val queryFolded = query.foldAccents()
-                    series = withContext(Dispatchers.Default) {
-                        series.filter { it.title.foldAccents().contains(queryFolded, ignoreCase = true) }
-                    }
-                }
+                var series = if (query.isBlank()) allSeries.value ?: emptyList()
+                             else repository.searchSeriesByTitle(query)
+                selectedCategory.value?.let { cat -> series = series.filter { it.category == cat } }
                 value = series
             }
         }

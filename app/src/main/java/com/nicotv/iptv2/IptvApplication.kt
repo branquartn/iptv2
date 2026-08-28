@@ -35,7 +35,7 @@ class IptvApplication : Application(), ImageLoaderFactory {
     }
 
     val playlistRepository by lazy {
-        PlaylistRepository(this, database, okHttpClient, sourcePrefs)
+        PlaylistRepository(this, database, okHttpClient, sourcePrefs, appScope)
     }
 
     // Config Coil explicite (défaut sinon non borné en usage réel : mur
