@@ -1,6 +1,6 @@
 {
-  "versionCode": 33,
-  "versionName": "1.0.32",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.32.apk",
-  "changelog": "Profils Xtream/playlist désormais sauvegardés hors base de données : plus besoin de retaper les identifiants après une fermeture de l'app ou une mise à jour."
+  "versionCode": 34,
+  "versionName": "1.0.33",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.33.apk",
+  "changelog": "Chaînes : les catégories de la sidebar n'affichent plus le préfixe de langue (ex. \"FR| Sport\" → \"Sport\") quand ce préfixe correspond au réglage Langue du contenu."
 }
