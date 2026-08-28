@@ -17,9 +17,13 @@ livraison.
 app/src/main/java/com/nicotv/iptv2/
   AppConfig.kt            # Update.VERSION_URL + clé/URLs TMDb
   data/
-    PlaylistSourcePrefs.kt   # id du profil actif (SharedPreferences) — rien d'autre
-    m3u/M3uParser.kt         # #EXTINF/URL → M3uEntry, classification live/VOD/série
-    xtream/XtreamClient.kt   # player_api.php (login, catégories, live/VOD/séries)
+    PlaylistSourcePrefs.kt    # id du profil actif (SharedPreferences) — rien d'autre
+    ProfileBackupPrefs.kt     # copie JSON des profils, filet si Room est vidé
+    ContentLanguagePrefs.kt   # réglage "Langue du contenu" (Toutes/FR), cf. Réglages
+    ImageCacheUtil.kt         # vide le cache Coil (mémoire+disque), cf. Réglages
+    m3u/M3uParser.kt          # #EXTINF/URL → M3uEntry, classification live/VOD/série
+    xtream/XtreamClient.kt    # player_api.php (login, catégories, live/VOD/séries,
+                              # get_short_epg, get_vod_info, get_series_info)
     xtream/XtreamModels.kt   # modèles Xtream — parsing JSON à la main (org.json),
                               # jamais de désérialisation Gson stricte (panels incohérents)
     tmdb/TmdbClient.kt       # recherche par titre (jaquettes) + credits/recommandations/
@@ -27,16 +31,25 @@ app/src/main/java/com/nicotv/iptv2/
     database/                # Room : profils + cache du catalogue chargé (dao/, entity/)
     repository/PlaylistRepository.kt  # CRUD profils, charge la source → Room, expose
                                        # films/séries/chaînes joints favoris+reprise
-  domain/model/            # Movie (films+séries+épisodes unifiés), Series, Channel,
-                           # SimilarWork/OpenTarget (films similaires, filmographie)
+                                       # (StateFlow chauds, cf. section dédiée)
+  domain/model/            # Movie (films+séries+épisodes unifiés, .displayTitle),
+                           # Series, Channel, EpgNowNext, SimilarWork/OpenTarget
+  util/                    # foldAccents, isFrenchLabel, stripReleaseTags — heuristiques
+                           # partagées entre plusieurs écrans/ViewModels
   player/                  # PlayerActivity (Media3/ExoPlayer)
   ui/
-    setup/SetupActivity      # lanceur : profils enregistrés + 2 cartes (pas de login)
-    main/MainActivity        # accueil : 3 tuiles Chaînes/Films/Séries
-    live/                    # chaînes : liste + catégories + favoris
-    movies/ series/ detail/  # films/séries : mur d'affiches, fiche, épisodes
+    setup/SetupActivity      # lanceur : profils (cartes façon Netflix) + 2 cartes
+                             # d'ajout ; saut auto si profil déjà actif (pas de login)
+    main/MainActivity        # accueil : 3 tuiles Chaînes/Films/Séries, jaquettes/
+                             # logo en rotation, fond aléatoire
+    settings/SettingsActivity  # cache images/EPG/playlist, langue du contenu,
+                               # changer de source
+    live/                    # chaînes : mosaïque + sidebar catégories + favoris
+    movies/ series/ detail/  # films/séries : mur d'affiches, sidebar catégories,
+                             # fiche, épisodes
     favorites/ resume/ search/
-    common/                  # BaseActivity, PosterAdapter, RotatingBorderView...
+    common/                  # BaseActivity, PosterAdapter, CategorySidebarAdapter,
+                             # RotatingBorderView...
   update/UpdateManager      # OTA : lit version.json, télécharge + installe l'APK
 ```
 
@@ -141,12 +154,14 @@ un rechargement (même limite que NicoTV sur ses resynchronisations).
   filtrés. Si la recherche redevient lente, vérifier qu'un futur appel n'a
   pas réintroduit un `getMovies().first().filter{}` à la place de ces
   requêtes SQL dédiées.
-- **Filtre « FR »** (écran Chaînes, `LiveViewModel.isFrench`) : bouton bascule à
-  côté du filtre favoris. Ni Xtream ni M3U n'exposent de champ pays exploitable
-  et les catégories des panels réels ne suivent aucune norme (`AFR| AFRICA VIP
-  HD/4K`, `4K| 24/7 UHD 3840P`…) → heuristique sur nom + catégorie : token exact
-  `FR` (délimité, sinon `AFR`/`OFFER` matcheraient) ou sous-chaîne
-  `FRANCE`/`FRENCH`.
+- **Filtre « FR »** (écran Chaînes, bouton à côté du filtre favoris) : Ni
+  Xtream ni M3U n'exposent de champ pays exploitable et les catégories des
+  panels réels ne suivent aucune norme (`AFR| AFRICA VIP HD/4K`, `4K| 24/7 UHD
+  3840P`…) → heuristique sur nom + catégorie, `util.isFrenchLabel()` (token
+  exact `FR` délimité, sinon `AFR`/`OFFER` matcheraient, ou sous-chaîne
+  `FRANCE`/`FRENCH`). Extraite courant 28/08/2026 pour être réutilisée
+  ailleurs — cf. tri des catégories, réglage "Langue du contenu" et tri TNT,
+  sections dédiées plus bas.
 
 ## Catégories — sidebar gauche (Chaînes/Films/Séries)
 
@@ -267,7 +282,7 @@ accepté : perte de l'insensibilité aux accents sur ces 3 champs de recherche
 (SQLite `LIKE` ne connaît pas `foldAccents()`) — déjà le cas côté recherche
 globale, jamais signalé comme un manque.
 
-## Titre "propre" à l'affichage (Movie.displayTitle) + réglage langue du contenu
+## Titre "propre" à l'affichage (Movie.displayTitle)
 
 Demande explicite 28/08/2026 : "voir le vrai nom du film" — `util.
 stripReleaseTags()` (extrait des regex de `TmdbClient.cleanTitle`, partagé)
@@ -297,20 +312,8 @@ différentes en même temps — vérifier `stripReleaseTags()`/`cleanTitle()`
 ensemble si l'une des deux semble à nouveau ne pas fonctionner sur un préfixe
 de playlist particulier.
 
-⚠️ **Réglage "Langue du contenu" (Réglages, `ContentLanguagePrefs`)** : une
-seule valeur câblée aujourd'hui, "FR" (même heuristique `isFrenchLabel` que
-le filtre FR de Chaînes, appliquée ici titre+catégorie). Lu **une seule fois
-à la création du ViewModel** (`MoviesViewModel`/`SeriesViewModel`/
-`LiveViewModel` — un nouveau ViewModel à chaque ouverture d'écran, cf. section
-cache catalogue plus haut) : changer le réglage ne met PAS à jour un écran
-déjà ouvert, seulement le prochain. Sur Chaînes, ce réglage **pré-coche**
-`frenchOnly` (bouton FR déjà existant, qui reste décochable pour la session)
-plutôt que de dupliquer un mécanisme — `LiveActivity` doit refléter cet état
-initial dans la couleur du bouton dès `onCreate` (pas seulement au clic,
-piège corrigé le même jour). Sur Films/Séries, le filtre s'applique aussi aux
-catégories listées dans la sidebar (calculées sur le catalogue déjà filtré
-par langue) : pas de catégorie 100% non-FR proposée si "Français uniquement"
-est actif, elle donnerait toujours zéro résultat une fois sélectionnée.
+Réglage "Langue du contenu" (filtre FR pour Films/Séries/Chaînes) : cf.
+section **Réglages** plus bas — `ContentLanguagePrefs`.
 
 ## Tri "ordre TNT" des chaînes françaises (LiveViewModel)
 
@@ -440,7 +443,7 @@ un bandeau clair permanent affichant le nom de l'app en haut de l'écran. Piège
 vécu — un premier correctif posant `windowNoTitle` sur `Theme.IPTV` visait le
 mauvais thème et n'avait donc aucun effet.
 
-## Réglages (SettingsActivity) — cache images / playlist / EPG
+## Réglages (SettingsActivity) — cache images / playlist / EPG / langue
 
 Écran ouvert depuis l'engrenage de l'accueil (`btn_settings` — **a changé de
 sens** : ouvrait `SetupActivity` directement jusqu'ici, ouvre maintenant
@@ -472,6 +475,20 @@ sens** : ouvrait `SetupActivity` directement jusqu'ici, ouvre maintenant
   pas été rechargé depuis 24h (`PlaylistProfileEntity.lastUsedAt`), et Réglages
   propose un "Actualiser" manuel immédiat. Aucun des deux ne bloque/casse le
   flux existant en cas d'échec réseau.
+- **Langue du contenu** (`ContentLanguagePrefs`, 28/08/2026) : une seule
+  valeur câblée aujourd'hui, "FR" (`util.isFrenchLabel` appliquée titre+
+  catégorie, null = Toutes). Lu **une seule fois à la création du ViewModel**
+  (`MoviesViewModel`/`SeriesViewModel`/`LiveViewModel` — un nouveau ViewModel
+  à chaque ouverture d'écran, cf. section cache catalogue) : changer le
+  réglage ne met PAS à jour un écran déjà ouvert, seulement le prochain. Sur
+  Chaînes, **pré-coche** `frenchOnly` (bouton FR déjà existant, décochable
+  pour la session) plutôt que de dupliquer un mécanisme —`LiveActivity` doit
+  refléter cet état initial dans la couleur du bouton dès `onCreate` (pas
+  seulement au clic, piège corrigé le même jour). Sur Films/Séries, s'applique
+  aussi aux catégories listées dans la sidebar (calculées sur le catalogue
+  déjà filtré par langue) : pas de catégorie 100% non-FR proposée si
+  "Français uniquement" est actif, elle donnerait toujours zéro résultat une
+  fois sélectionnée.
 
 ## Room — migrations
 
