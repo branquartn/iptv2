@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import com.nicotv.iptv2.IptvApplication
@@ -28,7 +29,12 @@ import kotlinx.coroutines.launch
  * Codes". Chaque carte ouvre son formulaire dans un dialogue centré
  * (AlertDialog) plutôt que de l'étaler sous les cartes — avant, le formulaire
  * apparaissait en dessous et poussait le reste de l'écran, peu lisible.
- * Réutilisé pour "Changer de source" depuis MainActivity (EXTRA_FORCE_SHOW).
+ *
+ * Depuis 1.0.20 : saut automatique vers l'accueil si un profil actif valide
+ * existe déjà (cf. maybeAutoLoadLastProfile) — cet écran de choix n'est donc
+ * plus TOUJOURS visible au lancement, seulement quand il n'y a rien à
+ * charger automatiquement, ou explicitement via Réglages → "Changer de
+ * source" (SettingsActivity, EXTRA_FORCE_SHOW).
  */
 class SetupActivity : BaseActivity() {
 
@@ -46,6 +52,12 @@ class SetupActivity : BaseActivity() {
         if (uri != null) onFilePicked(uri)
     }
 
+    // Piloté par maybeAutoLoadLastProfile() : garde le splash affiché tant que
+    // la vérification "profil actif valide ?" n'a pas répondu, pour ne jamais
+    // laisser apparaître un flash de l'écran de choix avant un saut auto vers
+    // l'accueil.
+    private var keepSplashOn = true
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // installSplashScreen() DOIT être appelé avant super.onCreate() — c'est
         // lui qui bascule le thème de la fenêtre de Theme.IPTV.Splash (déclaré
@@ -54,19 +66,36 @@ class SetupActivity : BaseActivity() {
         // l'activité restait bloquée sur le thème splash toute sa durée de vie
         // → bandeau clair système avec le nom de l'app, visible en permanence
         // sur cet écran (seul point d'entrée MAIN/LAUNCHER de l'app).
-        installSplashScreen()
+        val splashScreen = installSplashScreen()
+        splashScreen.setKeepOnScreenCondition { keepSplashOn }
         super.onCreate(savedInstanceState)
         binding = ActivitySetupBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Écran de choix TOUJOURS affiché au démarrage (comme IPTV Smarters Pro) :
-        // les profils déjà enregistrés sont listés juste au-dessus des 2 cartes,
-        // un tap dessus recharge la source sans rien retaper. Avant : on sautait
-        // directement à l'accueil dès qu'un profil était actif, donc l'écran de
-        // sélection restait invisible une fois le premier profil créé.
         checkForAppUpdate()
         setupProfilesList()
         setupTypeCards()
+        maybeAutoLoadLastProfile()
+    }
+
+    /** Saut automatique et rapide vers l'accueil si un profil actif valide
+     * existe déjà (comme IPTV Smarters Pro) : le catalogue est déjà en cache
+     * Room, pas d'attente réseau (le rafraîchissement si périmé se fait en
+     * fond, cf. MainActivity.onStart → refreshActiveProfileIfStale). L'écran
+     * de choix reste accessible via Réglages → "Changer de source", qui passe
+     * EXTRA_FORCE_SHOW pour désactiver ce saut — sans ça, cliquer "Changer de
+     * source" rebondirait immédiatement sur l'accueil (même bug que l'ancien
+     * raccourci retiré : l'écran de sélection devenait inaccessible). */
+    private fun maybeAutoLoadLastProfile() {
+        if (intent.getBooleanExtra(EXTRA_FORCE_SHOW, false)) {
+            keepSplashOn = false
+            return
+        }
+        lifecycleScope.launch {
+            val hasActiveProfile = (application as IptvApplication).playlistRepository.hasValidActiveProfile()
+            keepSplashOn = false
+            if (hasActiveProfile) goToMain()
+        }
     }
 
     private fun setupProfilesList() {
@@ -75,7 +104,11 @@ class SetupActivity : BaseActivity() {
             onEdit = { profile -> editProfile(profile) },
             onDelete = { profile -> confirmDelete(profile) }
         )
-        binding.rvProfiles.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
+        // Horizontal : cartes façon sélecteur de profil (Netflix-like), pas une
+        // liste verticale de lignes — cf. item_profile.xml.
+        binding.rvProfiles.layoutManager =
+            androidx.recyclerview.widget.LinearLayoutManager(this, androidx.recyclerview.widget.LinearLayoutManager.HORIZONTAL, false)
+        binding.rvProfiles.clipToPadding = false
         binding.rvProfiles.adapter = profileAdapter
 
         lifecycleScope.launch {
@@ -92,22 +125,39 @@ class SetupActivity : BaseActivity() {
                 // vraiment vide à l'ouverture ou si le souci est ailleurs.
                 android.util.Log.i("SetupActivity", "Profils en base : ${profiles.size} (${profiles.joinToString { "${it.id}:${it.name}" }})")
                 binding.sectionProfiles.visibility = if (profiles.isEmpty()) View.GONE else View.VISIBLE
+                // activeProfileId n'est pas un champ de PlaylistProfileEntity : un
+                // changement de profil actif seul (sans changement de LISTE) ne
+                // serait pas détecté par le DiffUtil de l'adapter → notifyDataSetChanged
+                // explicite après l'avoir mis à jour, submitList seul ne suffit pas ici.
+                profileAdapter.activeProfileId = (application as IptvApplication).playlistRepository.getActiveProfile()?.id
                 profileAdapter.submitList(profiles)
+                profileAdapter.notifyDataSetChanged()
             }
         }
     }
 
     private fun confirmDelete(profile: PlaylistProfileEntity) {
-        AlertDialog.Builder(this)
-            .setTitle("Supprimer ce profil ?")
-            .setMessage(profile.name)
-            .setPositiveButton("Supprimer") { _, _ ->
+        val isActive = profile.id == profileAdapter.activeProfileId
+        val message = buildString {
+            append(getString(R.string.setup_delete_confirm_message, profile.name))
+            if (isActive) append("\n\n").append(getString(R.string.setup_delete_confirm_active_note))
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.setup_delete_confirm_title)
+            .setMessage(message)
+            .setPositiveButton(R.string.action_delete) { _, _ ->
                 lifecycleScope.launch { (application as IptvApplication).playlistRepository.deleteProfile(profile.id) }
             }
-            .setNegativeButton("Annuler", null)
+            .setNegativeButton(R.string.action_cancel, null)
             .create()
-            .also { it.window?.setBackgroundDrawableResource(R.drawable.bg_dialog) }
-            .show()
+        dialog.window?.setBackgroundDrawableResource(R.drawable.bg_dialog)
+        dialog.setOnShowListener {
+            // Rouge = action destructive/irréversible, pas la même couleur que
+            // "Annuler" — sans ça les 2 boutons se ressemblent trop (couleur
+            // d'accent par défaut du thème sur les deux).
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(ContextCompat.getColor(this, R.color.error))
+        }
+        dialog.show()
     }
 
     private fun setupTypeCards() {

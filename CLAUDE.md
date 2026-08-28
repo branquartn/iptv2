@@ -179,14 +179,30 @@ voulu, ne pas restreindre sans en avoir reparlé avec l'utilisateur.
 
 ## Écran de démarrage (SetupActivity)
 
-Affiché **toujours** au lancement, jamais court-circuité — c'est la demande
-explicite (comportement IPTV Smarters Pro) : profils enregistrés **tout en haut
-de l'écran, avant même le wordmark** (tap = recharger, crayon = modifier,
-croix = supprimer), puis 2 cartes « Charger votre playlist » (URL M3U **ou**
+Profils enregistrés en **cartes façon sélecteur Netflix** tout en haut de
+l'écran, avant même le wordmark (avatar rond coloré par profil, tap =
+recharger, crayon = modifier, croix = supprimer — cf. `ProfileAdapter`/
+`item_profile.xml`), puis 2 cartes « Charger votre playlist » (URL M3U **ou**
 fichier local, un seul formulaire, un seul bouton qui priorise le fichier
-choisi) et « Xtream Codes ». Une version antérieure sautait à l'accueil dès
-qu'un profil était actif : l'écran de sélection devenait définitivement
-invisible après la première configuration. Ne pas réintroduire ce raccourci.
+choisi) et « Xtream Codes ».
+
+⚠️ **Historique du raccourci auto-load (inversé en 1.0.20)** : une version
+antérieure sautait à l'accueil dès qu'un profil était actif, avec un défaut
+précis — l'écran de sélection devenait **définitivement inaccessible**, aucun
+moyen d'en changer. D'où la règle "toujours affiché" qui a suivi. Le
+raccourci a été **réintroduit en 1.0.20** (demande explicite, comportement
+IPTV Smarters Pro) mais cette fois sans le défaut d'origine : Réglages →
+« Changer de source » (`SettingsActivity`) reste une porte de sortie
+explicite vers cet écran, via `EXTRA_FORCE_SHOW` qui désactive le saut
+(`SetupActivity.maybeAutoLoadLastProfile`). **Ne pas réintroduire l'ancien
+saut sans cette porte de sortie** — c'est elle qui rend le raccourci sûr.
+Le saut lui-même : `PlaylistRepository.hasValidActiveProfile()` (lecture Room
+seule, rapide) décide, testé pendant que le splash screen reste affiché
+(`splashScreen.setKeepOnScreenCondition`) pour qu'aucun flash de l'écran de
+sélection n'apparaisse avant le saut — catalogue servi depuis le cache Room,
+zéro attente réseau au lancement (le rafraîchissement si périmé reste géré en
+fond par `MainActivity.onStart` → `refreshActiveProfileIfStale`, cf. section
+Réglages ci-dessous).
 
 Les 2 formulaires s'ouvrent dans un **`AlertDialog` centré**
 (`dialog_form_playlist.xml` / `dialog_form_xtream.xml`) et non plus en dessous

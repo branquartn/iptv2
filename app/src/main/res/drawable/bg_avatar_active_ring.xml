@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Anneau statique indiquant le profil actuellement chargé — distinct de
+     RotatingBorderView (focus clavier/télécommande, jamais statique) : les
+     deux peuvent être visibles en même temps sur la même carte. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <solid android:color="@android:color/transparent" />
+    <stroke android:width="3dp" android:color="@color/accent" />
+</shape>

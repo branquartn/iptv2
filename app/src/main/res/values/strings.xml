@@ -19,6 +19,8 @@
     <string name="action_resume">▶ Reprendre</string>
     <string name="action_load">Charger</string>
     <string name="action_connect">Se connecter</string>
+    <string name="action_delete">Supprimer</string>
+    <string name="action_cancel">Annuler</string>
 
     <!-- Fiche film (casting/réalisateur/similaires, portage NicoTV) -->
     <string name="overview_more">+ Lire la suite</string>
@@ -48,6 +50,13 @@
     <string name="setup_add_title">Ajouter une source</string>
     <string name="setup_type_playlist">Charger votre playlist</string>
     <string name="setup_type_xtream">Xtream Codes</string>
+    <string name="setup_profile_type_m3u_url">Playlist M3U (URL)</string>
+    <string name="setup_profile_type_m3u_file">Playlist M3U (fichier)</string>
+    <string name="setup_profile_type_xtream">Xtream Codes</string>
+    <string name="setup_profile_active">Actif</string>
+    <string name="setup_delete_confirm_title">Supprimer ce profil ?</string>
+    <string name="setup_delete_confirm_message">« %s » sera supprimé — identifiants/URL perdus, à ressaisir pour l\'utiliser à nouveau.</string>
+    <string name="setup_delete_confirm_active_note">C\'est le profil actuellement chargé : le catalogue affiché restera tel quel jusqu\'au chargement d\'une autre source.</string>
     <string name="setup_or">— OU —</string>
     <string name="setup_name_hint">Nom du profil</string>
     <string name="setup_file_pick">Choisir un fichier</string>
