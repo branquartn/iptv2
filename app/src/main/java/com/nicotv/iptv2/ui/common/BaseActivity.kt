@@ -4,6 +4,7 @@ import android.app.UiModeManager
 import android.content.Context
 import android.content.res.Configuration
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -26,6 +27,11 @@ open class BaseActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableImmersiveMode()
+        // Demandé explicitement : l'écran s'éteignait pendant qu'on parcourt les
+        // menus (chaînes/films/séries), pas seulement pendant la lecture (déjà
+        // géré séparément par PlayerActivity). Redondant mais inoffensif là où
+        // PlayerActivity pose déjà le flag.
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

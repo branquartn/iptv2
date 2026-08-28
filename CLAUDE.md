@@ -58,17 +58,24 @@ en base et nettoie la prefs. Ne pas revenir à un simple test `!= null`.
 profils sont aussi sérialisés en JSON dans SharedPreferences, réécrits à chaque
 `save*Profile`/`deleteProfile`, et `restoreProfilesIfEmpty()` (appelée au
 démarrage de `SetupActivity`) les réinjecte si la table Room est vide alors que
-la sauvegarde ne l'est pas. Motivation : plainte répétée « je dois retaper mes
-identifiants Xtream à chaque ouverture » jamais reproduite en inspection de code
-(insert inconditionnel avant tout chargement, aucun wipe caché, signature de
-build stable) et jamais confirmée par un logcat. La cause exacte reste inconnue
-— cette copie couvre toutes les hypothèses (base recréée, incident d'écriture,
-nettoyage système) sans dépendre du diagnostic. **Si le problème persiste
-malgré ça**, c'est que le profil n'est jamais enregistré du tout : chercher du
-côté de la validation du formulaire (cf. section suivante) plutôt que de la
-persistance. Deux `Log.i` sont en place pour trancher (`SetupActivity` : contenu
-réel de la table à chaque affichage ; `PlaylistRepository` : restauration
-effectuée).
+la sauvegarde ne l'est pas. Motivation d'origine : plainte répétée « je dois
+retaper mes identifiants Xtream à chaque ouverture », jamais reproduite en
+inspection de code ni confirmée par un logcat à l'époque — cette copie couvrait
+toutes les hypothèses de persistance sans dépendre du diagnostic.
+
+⚠️ **Cause réelle trouvée le 28/08/2026, via logcat** (`Log.i("SetupActivity",
+"Profils en base : ...")`) : les profils étaient **bien enregistrés et bien
+transmis à l'adapter** (log confirmé : 2 profils en base, stables sur 3
+réaffichages) — ce n'était donc **jamais un problème de persistance**.
+`rv_profiles` (`activity_setup.xml`) n'avait tout simplement **aucun
+`layoutManager`** assigné (ni en XML, ni dans `SetupActivity.setupProfilesList()`,
+qui ne posait que `.adapter =`) : un RecyclerView sans layoutManager ne dessine
+rien, même avec une liste non vide — la section restait vide à l'écran alors
+que `section_profiles` passait bien en `VISIBLE`. Fixé en ajoutant
+`binding.rvProfiles.layoutManager = LinearLayoutManager(this)` juste avant
+`.adapter =`. Levée : **toujours vérifier le layoutManager en premier** sur un
+RecyclerView vide à l'écran malgré des données confirmées en base — avant de
+soupçonner Room/migrations/backup.
 
 ⚠️ **Erreurs de formulaire invisibles** (corrigé en 1.0.12, à ne pas
 réintroduire) : les dialogues Playlist/Xtream utilisaient `showStatus()`, qui
@@ -254,6 +261,10 @@ la tester sur un vrai upgrade, pas seulement sur une install neuve.
   possible sans le `type` dans la comparaison.
 - Toutes les activités en `screenOrientation="sensorLandscape"`.
 - Code et commentaires en **français**.
+- **`BaseActivity`** pose `FLAG_KEEP_SCREEN_ON` sur toutes les écrans (demandé
+  28/08/2026 : l'écran s'éteignait en pleine navigation menus, pas seulement
+  en lecture). Redondant avec le flag déjà posé par `PlayerActivity` — sans
+  conséquence, jamais retiré nulle part.
 
 ## Lecteur (PlayerActivity)
 

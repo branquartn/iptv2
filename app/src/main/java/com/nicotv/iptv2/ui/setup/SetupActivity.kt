@@ -75,6 +75,7 @@ class SetupActivity : BaseActivity() {
             onEdit = { profile -> editProfile(profile) },
             onDelete = { profile -> confirmDelete(profile) }
         )
+        binding.rvProfiles.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
         binding.rvProfiles.adapter = profileAdapter
 
         lifecycleScope.launch {
