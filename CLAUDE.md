@@ -200,6 +200,24 @@ réintroduit `ListAdapter` sur une liste issue du catalogue complet (pas une
 petite liste bornée comme les catégories, `CategorySidebarAdapter` reste un
 `ListAdapter` sans souci), refaire le même raisonnement avant de l'utiliser.
 
+⚠️ **Champ de recherche interne (Chaînes/Films/Séries) — pas l'écran Recherche
+dédié** (corrigé 28/08/2026) : `MoviesViewModel`/`SeriesViewModel`/
+`LiveViewModel` filtraient `selectedCategory`/`searchQuery` **en synchrone,
+sur le thread principal, dans le callback `addSource`** — `foldAccents()`
+(Unicode `Normalizer`, coûteux) appelé sur le titre de **chaque** film/série/
+chaîne à **chaque frappe**. Sur ~136 000 films ou ~47 000 chaînes, assez lent
+pour saccader l'app et carrément **perdre des caractères tapés** : reproduit
+via `adb shell input text "avatar"` sur le champ recherche de l'écran Films —
+seul "av" arrivait dans le champ, le reste perdu (le thread principal était
+occupé à filtrer pendant que d'autres évènements clavier arrivaient). Passé
+en coroutine debouncée (150ms, `viewModelScope.launch` + `Dispatchers.Default`
+pour le filtre par titre) — même principe que `SearchViewModel.search()`
+(écran Recherche dédié, déjà async depuis l'origine, jamais eu ce problème).
+Si un futur filtre réintroduit un `addSource(...) { ... calcul lourd ... }`
+synchrone sur une source alimentée par un gros catalogue, le reproduire avec
+`adb shell input text` sur un vrai appareil avant de conclure que "ça a l'air
+d'aller" — un test manuel qui tape lentement ne révèle pas ce genre de perte.
+
 ## Mosaïque de chaînes (LiveActivity)
 
 Ajouté 28/08/2026 (demande explicite, comportement IPTV Smarters Pro) :

@@ -11,7 +11,11 @@ import com.nicotv.iptv2.data.database.entity.FavoriteEntity
 import com.nicotv.iptv2.domain.model.Channel
 import com.nicotv.iptv2.util.foldAccents
 import com.nicotv.iptv2.util.isFrenchLabel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.lifecycle.viewModelScope
 
 class LiveViewModel(application: Application) : AndroidViewModel(application) {
@@ -34,14 +38,31 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // ⚠️ Filtre en coroutine debouncée — cf. MoviesViewModel.filteredMovies,
+    // même raison (foldAccents() sur tout le catalogue à chaque frappe, en
+    // synchrone sur le thread principal — ici jusqu'à ~47 000 chaînes).
     val filteredChannels: LiveData<List<Channel>> = MediatorLiveData<List<Channel>>().apply {
+        var job: Job? = null
         fun filter() {
-            var base = allChannels.value ?: return
-            if (favoritesOnly.value == true) base = base.filter { it.isFavorite }
-            if (frenchOnly.value == true) base = base.filter { isFrench(it) }
-            selectedCategory.value?.let { cat -> base = base.filter { it.category == cat } }
-            val query = searchQuery.value.orEmpty().trim().foldAccents()
-            value = if (query.isBlank()) base else base.filter { it.name.foldAccents().contains(query, ignoreCase = true) }
+            job?.cancel()
+            job = viewModelScope.launch {
+                delay(150)
+                var base = allChannels.value ?: return@launch
+                if (favoritesOnly.value == true) base = base.filter { it.isFavorite }
+                selectedCategory.value?.let { cat -> base = base.filter { it.category == cat } }
+                val onlyFrench = frenchOnly.value == true
+                val query = searchQuery.value.orEmpty().trim()
+                if (onlyFrench || query.isNotBlank()) {
+                    val queryFolded = query.foldAccents()
+                    base = withContext(Dispatchers.Default) {
+                        base.filter { channel ->
+                            (!onlyFrench || isFrench(channel)) &&
+                                (query.isBlank() || channel.name.foldAccents().contains(queryFolded, ignoreCase = true))
+                        }
+                    }
+                }
+                value = base
+            }
         }
         addSource(allChannels) { filter() }
         addSource(searchQuery) { filter() }
