@@ -1,6 +1,6 @@
 {
-  "versionCode": 35,
-  "versionName": "1.0.34",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.34.apk",
-  "changelog": "Chaînes : la sidebar catégories ne garde que celles de la langue sélectionnée (Réglages > Langue du contenu), préfixe retiré. Films : même nettoyage du préfixe (\"FR - Action\" → \"Action\")."
+  "versionCode": 37,
+  "versionName": "1.0.36",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.36.apk",
+  "changelog": "Chaînes : suppression du bouton FR en haut d'écran (redondant avec Réglages > Langue du contenu)."
 }
