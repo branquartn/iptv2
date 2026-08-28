@@ -222,6 +222,23 @@ class XtreamClient(
         }
     }
 
+    /** Détail d'un film (get_vod_info) — appelé à la demande à l'ouverture de la
+     * fiche film uniquement, cf. XtVodInfo. `get_vod_streams` (liste en masse)
+     * ne renvoie souvent aucun de ces champs sur les panels réels ; ici ils
+     * vivent dans un sous-objet "info" (absent → objet vide, jamais d'erreur). */
+    suspend fun getVodInfo(vodId: String): XtVodInfo {
+        val json = callObject("get_vod_info", mapOf("vod_id" to vodId))
+        val info = json.optJSONObject("info") ?: JSONObject()
+        val backdrops = info.optJSONArray("backdrop_path")
+        return XtVodInfo(
+            plot = info.optString("plot"),
+            genre = info.optString("genre"),
+            rating = info.optString("rating").toFloatOrNull() ?: 0f,
+            durationSecs = info.optInt("duration_secs", 0),
+            backdropUrl = backdrops?.optString(0).orEmpty()
+        )
+    }
+
     private fun decodeMaybeBase64(value: String): String {
         if (value.isBlank()) return value
         return try {

@@ -50,6 +50,12 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
             val m = repository.getMovieById(movieId)
             _movie.value = m
             _resumePositionMs.value = if (m != null) repository.getWatchPosition("m$movieId") else 0L
+            // Synopsis Xtream (get_vod_info) — uniquement à l'ouverture de CETTE
+            // fiche, jamais pour tout le catalogue (demande explicite). Ne fait
+            // rien si le film a déjà un synopsis ou n'est pas issu d'Xtream.
+            if (m != null && m.overview.isBlank() && m.xtreamStreamId.isNotBlank()) {
+                repository.enrichMovieFromXtreamIfNeeded(movieId)?.let { _movie.value = it }
+            }
         }
     }
 

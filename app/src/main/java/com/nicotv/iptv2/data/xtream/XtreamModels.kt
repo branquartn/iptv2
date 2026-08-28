@@ -56,3 +56,16 @@ data class XtEpgListing(
     val stopTimestamp: Long,
     val nowPlaying: Boolean
 )
+
+/** Détail d'un film VOD (get_vod_info) — appelé à la demande à l'ouverture de
+ * la fiche film uniquement (pas au chargement du catalogue, cf.
+ * PlaylistRepository.enrichMovieFromXtreamIfNeeded) : get_vod_streams (liste
+ * en masse) ne renvoie souvent ni plot ni cast ni genre sur les panels réels —
+ * ces champs ne sont disponibles que via cet appel par film. */
+data class XtVodInfo(
+    val plot: String = "",
+    val genre: String = "",
+    val rating: Float = 0f,
+    val durationSecs: Int = 0,
+    val backdropUrl: String = ""
+)

@@ -35,7 +35,12 @@ data class MovieEntity(
     // properly handle...), même symptôme que "rien ne s'affiche".
     @ColumnInfo(defaultValue = "0")
     val tmdbId: Int = 0,
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    // Vide pour un film issu d'un M3U — rempli pour Xtream (stream_id), utilisé
+    // par PlaylistRepository.enrichMovieFromXtreamIfNeeded pour aller chercher
+    // le synopsis via get_vod_info à l'ouverture de la fiche (get_vod_streams,
+    // liste en masse, ne le fournit pas sur la plupart des panels réels).
+    val xtreamStreamId: String = ""
 ) {
     fun toDomain(
         isFavorite: Boolean = false,
@@ -56,6 +61,7 @@ data class MovieEntity(
         tmdbId = tmdbId,
         isFavorite = isFavorite,
         watchProgress = watchProgress,
-        isFinished = isFinished
+        isFinished = isFinished,
+        xtreamStreamId = xtreamStreamId
     )
 }

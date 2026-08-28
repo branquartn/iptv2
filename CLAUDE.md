@@ -292,19 +292,47 @@ Aucun backend : l'app interroge TMDb directement (clé dans `AppConfig.Tmdb`).
   précédente) laissait donc des affiches cassées. `tmdbId` est stocké
   (`MovieEntity.tmdbId`) pour éviter une seconde recherche à l'ouverture de la
   fiche. Coût assumé : une recherche par film au chargement.
-- ⚠️ **Aucun appel TMDb côté Xtream** (depuis 1.0.10) : le panel fournit déjà
-  `stream_icon`/`plot`/`rating` (VOD) et `cover`/`plot`/`rating`/`genre`
-  (séries) pour la quasi-totalité de son catalogue. Sur un panel réel de
-  ~136 000 films, enrichir ne serait-ce que les entrées sans jaquette
-  représentait des milliers de requêtes : chargement interminable (perçu comme
-  un figeage) puis téléphone saturé en navigation. Ne pas réintroduire
-  d'enrichissement TMDb dans `loadXtream`.
+- ⚠️ **Aucun appel TMDb au CHARGEMENT côté Xtream** (depuis 1.0.10, toujours
+  valable) : `stream_icon`/`rating` (VOD) sont bien fournis par
+  `get_vod_streams` sur la quasi-totalité des panels, mais **`plot`/`genre`
+  quasiment jamais** en pratique (case `it.plot` souvent vide malgré le champ
+  prévu dans `XtStream`, constaté 28/08/2026 sur un vrai panel) — ces deux
+  champs ne vivent que dans `get_vod_info`, un appel **par film**. Sur un
+  panel réel de ~136 000 films, l'appeler pour CHAQUE film au chargement
+  représenterait des milliers de requêtes : chargement interminable (perçu
+  comme un figeage) puis téléphone saturé en navigation. **Ne jamais appeler
+  `get_vod_info` (ni TMDb) dans `loadXtream`** — uniquement à la demande, cf.
+  point suivant.
+- **Synopsis Xtream à la demande** (`PlaylistRepository.
+  enrichMovieFromXtreamIfNeeded`, 28/08/2026) : appelé uniquement par
+  `DetailViewModel.load()`, donc seulement quand l'utilisateur ouvre CETTE
+  fiche précise (jamais en lot) — `get_vod_info(vod_id)` remplit
+  overview/genre/note/durée/backdrop si `MovieEntity.overview` est vide et
+  que le film a un `xtreamStreamId` (vide pour un film M3U). Écrit en base
+  (`movieDao().insertAll`, REPLACE sur l'id) pour ne plus jamais rappeler
+  l'API sur ce même film. Si le panel ne renvoie toujours rien (`plot` vide
+  même via `get_vod_info`), le film reste sans synopsis — pas de repli TMDb
+  ici, cf. point suivant qui s'en charge séparément (casting/similaires).
 - **`TmdbClient.cleanTitle()`** nettoie les noms scene-release réels
   (`Movie.Title.2020.FRENCH.1080p.BluRay.x264-GROUP`) — séparateurs `._+`,
   année, tags qualité/langue, suffixe `-GROUPE` en fin de chaîne uniquement
   (sinon « Spider-Man » serait tronqué). Sans ça la recherche ne trouve rien.
+  ⚠️ **Étendu 28/08/2026** pour les préfixes typiques Xtream ("4K-EN - Avatar
+  (2009)", "3D-DE- 300...") : `3D`/`HDR`/`DV`/`ATMOS` et codes langue bruts
+  (`EN`/`DE`/`ES`...) ajoutés aux tags reconnus, + un nettoyage final des
+  tirets/espaces résiduels en **bord de chaîne uniquement** (`^`/`$`, jamais
+  au milieu — ne touche pas "Spider-Man"). Avant ce correctif, ces titres
+  laissaient un résidu du type "-EN - Avatar" après nettoyage, que TMDb ne
+  matchait jamais → cast/réalisateur/similaires n'apparaissaient tout
+  simplement pas sur une bonne partie du catalogue Xtream, sans erreur
+  visible pour l'expliquer.
 - **Fiche film** (`DetailActivity`) : casting, réalisateur, films similaires,
-  bande-annonce, fiche acteur/filmographie — mêmes layouts que NicoTV.
+  bande-annonce, fiche acteur/filmographie — mêmes layouts que NicoTV,
+  **fonctionne pour Xtream comme pour M3U** (aucune branche par source dans
+  `DetailActivity`/`DetailViewModel.loadExtras` : `MovieEntity.tmdbId` vaut 0
+  pour tout film Xtream — pas de résolution TMDb au chargement, cf. point
+  précédent — donc `loadExtras` retombe sur la recherche par titre à chaque
+  ouverture de fiche, c'est `cleanTitle()` qui détermine si elle aboutit).
   Différence forcée par l'absence de backend : un titre similaire déjà présent
   dans le catalogue chargé s'ouvre (badge ✓, résolution **par titre** —
   `MovieDao/SeriesDao.findByTitle`, nos entrées n'ont pas d'id TMDb propre) ;

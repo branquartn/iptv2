@@ -28,7 +28,9 @@ data class Movie(
     // s'agit d'une série (prompt/enchaînement épisode suivant) quand la lecture
     // démarre depuis l'historique (ResumeActivity) plutôt que la fiche série.
     val seriesId: Long = -1L,
-    val seriesTitle: String = ""
+    val seriesTitle: String = "",
+    // Vide si issu d'un M3U — cf. PlaylistRepository.enrichMovieFromXtreamIfNeeded.
+    val xtreamStreamId: String = ""
 ) {
     enum class Type { MOVIE, EPISODE, SERIES }
     val genresFormatted: String get() = genres.joinToString(" • ")

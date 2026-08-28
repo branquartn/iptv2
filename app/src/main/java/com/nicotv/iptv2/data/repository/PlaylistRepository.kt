@@ -407,7 +407,8 @@ class PlaylistRepository(
             MovieEntity(
                 title = it.name, streamUrl = client.vodStreamUrl(it.streamId, it.containerExtension),
                 posterUrl = it.icon, overview = it.plot, rating = it.rating,
-                category = vodCats[it.categoryId]?.name.orEmpty()
+                category = vodCats[it.categoryId]?.name.orEmpty(),
+                xtreamStreamId = it.streamId
             )
         }
 
@@ -526,6 +527,38 @@ class PlaylistRepository(
         val isFav = db.favoriteDao().isFavorite(id, FavoriteEntity.Type.MOVIE)
         val history = db.watchHistoryDao().getPosition("m$id")
         entity.toDomain(isFavorite = isFav, watchProgress = history?.progressPercent ?: 0)
+    }
+
+    /** Complète le synopsis/genre/note/durée d'un film Xtream via get_vod_info —
+     * appelé UNIQUEMENT à l'ouverture de sa fiche (DetailViewModel.load), jamais
+     * au chargement du catalogue (des dizaines/centaines de milliers d'appels
+     * seraient hors de question, même raison que loadEpisodesForSeries). Ne fait
+     * rien (renvoie null) si le film a déjà un synopsis, n'est pas issu d'Xtream,
+     * ou si le profil actif n'est plus Xtream — l'appelant garde alors l'entrée
+     * déjà chargée telle quelle. */
+    suspend fun enrichMovieFromXtreamIfNeeded(movieId: Long): Movie? = withContext(Dispatchers.IO) {
+        val entity = db.movieDao().getMovieById(movieId) ?: return@withContext null
+        if (entity.overview.isNotBlank() || entity.xtreamStreamId.isBlank()) return@withContext null
+        val profile = getActiveProfile()?.takeIf { it.type == SourceType.XTREAM.name } ?: return@withContext null
+        val info = try {
+            xtreamClientFor(profile).getVodInfo(entity.xtreamStreamId)
+        } catch (e: Exception) {
+            null
+        } ?: return@withContext null
+        if (info.plot.isBlank()) return@withContext null
+
+        val updated = entity.copy(
+            overview = info.plot,
+            genres = info.genre.ifBlank { entity.genres },
+            rating = if (info.rating > 0f) info.rating else entity.rating,
+            runtime = if (info.durationSecs > 0) info.durationSecs / 60 else entity.runtime,
+            backdropUrl = entity.backdropUrl.ifBlank { info.backdropUrl }
+        )
+        db.movieDao().insertAll(listOf(updated))
+
+        val isFav = db.favoriteDao().isFavorite(movieId, FavoriteEntity.Type.MOVIE)
+        val history = db.watchHistoryDao().getPosition("m$movieId")
+        updated.toDomain(isFavorite = isFav, watchProgress = history?.progressPercent ?: 0)
     }
 
     suspend fun getSeriesEntityById(id: Long): SeriesEntity? = withContext(Dispatchers.IO) { db.seriesDao().getById(id) }
