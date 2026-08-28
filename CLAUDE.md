@@ -19,7 +19,7 @@ app/src/main/java/com/nicotv/iptv2/
   data/
     PlaylistSourcePrefs.kt    # id du profil actif (SharedPreferences) — rien d'autre
     ProfileBackupPrefs.kt     # copie JSON des profils, filet si Room est vidé
-    ContentLanguagePrefs.kt   # réglage "Langue du contenu" (Toutes/FR), cf. Réglages
+    ContentLanguagePrefs.kt   # réglage "Langue du contenu" (liste dynamique), cf. Réglages
     ImageCacheUtil.kt         # vide le cache Coil (mémoire+disque), cf. Réglages
     m3u/M3uParser.kt          # #EXTINF/URL → M3uEntry, classification live/VOD/série
     xtream/XtreamClient.kt    # player_api.php (login, catégories, live/VOD/séries,
@@ -34,7 +34,7 @@ app/src/main/java/com/nicotv/iptv2/
                                        # (StateFlow chauds, cf. section dédiée)
   domain/model/            # Movie (films+séries+épisodes unifiés, .displayTitle),
                            # Series, Channel, EpgNowNext, SimilarWork/OpenTarget
-  util/                    # foldAccents, isFrenchLabel, stripReleaseTags — heuristiques
+  util/                    # foldAccents, isFrenchLabel, stripReleaseTags, LanguageCode —
                            # partagées entre plusieurs écrans/ViewModels
   player/                  # PlayerActivity (Media3/ExoPlayer)
   ui/
@@ -475,20 +475,31 @@ sens** : ouvrait `SetupActivity` directement jusqu'ici, ouvre maintenant
   pas été rechargé depuis 24h (`PlaylistProfileEntity.lastUsedAt`), et Réglages
   propose un "Actualiser" manuel immédiat. Aucun des deux ne bloque/casse le
   flux existant en cas d'échec réseau.
-- **Langue du contenu** (`ContentLanguagePrefs`, 28/08/2026) : une seule
-  valeur câblée aujourd'hui, "FR" (`util.isFrenchLabel` appliquée titre+
-  catégorie, null = Toutes). Lu **une seule fois à la création du ViewModel**
+- **Langue du contenu** (`ContentLanguagePrefs`) : liste **dynamique**, pas
+  câblée en dur (`PlaylistRepository.getAvailableContentLanguages()` scanne
+  le catalogue chargé — noms de chaîne + catégories films/séries — et
+  découvre les codes réellement présents : "FR", "AF", "CA"... chaque panel a
+  les siens). Filtre **exact** sur le code en tête (`util.LanguageCode`,
+  extrait le 28/08/2026 après une confusion avec `isFrenchLabel` — voir
+  paragraphe suivant), pas une heuristique substring. Null = Toutes.
+  ⚠️ **Deux conventions de délimiteur différentes constatées sur un panel
+  réel** — d'où `extractLeadingLanguageCode()` teste les deux : noms de
+  chaîne en `"FR: TF1 HD"`/`"AF: TF1"` (deux-points, parfois barre verticale
+  — l'utilisateur avait d'abord supposé "FR|", à vérifier en direct plutôt
+  que de faire confiance à la mémoire de l'utilisateur sur ce point précis) ;
+  catégories/titres films-séries en `"FR - Ghost (1990)"` (tiret espacé).
+  Sur **Chaînes**, en plus de filtrer, le préfixe est **retiré du nom
+  affiché** (`stripLeadingLanguageCode`, `LiveViewModel.filteredChannels`) —
+  demande explicite. Lu **une seule fois à la création du ViewModel**
   (`MoviesViewModel`/`SeriesViewModel`/`LiveViewModel` — un nouveau ViewModel
   à chaque ouverture d'écran, cf. section cache catalogue) : changer le
-  réglage ne met PAS à jour un écran déjà ouvert, seulement le prochain. Sur
-  Chaînes, **pré-coche** `frenchOnly` (bouton FR déjà existant, décochable
-  pour la session) plutôt que de dupliquer un mécanisme —`LiveActivity` doit
-  refléter cet état initial dans la couleur du bouton dès `onCreate` (pas
-  seulement au clic, piège corrigé le même jour). Sur Films/Séries, s'applique
-  aussi aux catégories listées dans la sidebar (calculées sur le catalogue
-  déjà filtré par langue) : pas de catégorie 100% non-FR proposée si
-  "Français uniquement" est actif, elle donnerait toujours zéro résultat une
-  fois sélectionnée.
+  réglage ne met PAS à jour un écran déjà ouvert, seulement le prochain.
+  Cohabite avec deux mécanismes plus anciens et volontairement **non
+  remplacés** (redondance acceptée, pas de régression sur de l'existant qui
+  marchait) : le bouton `frenchOnly` de Chaînes (heuristique `isFrenchLabel`
+  plus permissive, nom+catégorie complets) reste **pré-coché** si le réglage
+  vaut exactement "FR", et le tri "France en premier" des sidebars catégories
+  (aussi `isFrenchLabel`) est inchangé.
 
 ## Room — migrations
 

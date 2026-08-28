@@ -7,9 +7,9 @@ import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.asLiveData
 import com.nicotv.iptv2.IptvApplication
-import com.nicotv.iptv2.data.ContentLanguagePrefs
 import com.nicotv.iptv2.data.database.entity.FavoriteEntity
 import com.nicotv.iptv2.domain.model.Movie
+import com.nicotv.iptv2.util.extractLeadingLanguageCode
 import com.nicotv.iptv2.util.isFrenchLabel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -24,12 +24,11 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
     private val allSeries = repository.getSeries().asLiveData()
 
     // Réglage persistant (Réglages > Langue du contenu) — cf. MoviesViewModel,
-    // même principe.
+    // même principe (filtre exact par code, pas l'heuristique isFrenchLabel).
     private val contentLanguage = app.contentLanguagePrefs.getLanguage()
     private fun applyLanguageFilter(list: List<Movie>): List<Movie> =
-        if (contentLanguage == ContentLanguagePrefs.FRENCH) {
-            list.filter { isFrenchLabel(it.title) || isFrenchLabel(it.category) }
-        } else list
+        if (contentLanguage == null) list
+        else list.filter { extractLeadingLanguageCode(it.category) == contentLanguage }
 
     val searchQuery = MutableLiveData("")
     // null = "Toutes" — cf. LiveViewModel/MoviesViewModel, même principe.

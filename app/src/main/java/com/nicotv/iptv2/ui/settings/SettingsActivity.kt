@@ -9,7 +9,6 @@ import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
 import com.nicotv.iptv2.IptvApplication
 import com.nicotv.iptv2.R
-import com.nicotv.iptv2.data.ContentLanguagePrefs
 import com.nicotv.iptv2.data.ImageCacheUtil
 import com.nicotv.iptv2.databinding.ActivitySettingsBinding
 import com.nicotv.iptv2.ui.common.BaseActivity
@@ -85,32 +84,54 @@ class SettingsActivity : BaseActivity() {
      * réactif ici, un écran déjà ouvert n'est de toute façon jamais mis à jour
      * en direct par un changement de Réglages ailleurs dans l'app. */
     private fun updateContentLanguageLabel() {
-        val prefs = (application as IptvApplication).contentLanguagePrefs
-        binding.tvContentLanguage.text = if (prefs.getLanguage() == ContentLanguagePrefs.FRENCH) {
-            getString(R.string.settings_content_language_fr)
-        } else {
+        val code = (application as IptvApplication).contentLanguagePrefs.getLanguage()
+        binding.tvContentLanguage.text = if (code == null) {
             getString(R.string.settings_content_language_all)
+        } else {
+            languageLabel(code)
         }
     }
 
+    /** Liste dynamique (pas de "FR" figé) — demande explicite 28/08/2026 :
+     * "regarde toutes les langues qu'il y a" plutôt qu'un choix Toutes/FR
+     * câblé en dur. `repository.getAvailableContentLanguages()` scanne le
+     * catalogue chargé (noms de chaîne + catégories films/séries, cf.
+     * util.LanguageCode) — pas de liste connue à l'avance, chaque panel a ses
+     * propres codes. */
     private fun showContentLanguageDialog() {
-        val prefs = (application as IptvApplication).contentLanguagePrefs
-        val options = arrayOf(
-            getString(R.string.settings_content_language_all),
-            getString(R.string.settings_content_language_fr)
+        lifecycleScope.launch {
+            val prefs = (application as IptvApplication).contentLanguagePrefs
+            val codes = (application as IptvApplication).playlistRepository.getAvailableContentLanguages()
+            val options = (listOf(getString(R.string.settings_content_language_all)) + codes.map { languageLabel(it) })
+                .toTypedArray()
+            val current = codes.indexOf(prefs.getLanguage()).let { if (it < 0) 0 else it + 1 }
+            val dialog = AlertDialog.Builder(this@SettingsActivity)
+                .setTitle(R.string.settings_content_language)
+                .setSingleChoiceItems(options, current) { d, which ->
+                    prefs.setLanguage(if (which == 0) null else codes[which - 1])
+                    updateContentLanguageLabel()
+                    d.dismiss()
+                }
+                .setNegativeButton(R.string.action_cancel, null)
+                .create()
+            dialog.window?.setBackgroundDrawableResource(R.drawable.bg_dialog)
+            dialog.show()
+        }
+    }
+
+    /** "FR" → "FR — Français" pour les codes langue courants reconnus, sinon
+     * le code brut tel quel (bouquet/pays pas forcément une langue — "AF",
+     * "CA" côté panel réel, cf. util.LanguageCode). */
+    private fun languageLabel(code: String): String =
+        KNOWN_LANGUAGE_NAMES[code]?.let { "$code — $it" } ?: code
+
+    companion object {
+        private val KNOWN_LANGUAGE_NAMES = mapOf(
+            "FR" to "Français", "EN" to "Anglais", "DE" to "Allemand",
+            "ES" to "Espagnol", "IT" to "Italien", "PT" to "Portugais",
+            "NL" to "Néerlandais", "PL" to "Polonais", "RU" to "Russe",
+            "AR" to "Arabe", "TR" to "Turc"
         )
-        val current = if (prefs.getLanguage() == ContentLanguagePrefs.FRENCH) 1 else 0
-        val dialog = AlertDialog.Builder(this)
-            .setTitle(R.string.settings_content_language)
-            .setSingleChoiceItems(options, current) { d, which ->
-                prefs.setLanguage(if (which == 1) ContentLanguagePrefs.FRENCH else null)
-                updateContentLanguageLabel()
-                d.dismiss()
-            }
-            .setNegativeButton(R.string.action_cancel, null)
-            .create()
-        dialog.window?.setBackgroundDrawableResource(R.drawable.bg_dialog)
-        dialog.show()
     }
 
     private fun refreshCatalog() {

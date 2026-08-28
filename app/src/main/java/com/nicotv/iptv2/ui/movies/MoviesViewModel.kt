@@ -7,9 +7,9 @@ import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.asLiveData
 import com.nicotv.iptv2.IptvApplication
-import com.nicotv.iptv2.data.ContentLanguagePrefs
 import com.nicotv.iptv2.data.database.entity.FavoriteEntity
 import com.nicotv.iptv2.domain.model.Movie
+import com.nicotv.iptv2.util.extractLeadingLanguageCode
 import com.nicotv.iptv2.util.isFrenchLabel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -23,17 +23,17 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
 
     private val allMovies = repository.getMovies().asLiveData()
 
-    // Réglage persistant (Réglages > Langue du contenu, 28/08/2026) — lu une
-    // fois à l'ouverture de l'écran (nouveau ViewModel à chaque visite, cf.
-    // CLAUDE.md), pas besoin d'être réactif en cours d'écran. Même heuristique
-    // que le filtre FR de l'écran Chaînes (util.isFrenchLabel), appliquée ici
-    // à TOUT le catalogue avant catégories/recherche, pas juste sur un bouton
-    // par écran.
+    // Réglage persistant (Réglages > Langue du contenu) — lu une fois à
+    // l'ouverture de l'écran (nouveau ViewModel à chaque visite, cf.
+    // CLAUDE.md), pas besoin d'être réactif en cours d'écran. Liste de codes
+    // découverte dynamiquement (pas de "FR" figé, cf. SettingsActivity) —
+    // filtre EXACT sur le code en tête de la catégorie ("FR - Ghost" → "FR"),
+    // pas une heuristique substring comme isFrenchLabel (utilisée seulement
+    // pour trier les catégories France en premier, cf. plus bas).
     private val contentLanguage = app.contentLanguagePrefs.getLanguage()
     private fun applyLanguageFilter(list: List<Movie>): List<Movie> =
-        if (contentLanguage == ContentLanguagePrefs.FRENCH) {
-            list.filter { isFrenchLabel(it.title) || isFrenchLabel(it.category) }
-        } else list
+        if (contentLanguage == null) list
+        else list.filter { extractLeadingLanguageCode(it.category) == contentLanguage }
 
     val searchQuery = MutableLiveData("")
     // null = "Toutes" — cf. LiveViewModel, même principe de filtre par catégorie

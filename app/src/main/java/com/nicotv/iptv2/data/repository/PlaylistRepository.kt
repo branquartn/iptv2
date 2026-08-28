@@ -25,6 +25,7 @@ import com.nicotv.iptv2.domain.model.EpisodeProgress
 import com.nicotv.iptv2.domain.model.Movie
 import com.nicotv.iptv2.domain.model.OpenTarget
 import com.nicotv.iptv2.domain.model.SimilarWork
+import com.nicotv.iptv2.util.extractLeadingLanguageCode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -508,6 +509,20 @@ class PlaylistRepository(
     fun getMovies(): Flow<List<Movie>> = moviesFlow
     fun getSeries(): Flow<List<Movie>> = seriesFlow
     fun getChannels(): Flow<List<Channel>> = channelsFlow
+
+    /** Langues/bouquets réellement présents dans le catalogue chargé — pour
+     * peupler dynamiquement le choix "Langue du contenu" (Réglages), pas de
+     * liste figée : chaque panel a ses propres codes ("FR", "AF", "CA"...),
+     * cf. util.LanguageCode. Scanne noms de chaîne (convention "FR: TF1") et
+     * catégories films/séries (convention "FR - Ghost") — une seule fois,
+     * lecture ponctuelle, pas un Flow (appelé seulement à l'ouverture du
+     * sélecteur dans Réglages). */
+    suspend fun getAvailableContentLanguages(): List<String> = withContext(Dispatchers.IO) {
+        val fromChannels = db.channelDao().getAllChannelNamesOnce().mapNotNull { extractLeadingLanguageCode(it) }
+        val fromCategories = (db.movieDao().getCategoriesOnce() + db.seriesDao().getCategoriesOnce())
+            .mapNotNull { extractLeadingLanguageCode(it) }
+        (fromChannels + fromCategories).distinct().sorted()
+    }
 
     fun getFavoriteMoviesAndSeries(): Flow<List<Movie>> =
         combine(getMovies(), getSeries()) { movies, series -> (movies + series).filter { it.isFavorite } }

@@ -20,6 +20,10 @@ interface MovieDao {
     @Query("SELECT DISTINCT category FROM movies WHERE category != '' ORDER BY category ASC")
     fun getCategories(): Flow<List<String>>
 
+    /** Lecture ponctuelle — cf. PlaylistRepository.getAvailableContentLanguages. */
+    @Query("SELECT DISTINCT category FROM movies WHERE category != ''")
+    suspend fun getCategoriesOnce(): List<String>
+
     /** Recherche (écran Search) — filtre en SQL, pas en Kotlin sur la liste
      * entière : sur un gros catalogue Xtream (des dizaines/centaines de
      * milliers de films), passer par getAllMovies().first().filter{} mappait

@@ -10,8 +10,10 @@ import com.nicotv.iptv2.IptvApplication
 import com.nicotv.iptv2.data.ContentLanguagePrefs
 import com.nicotv.iptv2.data.database.entity.FavoriteEntity
 import com.nicotv.iptv2.domain.model.Channel
+import com.nicotv.iptv2.util.extractLeadingLanguageCode
 import com.nicotv.iptv2.util.foldAccents
 import com.nicotv.iptv2.util.isFrenchLabel
+import com.nicotv.iptv2.util.stripLeadingLanguageCode
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -27,10 +29,21 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
     val searchQuery = MutableLiveData("")
     val selectedCategory = MutableLiveData<String?>(null)
     val favoritesOnly = MutableLiveData(false)
-    // Pré-coché si Réglages > Langue du contenu = Français (demande explicite
-    // 28/08/2026, "je veux que du fr aussi dans les chaines") — reste un bouton
-    // qu'on peut décocher pour la session, comme avant.
-    val frenchOnly = MutableLiveData(app.contentLanguagePrefs.getLanguage() == ContentLanguagePrefs.FRENCH)
+
+    // Réglage persistant (Réglages > Langue du contenu) — n'importe quel code
+    // découvert dans le catalogue (pas seulement "FR", cf. SettingsActivity).
+    // Filtre EXACT sur le préfixe du nom de chaîne ("FR: TF1" → code "FR") et
+    // le retire de l'affichage une fois filtré — demande explicite 28/08/2026 :
+    // "si fr selected... voir que celle qui commence par FR|... enlève le
+    // FR|" (délimiteur réel constaté : ":", pas "|", cf. util.LanguageCode).
+    private val contentLanguage = app.contentLanguagePrefs.getLanguage()
+
+    // Pré-coché si le réglage est spécifiquement Français (bouton FR déjà
+    // existant, heuristique isFrenchLabel plus permissive — nom+catégorie,
+    // pas que le préfixe exact) — reste décochable pour la session, comme
+    // avant. Les deux mécanismes peuvent cohabiter (le filtre par code est
+    // plus strict, le bouton FR plus large).
+    val frenchOnly = MutableLiveData(contentLanguage == ContentLanguagePrefs.FRENCH)
 
     val categories: LiveData<List<String>> = MediatorLiveData<List<String>>().apply {
         addSource(allChannels) { list ->
@@ -60,12 +73,25 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
                 val onlyFrench = frenchOnly.value == true
                 if (onlyFrench) base = base.filter { isFrench(it) }
 
+                // Réglage persistant "Langue du contenu" : filtre EXACT sur le
+                // préfixe du nom ("FR: TF1" → garde seulement code == "FR") et
+                // le retire de l'affichage ("FR: TF1" → "TF1") — cf. commentaire
+                // sur contentLanguage plus haut.
+                if (contentLanguage != null) {
+                    base = base.mapNotNull { channel ->
+                        if (extractLeadingLanguageCode(channel.name) != contentLanguage) null
+                        else channel.copy(name = stripLeadingLanguageCode(channel.name, contentLanguage))
+                    }
+                }
+
                 // Tri "ordre TNT" (demande explicite) : quand on regarde du
-                // français (catégorie FR ou filtre FR actif), TF1/France 2/
-                // France 3/... dans l'ordre de la numérotation officielle
-                // plutôt qu'alphabétique/ordre de la playlist. Hors contexte FR,
-                // ordre inchangé (sortOrder/nom, cf. ChannelDao.getAllChannels).
-                val frenchContext = onlyFrench || selectedCategory.value?.let { isFrenchLabel(it) } == true
+                // français (catégorie FR, filtre FR actif, ou réglage langue =
+                // FR), TF1/France 2/France 3/... dans l'ordre de la
+                // numérotation officielle plutôt qu'alphabétique/ordre de la
+                // playlist. Hors contexte FR, ordre inchangé (sortOrder/nom,
+                // cf. ChannelDao.getAllChannels).
+                val frenchContext = onlyFrench || contentLanguage == ContentLanguagePrefs.FRENCH ||
+                    selectedCategory.value?.let { isFrenchLabel(it) } == true
                 value = if (frenchContext) base.sortedWith(compareBy({ tntRank(it) }, { it.name })) else base
             }
         }

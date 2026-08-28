@@ -82,7 +82,6 @@
     <string name="settings_section_language">Langue du contenu</string>
     <string name="settings_content_language">Films / Séries / Chaînes</string>
     <string name="settings_content_language_all">Toutes langues</string>
-    <string name="settings_content_language_fr">Français uniquement</string>
     <string name="settings_section_image_cache">Cache images</string>
     <string name="settings_clear_image_cache">Vider le cache images</string>
     <string name="settings_clear_image_cache_sub">Jaquettes et logos (jusqu\'à 300 Mo) — se rechargent automatiquement</string>
