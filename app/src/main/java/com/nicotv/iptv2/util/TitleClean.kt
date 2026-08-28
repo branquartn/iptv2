@@ -8,7 +8,9 @@ private val QUALITY_LANG_TAG = Regex(
     """(?i)\b(4K|3D|2160p|1080p|720p|480p|UHD|FHD|HDR10?|DV|ATMOS|HD|SD|WEB[- ]?DL|WEBRip|BluRay|BDRip|DVDRip|HDRip|HDTV|CAM|TS|""" +
     """x264|x265|HEVC|H264|H265|AAC|AC3|DTS|""" +
     """VF|VFF|VFQ|VO|VOST|VOSTFR|MULTI|FRENCH|TRUEFRENCH|ENGLISH|SUBFRENCH|""" +
-    """EN|DE|ES|IT|PT|NL|PL|RU|AR|TR)\b"""
+    // FR (oublié au premier passage — c'est justement le tag le plus courant
+    // sur les panels FR : "FR - Ghost (1990)", "FR| Movie", signalé 28/08/2026).
+    """FR|EN|DE|ES|IT|PT|NL|PL|RU|AR|TR)\b"""
 )
 // Suffixe "-GROUPE" en toute fin de nom (groupe de release) : seulement en fin
 // de chaîne, sinon un vrai tiret dans le titre ("Spider-Man") serait tronqué.

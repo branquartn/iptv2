@@ -282,6 +282,21 @@ extra vers un autre écran (`SeriesActivity`/`FavoritesActivity`/
 → `PlayerActivity`) le font aussi en `displayTitle` — l'écran de destination
 affiche tel quel ce qu'il reçoit, pas de nettoyage à refaire côté récepteur.
 
+⚠️ **"FR" oublié dans `QUALITY_LANG_TAG` au premier passage** (corrigé le
+jour même, signalé par l'utilisateur : "FR - Ghost (1990)" toujours affiché
+tel quel) — la liste avait EN/DE/ES... mais pas le tag le plus courant sur un
+panel français. Conséquence **double**, pas seulement l'affichage : le même
+résidu cassait aussi `TmdbClient.cleanTitle()` → la recherche TMDb (cast/
+réalisateur/similaires) échouait pour tout titre préfixé "FR - " (chaîne
+envoyée telle quelle à l'API, "FR - Ghost" au lieu de "Ghost"). Diagnostiqué
+en ouvrant la fiche en direct sur le téléphone du user (adb) : synopsis
+Xtream déjà correct (`get_vod_info` fonctionne bien), mais aucune section
+casting/similaires visible → `hasTmdbMatch` restait `false`. Un seul token
+manquant dans une regex partagée peut donc casser deux fonctionnalités
+différentes en même temps — vérifier `stripReleaseTags()`/`cleanTitle()`
+ensemble si l'une des deux semble à nouveau ne pas fonctionner sur un préfixe
+de playlist particulier.
+
 ⚠️ **Réglage "Langue du contenu" (Réglages, `ContentLanguagePrefs`)** : une
 seule valeur câblée aujourd'hui, "FR" (même heuristique `isFrenchLabel` que
 le filtre FR de Chaînes, appliquée ici titre+catégorie). Lu **une seule fois
@@ -343,6 +358,11 @@ Aucun backend : l'app interroge TMDb directement (clé dans `AppConfig.Tmdb`).
   l'API sur ce même film. Si le panel ne renvoie toujours rien (`plot` vide
   même via `get_vod_info`), le film reste sans synopsis — pas de repli TMDb
   ici, cf. point suivant qui s'en charge séparément (casting/similaires).
+  ⚠️ **`duration_secs` pas fiable sur tous les panels** (constaté 28/08/2026,
+  affichait "0h 2min" pour un long-métrage) : `runtime` n'est mis à jour que
+  si `durationSecs >= 300` (5 min), sinon l'ancienne valeur est gardée —
+  filet, pas une vraie correction (aucun moyen de savoir si c'est le panel ou
+  un champ mal nommé, `MovieDao/XtVodInfo` n'ont qu'un seul champ durée).
 - **`TmdbClient.cleanTitle()`** nettoie les noms scene-release réels
   (`Movie.Title.2020.FRENCH.1080p.BluRay.x264-GROUP`) — séparateurs `._+`,
   année, tags qualité/langue, suffixe `-GROUPE` en fin de chaîne uniquement

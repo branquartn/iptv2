@@ -10,8 +10,8 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 29
-val appVersionName = "1.0.28"
+val appVersionCode = 30
+val appVersionName = "1.0.29"
 // Changelog affiché dans le modal de mise à jour OTA — mis à jour à chaque bump.
 val appChangelog = "Profils Xtream/playlist désormais sauvegardés hors base de données : plus besoin de retaper les identifiants après une fermeture de l'app ou une mise à jour."
 

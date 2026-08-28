@@ -551,7 +551,12 @@ class PlaylistRepository(
             overview = info.plot,
             genres = info.genre.ifBlank { entity.genres },
             rating = if (info.rating > 0f) info.rating else entity.rating,
-            runtime = if (info.durationSecs > 0) info.durationSecs / 60 else entity.runtime,
+            // >= 300s (5 min) : filet contre une valeur aberrante constatée sur un
+            // panel réel (get_vod_info renvoyant quelques dizaines de secondes
+            // pour un long-métrage — affichait "0h 2min"), sans savoir si c'est
+            // le panel ou un mauvais champ ; mieux vaut garder l'ancienne valeur
+            // (souvent 0, donc rien affiché) qu'une durée absurde.
+            runtime = if (info.durationSecs >= 300) info.durationSecs / 60 else entity.runtime,
             backdropUrl = entity.backdropUrl.ifBlank { info.backdropUrl }
         )
         db.movieDao().insertAll(listOf(updated))
