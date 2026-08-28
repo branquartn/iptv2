@@ -441,8 +441,24 @@ la source ici est fournie par l'utilisateur : la redirection est la norme.
 - `UpdateManager.checkForUpdate()` lit `AppConfig.Update.VERSION_URL`
   (`https://iptv2.nicotv.ovh/update/version.json`), propose la MAJ si
   `remote.versionCode > BuildConfig.VERSION_CODE`.
-- Déclenché dans `SetupActivity.onCreate()` (avant tout chargement) et
-  `MainActivity.onStart()`, throttlé à 2 min.
+- Déclenché dans `SetupActivity.maybeAutoLoadLastProfile()` et
+  `MainActivity.onStart()`, throttlé à 2 min (`lastUpdateCheck`, partagé entre
+  tous les écrans).
+  ⚠️ **Piège vécu (corrigé 28/08/2026)** : `SetupActivity` appelait
+  `checkForAppUpdate()` inconditionnellement dans `onCreate()`, **avant**
+  `maybeAutoLoadLastProfile()` (saut auto vers l'accueil, cf. section
+  correspondante). La vérif Room de ce dernier est quasi instantanée, quand
+  l'appel réseau du check MAJ ne l'est pas — `finish()` s'exécutait
+  systématiquement avant la réponse, que `checkForAppUpdate()` ignore
+  silencieusement (`if (isFinishing) return@launch`). Pire : le throttle
+  partagé était déjà consommé, donc `MainActivity.onStart()` sautait aussi
+  son propre appel juste après → plus aucune MAJ jamais proposée. Fix :
+  `checkForAppUpdate()` n'est appelé **que dans la branche où on reste sur
+  SetupActivity** (pas de profil actif, ou `EXTRA_FORCE_SHOW`) ; en cas de
+  saut vers l'accueil, c'est `MainActivity.onStart()` qui fait CE check, à
+  froid. Si la MAJ cesse à nouveau de se proposer, vérifier en premier qu'un
+  appel réseau (check MAJ ou autre) n'a pas été replacé avant un `finish()`/
+  une navigation qui s'exécute plus vite que lui.
 - `iptv2.nicotv.ovh` héberge **aussi** un panel de build (Git Pull/Build,
   calqué sur `apk2.nicotv.ovh`) — racine du domaine protégée par Cloudflare
   Access, `/update/` en bypass explicite (2 Access Applications distinctes,

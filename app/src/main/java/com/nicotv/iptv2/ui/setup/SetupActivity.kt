@@ -72,7 +72,6 @@ class SetupActivity : BaseActivity() {
         binding = ActivitySetupBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        checkForAppUpdate()
         setupProfilesList()
         setupTypeCards()
         maybeAutoLoadLastProfile()
@@ -85,16 +84,28 @@ class SetupActivity : BaseActivity() {
      * de choix reste accessible via Réglages → "Changer de source", qui passe
      * EXTRA_FORCE_SHOW pour désactiver ce saut — sans ça, cliquer "Changer de
      * source" rebondirait immédiatement sur l'accueil (même bug que l'ancien
-     * raccourci retiré : l'écran de sélection devenait inaccessible). */
+     * raccourci retiré : l'écran de sélection devenait inaccessible).
+     *
+     * ⚠️ `checkForAppUpdate()` appelé seulement quand on RESTE sur cet écran
+     * (corrigé 28/08/2026, régression du jour même) : la vérif Room (quasi
+     * instantanée) finissait toujours avant la réponse réseau du check MAJ —
+     * `goToMain()`/`finish()` s'exécutait, puis `checkForAppUpdate()` trouvait
+     * `isFinishing == true` et abandonnait silencieusement. Pire, le throttle
+     * partagé (2 min, `UpdateManager.lastUpdateCheck`) était déjà consommé →
+     * `MainActivity.onStart()` sautait aussi son propre appel juste après :
+     * plus aucun écran ne proposait la MAJ. En cas de saut, on laisse
+     * `MainActivity.onStart()` faire CE check, à froid (throttle intact,
+     * activité stable, pas en cours de finish()). */
     private fun maybeAutoLoadLastProfile() {
         if (intent.getBooleanExtra(EXTRA_FORCE_SHOW, false)) {
             keepSplashOn = false
+            checkForAppUpdate()
             return
         }
         lifecycleScope.launch {
             val hasActiveProfile = (application as IptvApplication).playlistRepository.hasValidActiveProfile()
             keepSplashOn = false
-            if (hasActiveProfile) goToMain()
+            if (hasActiveProfile) goToMain() else checkForAppUpdate()
         }
     }
 
