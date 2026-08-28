@@ -9,8 +9,11 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.nicotv.iptv2.R
 import com.nicotv.iptv2.databinding.ActivityMoviesBinding
+import com.nicotv.iptv2.ui.common.CategorySidebarAdapter
 import com.nicotv.iptv2.ui.common.PosterAdapter
 import com.nicotv.iptv2.ui.detail.DetailActivity
 
@@ -19,6 +22,7 @@ class MoviesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
     private lateinit var binding: ActivityMoviesBinding
     private lateinit var viewModel: MoviesViewModel
     private lateinit var adapter: PosterAdapter
+    private lateinit var categoryAdapter: CategorySidebarAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,6 +48,11 @@ class MoviesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
             })
             setOnTouchListener { v, _ -> v.performClick(); hideKeyboard(); false }
         }
+
+        categoryAdapter = CategorySidebarAdapter(getString(R.string.category_all)) { category -> viewModel.selectedCategory.value = category }
+        binding.rvCategories.layoutManager = LinearLayoutManager(this)
+        binding.rvCategories.adapter = categoryAdapter
+        viewModel.categories.observe(this) { cats -> categoryAdapter.submitList(cats) }
 
         binding.btnBack.setOnClickListener { finish() }
         binding.btnBack.setOnFocusChangeListener { v, hasFocus ->
@@ -105,8 +114,11 @@ class MoviesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
 
     private fun computeSpanCount(): Int {
         val screenWidthDp = resources.configuration.screenWidthDp
-        // ~6 affiches par ligne sur un téléphone, plus sur grand écran
+        // ~6 affiches par ligne sur un téléphone, plus sur grand écran — moins
+        // large que l'écran total depuis l'ajout de la sidebar catégories
+        // (180dp + séparateur + paddings, cf. activity_movies.xml).
+        val sidebarDp = 210
         val posterWidthDp = 112
-        return (screenWidthDp / posterWidthDp).coerceIn(6, 10)
+        return ((screenWidthDp - sidebarDp) / posterWidthDp).coerceIn(4, 10)
     }
 }

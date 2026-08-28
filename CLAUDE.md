@@ -137,6 +137,29 @@ un rechargement (même limite que NicoTV sur ses resynchronisations).
   `FR` (délimité, sinon `AFR`/`OFFER` matcheraient) ou sous-chaîne
   `FRANCE`/`FRENCH`.
 
+## Catégories — sidebar gauche (Chaînes/Films/Séries)
+
+Ajouté 28/08/2026 (demande explicite, comportement IPTV Smarters Pro) :
+`CategorySidebarAdapter` (`ui/common/`, partagé par les 3 écrans) remplace les
+anciennes chips horizontales de `LiveActivity` (`CategoryChipAdapter`,
+supprimé) — colonne fixe 180dp à gauche (`rv_categories`), séparateur, contenu
+à droite. "Toutes" toujours en premier, géré en interne par l'adapter
+(`submitList` le préfixe automatiquement — l'appelant ne passe que les vraies
+catégories). Chaque écran garde son propre `categories`/`selectedCategory`
+dans son ViewModel (même principe pour les 3, catégories tirées de son
+propre catalogue) :
+
+- `LiveViewModel` avait déjà ce filtre (chips) — seule l'UI change.
+- `MoviesViewModel`/`SeriesViewModel` ne filtraient **que par titre** avant
+  ce lot : `categories`/`selectedCategory` sont nouveaux, mêmes noms de champs
+  que `LiveViewModel` pour rester cohérent.
+
+`MoviesActivity`/`SeriesActivity.computeSpanCount()` déduit maintenant 210dp
+(largeur sidebar + séparateur + paddings) de `screenWidthDp` avant de diviser
+par la largeur d'affiche — sans ça le nombre de colonnes était calculé sur la
+largeur totale de l'écran alors que le mur d'affiches dispose de moins
+d'espace depuis l'ajout de la sidebar.
+
 ## TMDb — jaquettes et fiche film
 
 Aucun backend : l'app interroge TMDb directement (clé dans `AppConfig.Tmdb`).

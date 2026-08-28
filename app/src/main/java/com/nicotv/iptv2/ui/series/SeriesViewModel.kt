@@ -21,10 +21,17 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
     private val allSeries = repository.getSeries().asLiveData()
 
     val searchQuery = MutableLiveData("")
+    // null = "Toutes" — cf. LiveViewModel/MoviesViewModel, même principe.
+    val selectedCategory = MutableLiveData<String?>(null)
+
+    val categories: LiveData<List<String>> = MediatorLiveData<List<String>>().apply {
+        addSource(allSeries) { list -> value = list.map { it.category }.filter { it.isNotBlank() }.distinct().sorted() }
+    }
 
     val filteredSeries: LiveData<List<Movie>> = MediatorLiveData<List<Movie>>().apply {
         fun filter() {
-            val series = allSeries.value ?: return
+            var series = allSeries.value ?: return
+            selectedCategory.value?.let { cat -> series = series.filter { it.category == cat } }
             val query = searchQuery.value.orEmpty().trim()
             val queryFolded = query.foldAccents()
             value = if (query.isBlank()) series
@@ -32,6 +39,7 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
         }
         addSource(allSeries) { filter() }
         addSource(searchQuery) { filter() }
+        addSource(selectedCategory) { filter() }
     }
 
     fun toggleFavorite(series: Movie) {

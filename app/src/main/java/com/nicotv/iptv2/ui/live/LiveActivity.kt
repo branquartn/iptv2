@@ -16,6 +16,7 @@ import com.nicotv.iptv2.R
 import com.nicotv.iptv2.databinding.ActivityLiveBinding
 import com.nicotv.iptv2.player.PlayerActivity
 import com.nicotv.iptv2.ui.common.BaseActivity
+import com.nicotv.iptv2.ui.common.CategorySidebarAdapter
 
 @UnstableApi
 class LiveActivity : BaseActivity() {
@@ -23,7 +24,7 @@ class LiveActivity : BaseActivity() {
     private lateinit var binding: ActivityLiveBinding
     private lateinit var viewModel: LiveViewModel
     private lateinit var channelAdapter: ChannelAdapter
-    private lateinit var categoryAdapter: CategoryChipAdapter
+    private lateinit var categoryAdapter: CategorySidebarAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,8 +51,8 @@ class LiveActivity : BaseActivity() {
         binding.rvChannels.layoutManager = LinearLayoutManager(this)
         binding.rvChannels.adapter = channelAdapter
 
-        categoryAdapter = CategoryChipAdapter { category -> viewModel.selectedCategory.value = category }
-        binding.rvCategories.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        categoryAdapter = CategorySidebarAdapter(getString(R.string.category_all)) { category -> viewModel.selectedCategory.value = category }
+        binding.rvCategories.layoutManager = LinearLayoutManager(this)
         binding.rvCategories.adapter = categoryAdapter
 
         binding.btnFavoritesFilter.setOnClickListener {
@@ -79,9 +80,7 @@ class LiveActivity : BaseActivity() {
             if (actionId == EditorInfo.IME_ACTION_SEARCH) { hideKeyboard(); true } else false
         }
 
-        viewModel.categories.observe(this) { cats ->
-            categoryAdapter.submitList(listOf(CategoryChipAdapter.ALL) + cats)
-        }
+        viewModel.categories.observe(this) { cats -> categoryAdapter.submitList(cats) }
 
         binding.progressLoading.visibility = View.VISIBLE
         viewModel.filteredChannels.observe(this) { channels ->

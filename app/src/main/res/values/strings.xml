@@ -21,6 +21,7 @@
     <string name="action_connect">Se connecter</string>
     <string name="action_delete">Supprimer</string>
     <string name="action_cancel">Annuler</string>
+    <string name="category_all">Toutes</string>
 
     <!-- Fiche film (casting/réalisateur/similaires, portage NicoTV) -->
     <string name="overview_more">+ Lire la suite</string>

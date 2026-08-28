@@ -21,10 +21,18 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
     private val allMovies = repository.getMovies().asLiveData()
 
     val searchQuery = MutableLiveData("")
+    // null = "Toutes" — cf. LiveViewModel, même principe de filtre par catégorie
+    // (sidebar gauche, comme IPTV Smarters Pro).
+    val selectedCategory = MutableLiveData<String?>(null)
+
+    val categories: LiveData<List<String>> = MediatorLiveData<List<String>>().apply {
+        addSource(allMovies) { list -> value = list.map { it.category }.filter { it.isNotBlank() }.distinct().sorted() }
+    }
 
     val filteredMovies: LiveData<List<Movie>> = MediatorLiveData<List<Movie>>().apply {
         fun filter() {
-            val movies = allMovies.value ?: return
+            var movies = allMovies.value ?: return
+            selectedCategory.value?.let { cat -> movies = movies.filter { it.category == cat } }
             val query = searchQuery.value.orEmpty().trim()
             val queryFolded = query.foldAccents()
             value = if (query.isBlank()) movies
@@ -32,6 +40,7 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
         }
         addSource(allMovies) { filter() }
         addSource(searchQuery) { filter() }
+        addSource(selectedCategory) { filter() }
     }
 
     fun toggleFavorite(movie: Movie) {

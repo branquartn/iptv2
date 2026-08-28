@@ -10,8 +10,11 @@ import android.view.inputmethod.InputMethodManager
 import androidx.lifecycle.ViewModelProvider
 import androidx.media3.common.util.UnstableApi
 import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.nicotv.iptv2.R
 import com.nicotv.iptv2.databinding.ActivitySeriesBinding
+import com.nicotv.iptv2.ui.common.CategorySidebarAdapter
 import com.nicotv.iptv2.ui.common.PosterAdapter
 
 @UnstableApi
@@ -20,6 +23,7 @@ class SeriesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
     private lateinit var binding: ActivitySeriesBinding
     private lateinit var viewModel: SeriesViewModel
     private lateinit var adapter: PosterAdapter
+    private lateinit var categoryAdapter: CategorySidebarAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,6 +50,11 @@ class SeriesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
             })
             setOnTouchListener { v, _ -> v.performClick(); hideKeyboard(); false }
         }
+
+        categoryAdapter = CategorySidebarAdapter(getString(R.string.category_all)) { category -> viewModel.selectedCategory.value = category }
+        binding.rvCategories.layoutManager = LinearLayoutManager(this)
+        binding.rvCategories.adapter = categoryAdapter
+        viewModel.categories.observe(this) { cats -> categoryAdapter.submitList(cats) }
 
         binding.btnBack.setOnClickListener { finish() }
         binding.btnBack.setOnFocusChangeListener { v, hasFocus ->
@@ -107,7 +116,9 @@ class SeriesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
 
     private fun computeSpanCount(): Int {
         val screenWidthDp = resources.configuration.screenWidthDp
+        // Cf. MoviesActivity.computeSpanCount — même sidebar catégories à déduire.
+        val sidebarDp = 210
         val posterWidthDp = 112
-        return (screenWidthDp / posterWidthDp).coerceIn(6, 10)
+        return ((screenWidthDp - sidebarDp) / posterWidthDp).coerceIn(4, 10)
     }
 }
