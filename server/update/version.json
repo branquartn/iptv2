@@ -1,6 +1,6 @@
 {
-  "versionCode": 34,
-  "versionName": "1.0.33",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.33.apk",
-  "changelog": "Chaînes : les catégories de la sidebar n'affichent plus le préfixe de langue (ex. \"FR| Sport\" → \"Sport\") quand ce préfixe correspond au réglage Langue du contenu."
+  "versionCode": 35,
+  "versionName": "1.0.34",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.34.apk",
+  "changelog": "Chaînes : la sidebar catégories ne garde que celles de la langue sélectionnée (Réglages > Langue du contenu), préfixe retiré. Films : même nettoyage du préfixe (\"FR - Action\" → \"Action\")."
 }
