@@ -130,6 +130,17 @@ un rechargement (même limite que NicoTV sur ses resynchronisations).
   position < 5s) — cf. `PlaylistRepository.saveWatchPosition`.
 - **Recherche** : locale uniquement (`PlaylistRepository.searchTitle`) — cherche
   dans ce que la playlist contient déjà, par titre.
+  ⚠️ **Perf (corrigé 28/08/2026)** : passait par `getMovies()`/`getSeries()`/
+  `getChannels()` (Flow combine + mapping domaine + jointure favoris/historique
+  sur **tout** le catalogue), puis filtrait en Kotlin — sur un gros panel
+  Xtream (cf. section suivante, panel de test ~215 000 entrées), ça remappait
+  l'intégralité de la base à **chaque frappe**, recherche perceptiblement
+  lente. Filtre désormais en SQL (`MovieDao.searchByTitle`/`SeriesDao.
+  searchByTitle`/`ChannelDao.searchByName`, `LIKE '%...%' COLLATE NOCASE
+  LIMIT 200`) — ne mappe/joint favoris+historique que sur les résultats déjà
+  filtrés. Si la recherche redevient lente, vérifier qu'un futur appel n'a
+  pas réintroduit un `getMovies().first().filter{}` à la place de ces
+  requêtes SQL dédiées.
 - **Filtre « FR »** (écran Chaînes, `LiveViewModel.isFrench`) : bouton bascule à
   côté du filtre favoris. Ni Xtream ni M3U n'exposent de champ pays exploitable
   et les catégories des panels réels ne suivent aucune norme (`AFR| AFRICA VIP

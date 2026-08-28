@@ -20,6 +20,17 @@ interface MovieDao {
     @Query("SELECT DISTINCT category FROM movies WHERE category != '' ORDER BY category ASC")
     fun getCategories(): Flow<List<String>>
 
+    /** Recherche (écran Search) — filtre en SQL, pas en Kotlin sur la liste
+     * entière : sur un gros catalogue Xtream (des dizaines/centaines de
+     * milliers de films), passer par getAllMovies().first().filter{} mappait
+     * TOUT le catalogue (+ jointure favoris/historique) à chaque frappe avant
+     * de filtrer — recherche perceptiblement lente. LIKE '%...%' ne profite
+     * d'aucun index (SQLite ne peut pas indexer un préfixe joker), mais un
+     * scan natif SQLite reste largement plus rapide qu'un mapping Kotlin de
+     * l'intégralité de la table. [limit] : filet contre un résultat massif. */
+    @Query("SELECT * FROM movies WHERE title LIKE '%' || :query || '%' COLLATE NOCASE ORDER BY title ASC LIMIT :limit")
+    suspend fun searchByTitle(query: String, limit: Int = 200): List<MovieEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(movies: List<MovieEntity>)
 

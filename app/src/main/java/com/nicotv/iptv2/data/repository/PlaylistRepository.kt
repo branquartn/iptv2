@@ -31,7 +31,6 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -623,13 +622,36 @@ class PlaylistRepository(
 
     // ── Recherche locale (par titre, insensible aux accents) ───────────────
 
-    suspend fun searchTitle(query: String): Triple<List<Movie>, List<Movie>, List<Channel>> {
+    /** Recherche perceptiblement lente sur un gros catalogue Xtream avant ce
+     * correctif (28/08/2026) : passait par getMovies()/getSeries()/getChannels(),
+     * qui mappent et joignent favoris/historique sur TOUT le catalogue — sur un
+     * panel de plusieurs centaines de milliers d'entrées (cf. section Xtream de
+     * CLAUDE.md), ça remappait l'intégralité de la base à chaque frappe avant de
+     * filtrer. Filtre désormais en SQL (`*Dao.searchByTitle`/`searchByName`,
+     * LIKE) — ne mappe/joint que les résultats déjà filtrés, pas tout le
+     * catalogue. */
+    suspend fun searchTitle(query: String): Triple<List<Movie>, List<Movie>, List<Channel>> = withContext(Dispatchers.IO) {
         val q = query.trim()
-        if (q.isBlank()) return Triple(emptyList(), emptyList(), emptyList())
-        val movies = getMovies().first().filter { it.title.contains(q, ignoreCase = true) }
-        val series = getSeries().first().filter { it.title.contains(q, ignoreCase = true) }
-        val channels = getChannels().first().filter { it.name.contains(q, ignoreCase = true) }
-        return Triple(movies, series, channels)
+        if (q.isBlank()) return@withContext Triple(emptyList(), emptyList(), emptyList())
+
+        val movieEntities = db.movieDao().searchByTitle(q)
+        val seriesEntities = db.seriesDao().searchByTitle(q)
+        val channelEntities = db.channelDao().searchByName(q)
+
+        val favMovieIds = db.favoriteDao().getFavoriteIds(FavoriteEntity.Type.MOVIE).toSet()
+        val favSeriesIds = db.favoriteDao().getFavoriteIds(FavoriteEntity.Type.SERIES).toSet()
+        val favChannelIds = db.favoriteDao().getFavoriteIds(FavoriteEntity.Type.CHANNEL).toSet()
+        // Reprise de lecture (barre de progression) : seulement pour les films
+        // trouvés, pas tout l'historique — cf. getMovies() pour le même principe
+        // appliqué au catalogue complet.
+        val historyByKey = db.watchHistoryDao().getPositions(movieEntities.map { "m${it.id}" }).associateBy { it.historyKey }
+
+        val movies = movieEntities.map { m ->
+            m.toDomain(isFavorite = m.id in favMovieIds, watchProgress = historyByKey["m${m.id}"]?.progressPercent ?: 0)
+        }
+        val series = seriesEntities.map { it.toDomain(isFavorite = it.id in favSeriesIds) }
+        val channels = channelEntities.map { it.toDomain(isFavorite = it.id in favChannelIds) }
+        Triple(movies, series, channels)
     }
 
     /** Vide le catalogue chargé (garde les profils sauvegardés) et désactive le

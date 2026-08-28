@@ -18,6 +18,10 @@ interface SeriesDao {
     @Query("SELECT DISTINCT category FROM series WHERE category != '' ORDER BY category ASC")
     fun getCategories(): Flow<List<String>>
 
+    /** Recherche (écran Search) — cf. MovieDao.searchByTitle, même raison. */
+    @Query("SELECT * FROM series WHERE title LIKE '%' || :query || '%' COLLATE NOCASE ORDER BY title ASC LIMIT :limit")
+    suspend fun searchByTitle(query: String, limit: Int = 200): List<SeriesEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(series: SeriesEntity): Long
 

@@ -18,6 +18,10 @@ interface ChannelDao {
     @Query("SELECT DISTINCT category FROM channels WHERE category != '' ORDER BY category ASC")
     fun getCategories(): Flow<List<String>>
 
+    /** Recherche (écran Search) — cf. MovieDao.searchByTitle, même raison. */
+    @Query("SELECT * FROM channels WHERE name LIKE '%' || :query || '%' COLLATE NOCASE ORDER BY name ASC LIMIT :limit")
+    suspend fun searchByName(query: String, limit: Int = 200): List<ChannelEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(channels: List<ChannelEntity>)
 
