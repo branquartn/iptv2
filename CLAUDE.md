@@ -180,6 +180,22 @@ propre catalogue) :
   ce lot : `categories`/`selectedCategory` sont nouveaux, mêmes noms de champs
   que `LiveViewModel` pour rester cohérent.
 
+⚠️ **`ResumeActivity`/`FavoritesActivity` masquent la sidebar** (corrigé
+28/08/2026, demande explicite "juste les jaquettes, sans le bandeau") — ces
+deux écrans **réutilisent `activity_movies.xml`** (même `ActivityMoviesBinding`
+que `MoviesActivity`) mais n'ont jamais câblé `rv_categories` : la colonne
+180dp + séparateur (`sidebar_divider`, id ajouté pour l'occasion) s'affichait
+donc vide, comme un bandeau gris inutile. Les deux masquent maintenant
+`rv_categories`/`sidebar_divider` en `onCreate()` (`View.GONE`) — le
+`FrameLayout` du mur d'affiches, seul enfant `weight="1"` restant visible,
+récupère automatiquement toute la largeur. Leurs `computeSpanCount()`
+**n'ont jamais été mis à jour** pour déduire la largeur de la sidebar
+(contrairement à `MoviesActivity`/`SeriesActivity`) — normal, elle n'existe
+plus visuellement chez eux, ne pas "corriger" cet écart en pensant à un
+oubli. Si un futur écran réutilise encore `activity_movies.xml`, penser à
+faire ce même masquage dès le départ plutôt que de laisser un bandeau vide
+traîner jusqu'au prochain signalement.
+
 `MoviesActivity`/`SeriesActivity.computeSpanCount()` déduit maintenant 210dp
 (largeur sidebar + séparateur + paddings) de `screenWidthDp` avant de diviser
 par la largeur d'affiche — sans ça le nombre de colonnes était calculé sur la

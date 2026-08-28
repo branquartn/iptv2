@@ -155,7 +155,11 @@
                 android:clipToPadding="false"
                 app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
+            <!-- id : ResumeActivity/FavoritesActivity (même layout partagé) la
+                 masquent avec rv_categories — pas de sidebar catégories pour
+                 elles, cf. leur commentaire dans le code. -->
             <View
+                android:id="@+id/sidebar_divider"
                 android:layout_width="1dp"
                 android:layout_height="match_parent"
                 android:background="@color/divider" />

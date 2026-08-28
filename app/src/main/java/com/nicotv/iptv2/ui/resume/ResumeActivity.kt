@@ -30,6 +30,14 @@ class ResumeActivity : BaseActivity() {
 
         binding.tvSectionTitle.text = getString(R.string.resume_playback)
         binding.searchBox.visibility = View.GONE
+        // Layout partagé avec MoviesActivity (sidebar catégories) — pas de
+        // catégories pertinentes pour "Reprendre la lecture" (demande
+        // explicite 28/08/2026 : juste les jaquettes, sans le bandeau vide à
+        // gauche). computeSpanCount() ci-dessous n'a jamais été mis à jour
+        // pour déduire la largeur de la sidebar (contrairement à
+        // MoviesActivity) : c'est voulu, elle n'existe plus visuellement ici.
+        binding.rvCategories.visibility = View.GONE
+        binding.sidebarDivider.visibility = View.GONE
 
         adapter = PosterAdapter(onClick = { movie ->
             if (movie.type == Movie.Type.MOVIE) {

@@ -29,6 +29,11 @@ class FavoritesActivity : BaseActivity() {
 
         binding.tvSectionTitle.text = getString(R.string.nav_favorites)
         binding.searchBox.visibility = View.GONE
+        // Layout partagé avec MoviesActivity (sidebar catégories) — cf. même
+        // commentaire dans ResumeActivity, pas de sidebar pertinente ici non
+        // plus (films/séries/chaînes favoris mélangés).
+        binding.rvCategories.visibility = View.GONE
+        binding.sidebarDivider.visibility = View.GONE
 
         adapter = PosterAdapter(onClick = { item ->
             if (item.type == Movie.Type.SERIES) {
