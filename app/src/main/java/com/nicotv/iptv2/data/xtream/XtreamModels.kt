@@ -47,3 +47,12 @@ data class XtSeriesInfo(
     val seasons: List<XtSeason>,
     val episodesBySeason: Map<Int, List<XtEpisode>>
 )
+
+/** Un créneau du mini-guide (get_short_epg) — programme "en cours" ou "à
+ * suivre" d'une chaîne live. Timestamps unix (secondes) fournis par le panel. */
+data class XtEpgListing(
+    val title: String,
+    val startTimestamp: Long,
+    val stopTimestamp: Long,
+    val nowPlaying: Boolean
+)

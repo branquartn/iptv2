@@ -112,6 +112,12 @@
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize"
             android:exported="false" />
 
+        <activity
+            android:name=".ui.settings.SettingsActivity"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize"
+            android:exported="false" />
+
         <!-- Player -->
         <activity
             android:name=".player.PlayerActivity"

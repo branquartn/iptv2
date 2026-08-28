@@ -61,6 +61,26 @@
     <string name="setup_error_empty_xtream">Renseigne un nom, le serveur, l\'utilisateur et le mot de passe</string>
     <string name="setup_error_generic">Échec du chargement</string>
 
+    <!-- Réglages (cache images/playlist/EPG) -->
+    <string name="settings_title">Réglages</string>
+    <string name="settings_section_playlist">Playlist</string>
+    <string name="settings_change_source">Changer de source</string>
+    <string name="settings_change_source_sub">Gérer mes profils enregistrés</string>
+    <string name="settings_refresh_catalog">Actualiser le catalogue</string>
+    <string name="settings_no_active_profile">Aucune source active</string>
+    <string name="settings_last_update">Dernière mise à jour : %s</string>
+    <string name="settings_section_image_cache">Cache images</string>
+    <string name="settings_clear_image_cache">Vider le cache images</string>
+    <string name="settings_clear_image_cache_sub">Jaquettes et logos (jusqu\'à 300 Mo) — se rechargent automatiquement</string>
+    <string name="settings_section_epg">Guide TV (EPG)</string>
+    <string name="settings_clear_epg_cache">Vider le cache EPG</string>
+    <string name="settings_clear_epg_cache_sub">Programmes en cours/à suivre — disponible avec une source Xtream Codes uniquement</string>
+    <string name="settings_action_open">Ouvrir</string>
+    <string name="settings_action_refresh">Actualiser</string>
+    <string name="settings_action_clear">Vider</string>
+    <string name="settings_refresh_success">Catalogue actualisé</string>
+    <string name="settings_cache_cleared">Cache vidé</string>
+
     <!-- Confirmation de sortie -->
     <string name="quit_title">Quitter l\'application ?</string>
     <string name="quit_message">Tu es sur le point de fermer l\'application.</string>

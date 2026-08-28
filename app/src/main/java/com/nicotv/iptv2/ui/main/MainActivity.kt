@@ -16,7 +16,6 @@ import com.nicotv.iptv2.ui.movies.MoviesActivity
 import com.nicotv.iptv2.ui.resume.ResumeActivity
 import com.nicotv.iptv2.ui.search.SearchActivity
 import com.nicotv.iptv2.ui.series.SeriesActivity
-import com.nicotv.iptv2.ui.setup.SetupActivity
 import com.nicotv.iptv2.update.checkForAppUpdate
 import kotlinx.coroutines.launch
 
@@ -44,6 +43,10 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
     override fun onStart() {
         super.onStart()
         checkForAppUpdate()
+        // Rafraîchissement silencieux du catalogue si le profil actif n'a pas
+        // été rechargé depuis 24h (cf. PlaylistRepository.refreshActiveProfileIfStale) —
+        // best-effort, ne bloque jamais l'accueil.
+        lifecycleScope.launch { (application as IptvApplication).playlistRepository.refreshActiveProfileIfStale() }
     }
 
     private var quitDialog: AlertDialog? = null
@@ -68,9 +71,7 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         binding.btnSearch.setOnClickListener { startActivity(Intent(this, SearchActivity::class.java)) }
         binding.btnFavorites.setOnClickListener { startActivity(Intent(this, FavoritesActivity::class.java)) }
         binding.btnSettings.setOnClickListener {
-            startActivity(Intent(this, SetupActivity::class.java).apply {
-                putExtra(SetupActivity.EXTRA_FORCE_SHOW, true)
-            })
+            startActivity(Intent(this, com.nicotv.iptv2.ui.settings.SettingsActivity::class.java))
         }
     }
 

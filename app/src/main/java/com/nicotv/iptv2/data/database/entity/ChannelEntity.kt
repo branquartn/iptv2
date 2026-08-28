@@ -18,7 +18,10 @@ data class ChannelEntity(
     val streamUrl: String,
     val logoUrl: String = "",
     val category: String = "",
-    val sortOrder: Int = 0
+    val sortOrder: Int = 0,
+    // Vide pour une chaîne issue d'un M3U (pas d'EPG possible) — rempli pour
+    // Xtream, seule source qui expose un mini-guide (get_short_epg).
+    val xtreamStreamId: String = ""
 ) {
     fun toDomain(isFavorite: Boolean = false) = Channel(
         id = id,
@@ -26,6 +29,7 @@ data class ChannelEntity(
         streamUrl = streamUrl,
         logoUrl = logoUrl,
         category = category,
-        isFavorite = isFavorite
+        isFavorite = isFavorite,
+        xtreamStreamId = xtreamStreamId
     )
 }

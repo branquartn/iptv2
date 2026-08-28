@@ -7,6 +7,7 @@ import com.nicotv.iptv2.data.ProfileBackupPrefs
 import com.nicotv.iptv2.data.SourceType
 import com.nicotv.iptv2.data.database.AppDatabase
 import com.nicotv.iptv2.data.database.entity.ChannelEntity
+import com.nicotv.iptv2.data.database.entity.EpgCacheEntity
 import com.nicotv.iptv2.data.database.entity.EpisodeEntity
 import com.nicotv.iptv2.data.database.entity.FavoriteEntity
 import com.nicotv.iptv2.data.database.entity.MovieEntity
@@ -19,6 +20,7 @@ import com.nicotv.iptv2.AppConfig
 import com.nicotv.iptv2.data.tmdb.TmdbClient
 import com.nicotv.iptv2.data.xtream.XtreamClient
 import com.nicotv.iptv2.domain.model.Channel
+import com.nicotv.iptv2.domain.model.EpgNowNext
 import com.nicotv.iptv2.domain.model.EpisodeProgress
 import com.nicotv.iptv2.domain.model.Movie
 import com.nicotv.iptv2.domain.model.OpenTarget
@@ -61,6 +63,15 @@ class PlaylistRepository(
         // Reprise affichée dès 5s de lecture (comme NicoTV) — sous ce seuil, pas
         // la peine de proposer une reprise pour quelques secondes de générique/pub.
         private const val MIN_RESUME_MS = 5_000L
+        // TTL du mini-guide EPG (get_short_epg) : le programme "en cours" avance
+        // dans le temps, 30 min suffit à l'invalider sans dépendre d'une date de
+        // fin de créneau (pas toujours fiable selon les panels).
+        private const val EPG_TTL_MS = 30 * 60 * 1000L
+        // Rafraîchissement auto du catalogue au démarrage (MainActivity.onStart) —
+        // au-delà de cet âge, on retente un chargement réseau best-effort en fond
+        // sans bloquer l'écran. Le tap sur un profil (SetupActivity) reste lui
+        // toujours un rechargement réseau explicite, jamais servi depuis Room.
+        private const val CATALOG_MAX_AGE_MS = 24 * 60 * 60 * 1000L
     }
 
     class LoadException(message: String, cause: Throwable? = null) : Exception(message, cause)
@@ -160,6 +171,22 @@ class PlaylistRepository(
         } catch (e: Exception) {
             Result.failure(if (e is LoadException) e else LoadException(e.message ?: "Erreur de chargement", e))
         }
+    }
+
+    suspend fun getActiveProfile(): PlaylistProfileEntity? = withContext(Dispatchers.IO) {
+        sourcePrefs.getActiveProfileId()?.let { db.playlistProfileDao().getById(it) }
+    }
+
+    /** Appelé au démarrage de l'accueil (MainActivity.onStart) : recharge le
+     * catalogue du profil actif en fond s'il date de plus de
+     * [CATALOG_MAX_AGE_MS] — évite de servir indéfiniment un catalogue périmé
+     * à un utilisateur qui laisse l'app ouverte/rouverte sans jamais retoucher
+     * l'écran de démarrage. Best-effort : un échec réseau ne remonte nulle
+     * part, le catalogue existant reste affiché tel quel. */
+    suspend fun refreshActiveProfileIfStale(maxAgeMs: Long = CATALOG_MAX_AGE_MS): Boolean {
+        val profile = getActiveProfile() ?: return false
+        if (System.currentTimeMillis() - profile.lastUsedAt < maxAgeMs) return false
+        return loadProfile(profile.id).isSuccess
     }
 
     private suspend fun fetchUrl(url: String): String = withContext(Dispatchers.IO) {
@@ -270,6 +297,9 @@ class PlaylistRepository(
         db.channelDao().deleteAll()
         db.movieDao().deleteAll()
         db.seriesDao().deleteAll() // cascade → episodes déjà supprimés
+        // Les id de chaîne sont réattribués (autoIncrement) : le cache EPG de
+        // l'ancien catalogue ne correspondrait plus à rien.
+        db.epgCacheDao().clearAll()
 
         db.channelDao().insertAll(channels)
         db.movieDao().insertAll(enrichedMovies)
@@ -354,7 +384,8 @@ class PlaylistRepository(
         val channels = liveStreams.map {
             ChannelEntity(
                 name = it.name, streamUrl = client.liveStreamUrl(it.streamId),
-                logoUrl = it.icon, category = liveCats[it.categoryId]?.name.orEmpty()
+                logoUrl = it.icon, category = liveCats[it.categoryId]?.name.orEmpty(),
+                xtreamStreamId = it.streamId
             )
         }
 
@@ -374,6 +405,7 @@ class PlaylistRepository(
         }
 
         db.channelDao().deleteAll(); db.movieDao().deleteAll(); db.seriesDao().deleteAll()
+        db.epgCacheDao().clearAll() // id de chaîne réattribués, cf. commentaire replaceCatalog
         db.channelDao().insertAll(channels)
         db.movieDao().insertAll(movies)
         for (s in seriesList) {
@@ -605,6 +637,45 @@ class PlaylistRepository(
     suspend fun clearAllData() = withContext(Dispatchers.IO) {
         db.channelDao().deleteAll(); db.movieDao().deleteAll(); db.seriesDao().deleteAll()
         db.favoriteDao().deleteAll(); db.watchHistoryDao().deleteAll()
+        db.epgCacheDao().clearAll()
         sourcePrefs.setActiveProfileId(null)
     }
+
+    // ── Mini-guide EPG (get_short_epg, Xtream uniquement) ───────────────────
+
+    /** "En cours / à suivre" pour une chaîne — cache Room avec TTL
+     * [EPG_TTL_MS], rafraîchi via un appel Xtream à la demande (jamais au
+     * chargement du catalogue : des milliers de chaînes impliqueraient sinon
+     * des milliers d'appels get_short_epg). Sans source Xtream (M3U, pas de
+     * xtreamStreamId) ou en cas d'échec réseau, renvoie la dernière valeur en
+     * cache si elle existe, sinon null — jamais bloquant pour l'affichage de
+     * la liste des chaînes (même principe que TmdbClient). */
+    suspend fun getShortEpg(channel: Channel): EpgNowNext? = withContext(Dispatchers.IO) {
+        val cached = db.epgCacheDao().getByChannelId(channel.id)
+        if (cached != null && System.currentTimeMillis() - cached.fetchedAt < EPG_TTL_MS) {
+            return@withContext cached.toDomain()
+        }
+        if (channel.xtreamStreamId.isBlank()) return@withContext cached?.toDomain()
+        val profile = getActiveProfile()?.takeIf { it.type == SourceType.XTREAM.name }
+            ?: return@withContext cached?.toDomain()
+        try {
+            val listings = xtreamClientFor(profile).getShortEpg(channel.xtreamStreamId, limit = 2)
+            if (listings.isEmpty()) return@withContext cached?.toDomain()
+            val now = listings.firstOrNull { it.nowPlaying } ?: listings.first()
+            val next = listings.firstOrNull { it !== now }
+            val entity = EpgCacheEntity(
+                channelId = channel.id,
+                nowTitle = now.title, nowStart = now.startTimestamp, nowEnd = now.stopTimestamp,
+                nextTitle = next?.title.orEmpty(), nextStart = next?.startTimestamp ?: 0
+            )
+            db.epgCacheDao().insert(entity)
+            entity.toDomain()
+        } catch (e: Exception) {
+            cached?.toDomain()
+        }
+    }
+
+    suspend fun clearEpgCache() = withContext(Dispatchers.IO) { db.epgCacheDao().clearAll() }
+
+    private fun EpgCacheEntity.toDomain() = EpgNowNext(nowTitle = nowTitle, nowEnd = nowEnd, nextTitle = nextTitle)
 }

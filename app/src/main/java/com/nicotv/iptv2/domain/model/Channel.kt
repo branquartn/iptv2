@@ -7,5 +7,8 @@ data class Channel(
     val streamUrl: String,
     val logoUrl: String = "",
     val category: String = "",
-    val isFavorite: Boolean = false
+    val isFavorite: Boolean = false,
+    // Vide si issue d'un M3U : pas de mini-guide EPG possible dans ce cas
+    // (cf. PlaylistRepository.getShortEpg).
+    val xtreamStreamId: String = ""
 )

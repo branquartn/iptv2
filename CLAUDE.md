@@ -196,6 +196,39 @@ un bandeau clair permanent affichant le nom de l'app en haut de l'écran. Piège
 vécu — un premier correctif posant `windowNoTitle` sur `Theme.IPTV` visait le
 mauvais thème et n'avait donc aucun effet.
 
+## Réglages (SettingsActivity) — cache images / playlist / EPG
+
+Écran ouvert depuis l'engrenage de l'accueil (`btn_settings` — **a changé de
+sens** : ouvrait `SetupActivity` directement jusqu'ici, ouvre maintenant
+`SettingsActivity`, qui elle-même propose "Changer de source" vers
+`SetupActivity(EXTRA_FORCE_SHOW)`). Ne pas revenir à l'ancien raccourci direct.
+
+- **Mini-guide EPG "en cours / à suivre"** (`PlaylistRepository.getShortEpg`,
+  affiché sous chaque chaîne dans `LiveActivity`/`ChannelAdapter`) :
+  **Xtream Codes uniquement** (`get_short_epg`, `ChannelEntity.xtreamStreamId`)
+  — un M3U n'expose aucune source EPG exploitable (pas d'URL XMLTV gérée),
+  `xtreamStreamId` y reste vide et la chaîne n'essaie même pas l'appel.
+  Résultat mis en cache (`epg_cache`, TTL 30 min) — vidé automatiquement à
+  chaque rechargement de catalogue (les id de chaîne sont réattribués) et
+  depuis Réglages ("Vider le cache EPG"). `title`/`description` du panel sont
+  en base64 (norme XMLTV) : `XtreamClient.decodeMaybeBase64` décode, tolérant
+  si un panel non conforme renvoie déjà du clair. Appelé à la demande au bind
+  de chaque ligne visible (`ChannelAdapter`, job annulé si la vue est recyclée
+  avant la réponse) — jamais au chargement du catalogue entier.
+- **Cache images (Coil)** : config explicite dans `IptvApplication`
+  (`ImageLoaderFactory`) — 300 Mo disque, 25% de la RAM en mémoire. Par défaut
+  Coil n'a pas de limite fiable en usage réel sur un mur d'affiches
+  film/série/chaîne d'un gros panel Xtream. Vidé via `ImageCacheUtil.clear()`
+  ("Vider le cache images").
+- **Cache playlist/catalogue** : le tap sur un profil dans `SetupActivity`
+  reste **toujours** un rechargement réseau complet (comportement volontaire
+  et documenté plus haut, ne pas changer — un flux/token Xtream peut tourner).
+  Ce qui est ajouté ici : `MainActivity.onStart()` déclenche un rafraîchissement
+  silencieux best-effort (`refreshActiveProfileIfStale`) si le profil actif n'a
+  pas été rechargé depuis 24h (`PlaylistProfileEntity.lastUsedAt`), et Réglages
+  propose un "Actualiser" manuel immédiat. Aucun des deux ne bloque/casse le
+  flux existant en cas d'échec réseau.
+
 ## Room — migrations
 
 `fallbackToDestructiveMigration()` uniquement, **pas de `Migration` écrite à la

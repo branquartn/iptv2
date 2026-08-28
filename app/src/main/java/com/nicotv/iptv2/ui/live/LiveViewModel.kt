@@ -67,4 +67,8 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
             repository.toggleFavorite(channel.id, FavoriteEntity.Type.CHANNEL, channel.isFavorite)
         }
     }
+
+    /** Mini-guide "en cours/à suivre" d'une chaîne — cf. ChannelAdapter (appelé
+     * au bind d'une ligne, résultat mis en cache par le repository). */
+    suspend fun getShortEpg(channel: Channel) = repository.getShortEpg(channel)
 }

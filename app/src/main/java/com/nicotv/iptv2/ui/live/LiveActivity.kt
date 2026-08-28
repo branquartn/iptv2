@@ -9,6 +9,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.util.UnstableApi
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.nicotv.iptv2.R
@@ -42,7 +43,9 @@ class LiveActivity : BaseActivity() {
                     putExtra(PlayerActivity.EXTRA_TITLE, channel.name)
                 })
             },
-            onToggleFavorite = { channel -> viewModel.toggleFavorite(channel) }
+            onToggleFavorite = { channel -> viewModel.toggleFavorite(channel) },
+            epgScope = lifecycleScope,
+            fetchEpg = { channel -> viewModel.getShortEpg(channel) }
         )
         binding.rvChannels.layoutManager = LinearLayoutManager(this)
         binding.rvChannels.adapter = channelAdapter

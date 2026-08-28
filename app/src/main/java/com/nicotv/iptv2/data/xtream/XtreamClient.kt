@@ -200,6 +200,37 @@ class XtreamClient(
         return XtSeriesInfo(finalSeasons, episodesBySeason)
     }
 
+    /** Mini-guide "en cours / à suivre" d'une chaîne (get_short_epg) — [limit]
+     * bas (2 par défaut : programme actuel + suivant) puisque appelé à la
+     * demande pour chaque chaîne affichée, pas au chargement du catalogue.
+     * "title"/"description" sont encodés en base64 par le panel (norme XMLTV
+     * reprise par Xtream Codes) — décodage tolérant : un champ déjà en clair
+     * (panel non conforme) est renvoyé tel quel plutôt que de planter. */
+    suspend fun getShortEpg(streamId: String, limit: Int = 2): List<XtEpgListing> = buildList {
+        val json = callObject("get_short_epg", mapOf("stream_id" to streamId, "limit" to limit.toString()))
+        val arr = json.optJSONArray("epg_listings") ?: JSONArray()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            add(
+                XtEpgListing(
+                    title = decodeMaybeBase64(o.optString("title")),
+                    startTimestamp = o.optString("start_timestamp").toLongOrNull() ?: 0L,
+                    stopTimestamp = o.optString("stop_timestamp").toLongOrNull() ?: 0L,
+                    nowPlaying = o.optString("now_playing") == "1" || o.optInt("now_playing") == 1
+                )
+            )
+        }
+    }
+
+    private fun decodeMaybeBase64(value: String): String {
+        if (value.isBlank()) return value
+        return try {
+            String(android.util.Base64.decode(value, android.util.Base64.DEFAULT), Charsets.UTF_8)
+        } catch (e: IllegalArgumentException) {
+            value
+        }
+    }
+
     fun liveStreamUrl(streamId: String): String = "$base/live/${enc(username)}/${enc(password)}/$streamId.ts"
     fun vodStreamUrl(streamId: String, ext: String): String = "$base/movie/${enc(username)}/${enc(password)}/$streamId.$ext"
     fun seriesEpisodeUrl(episodeId: String, ext: String): String = "$base/series/${enc(username)}/${enc(password)}/$episodeId.$ext"

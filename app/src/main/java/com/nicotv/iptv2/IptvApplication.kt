@@ -1,6 +1,10 @@
 package com.nicotv.iptv2
 
 import android.app.Application
+import coil.ImageLoader
+import coil.ImageLoaderFactory
+import coil.disk.DiskCache
+import coil.memory.MemoryCache
 import com.nicotv.iptv2.data.PlaylistSourcePrefs
 import com.nicotv.iptv2.data.database.AppDatabase
 import com.nicotv.iptv2.data.repository.PlaylistRepository
@@ -10,7 +14,7 @@ import kotlinx.coroutines.SupervisorJob
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
-class IptvApplication : Application() {
+class IptvApplication : Application(), ImageLoaderFactory {
 
     // Survit à la destruction d'une Activity/ViewModel — utilisé pour les
     // écritures qui doivent finir même si l'écran qui les a déclenchées se ferme
@@ -33,4 +37,18 @@ class IptvApplication : Application() {
     val playlistRepository by lazy {
         PlaylistRepository(this, database, okHttpClient, sourcePrefs)
     }
+
+    // Config Coil explicite (défaut sinon non borné en usage réel : mur
+    // d'affiches films/séries/chaînes potentiellement énorme sur un gros
+    // panel Xtream). 300 Mo de cache disque, 25% de la RAM dispo en mémoire —
+    // vidables depuis l'écran Réglages (ImageCacheUtil.clear).
+    override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
+        .memoryCache { MemoryCache.Builder(this).maxSizePercent(0.25).build() }
+        .diskCache {
+            DiskCache.Builder()
+                .directory(cacheDir.resolve("image_cache"))
+                .maxSizeBytes(300L * 1024 * 1024)
+                .build()
+        }
+        .build()
 }

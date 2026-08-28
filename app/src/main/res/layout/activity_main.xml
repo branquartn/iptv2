@@ -151,7 +151,7 @@
                 android:visibility="invisible" />
         </FrameLayout>
 
-        <!-- Changer de source playlist -->
+        <!-- Réglages (profil actif, cache images/playlist/EPG) -->
         <FrameLayout
             android:id="@+id/btn_settings"
             android:layout_width="44dp"
