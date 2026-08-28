@@ -8,6 +8,7 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.util.UnstableApi
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -66,7 +67,9 @@ class SearchActivity : BaseActivity() {
                     putExtra(PlayerActivity.EXTRA_TITLE, channel.name)
                 })
             },
-            onToggleFavorite = {}
+            onToggleFavorite = {},
+            epgScope = lifecycleScope,
+            fetchEpg = { channel -> viewModel.getShortEpg(channel) }
         )
         binding.rvChannels.layoutManager = LinearLayoutManager(this)
         binding.rvChannels.adapter = channelAdapter

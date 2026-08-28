@@ -35,4 +35,8 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
             _results.value = SearchResults(movies, series, channels)
         }
     }
+
+    /** Mini-guide "en cours/à suivre" — cf. LiveViewModel.getShortEpg (même
+     * repository, même cache, résultat identique quel que soit l'écran). */
+    suspend fun getShortEpg(channel: Channel) = repository.getShortEpg(channel)
 }

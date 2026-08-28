@@ -74,8 +74,8 @@ class ChannelAdapter(
             epgJob = epgScope.launch {
                 val epg = fetchEpg(channel)
                 // La vue a pu être recyclée pour une autre chaîne pendant l'appel
-                // réseau — bindingAdapterPosition + comparaison d'id avant d'écrire.
-                val pos = bindingAdapterPosition
+                // réseau — adapterPosition + comparaison d'id avant d'écrire.
+                val pos = adapterPosition
                 if (pos == RecyclerView.NO_POSITION || getItem(pos).id != channel.id) return@launch
                 val text = formatEpg(epg) ?: return@launch
                 b.tvEpg.text = text
