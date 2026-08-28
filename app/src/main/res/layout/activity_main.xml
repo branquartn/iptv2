@@ -207,17 +207,76 @@
             android:focusable="true"
             android:focusableInTouchMode="true">
 
-            <!-- Logo de chaîne en rotation (demande explicite, revenu sur le choix
-                 "icône seule" du 28/08 matin) — fitCenter + padding, pas centerCrop
-                 comme Films/Séries : un logo (souvent transparent, pas une affiche
-                 plein cadre) serait affreusement rogné en centerCrop. -->
-            <ImageView
-                android:id="@+id/iv_live_bg"
+            <!-- Mosaïque FIXE de logos de chaînes FR (demande explicite 28/08/2026,
+                 remplace la rotation d'un logo unique) — 6 logos chargés une seule
+                 fois (MainActivity.bindLiveMosaic), jamais retouchés après. fitCenter,
+                 pas centerCrop : un logo est souvent transparent, pas une affiche
+                 plein cadre. -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:padding="28dp"
-                android:alpha="0.55"
-                android:scaleType="fitCenter" />
+                android:orientation="vertical"
+                android:alpha="0.6"
+                android:padding="10dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:id="@+id/iv_live_logo_1"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:padding="6dp"
+                        android:scaleType="fitCenter" />
+                    <ImageView
+                        android:id="@+id/iv_live_logo_2"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:padding="6dp"
+                        android:scaleType="fitCenter" />
+                    <ImageView
+                        android:id="@+id/iv_live_logo_3"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:padding="6dp"
+                        android:scaleType="fitCenter" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:id="@+id/iv_live_logo_4"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:padding="6dp"
+                        android:scaleType="fitCenter" />
+                    <ImageView
+                        android:id="@+id/iv_live_logo_5"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:padding="6dp"
+                        android:scaleType="fitCenter" />
+                    <ImageView
+                        android:id="@+id/iv_live_logo_6"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:padding="6dp"
+                        android:scaleType="fitCenter" />
+                </LinearLayout>
+            </LinearLayout>
 
             <View
                 android:layout_width="match_parent"
@@ -249,16 +308,6 @@
                     android:textColor="@android:color/white"
                     android:textSize="22sp"
                     android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tv_live_count"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:textColor="@android:color/white"
-                    android:textSize="13sp"
-                    android:textStyle="bold"
-                    android:alpha="0.9" />
             </LinearLayout>
 
             <com.nicotv.iptv2.ui.common.RotatingBorderView
@@ -321,16 +370,6 @@
                     android:textColor="@android:color/white"
                     android:textSize="22sp"
                     android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tv_films_count"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:textColor="@android:color/white"
-                    android:textSize="13sp"
-                    android:textStyle="bold"
-                    android:alpha="0.9" />
             </LinearLayout>
 
             <com.nicotv.iptv2.ui.common.RotatingBorderView
@@ -389,16 +428,6 @@
                     android:textColor="@android:color/white"
                     android:textSize="22sp"
                     android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tv_series_count"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:textColor="@android:color/white"
-                    android:textSize="13sp"
-                    android:textStyle="bold"
-                    android:alpha="0.9" />
             </LinearLayout>
 
             <com.nicotv.iptv2.ui.common.RotatingBorderView

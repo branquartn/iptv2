@@ -544,19 +544,30 @@ pour tout le process** (`MainActivity.cachedHomeBgUrl`, companion) — remis à
 chargé (`resetHomeBg()`), sinon l'ancien fond resterait affiché après un
 changement de source.
 
-⚠️ **Carte Chaînes (`card_live`/`iv_live_bg`) — revirement le jour même** :
-d'abord volontairement laissée sans image ("pas de jaquette pertinente pour
-du live", demande explicite du matin), **puis redemandée l'après-midi même**
-("je veux quand même une image"). A maintenant sa propre rotation
-(`HUB_LIVE_OFFSET`), mais sur des **logos de chaîne** (pas des posters) :
-`iv_live_bg` est en `scaleType="fitCenter"` + `padding` (pas `centerCrop`
-comme Films/Séries) — un logo est souvent transparent et pas prévu pour être
-rogné plein cadre, contrairement à un backdrop TMDb/Xtream. Pas de champ
-`updatedAt` sur `ChannelEntity` (contrairement à Movie/SeriesEntity) : la
-liste de rotation est un simple échantillon de logos non vides, pas un tri
-par ajout récent. **Ne pas re-proposer de retirer cette image sans redemander
-à l'utilisateur** — c'est un choix qui a déjà changé une fois dans la
-journée.
+⚠️ **Carte Films : rotation restreinte aux films FR** (28/08/2026, demande
+explicite) — le pool de jaquettes tournantes (`movieHubUrls`) est filtré par
+`extractLeadingLanguageCode(it.category) == "FR"` avant de prendre les 12 plus
+récents, même filtre exact que le réglage "Langue du contenu" (cf. section
+Réglages) — pas l'ancienne heuristique `isFrenchLabel`. **Carte Séries non
+filtrée** (pas demandé) : continue de tourner sur tout le catalogue série.
+
+⚠️ **Carte Chaînes : mosaïque FIXE de logos FR, pas une rotation**
+(28/08/2026, encore un revirement le jour même — d'abord aucune image, puis
+un logo unique en rotation, puis cette mosaïque à 6 logos statique sur
+demande explicite : **ne pas re-proposer un autre traitement sans
+redemander**, ce choix a déjà changé deux fois dans la journée).
+`bindLiveMosaic()` charge une seule fois (`liveMosaicBound`, jamais retouché
+après) 6 logos de chaînes dont `extractLeadingLanguageCode(name) == "FR"`
+dans une grille 3×2 (`iv_live_logo_1`..`6`, `fitCenter` + padding — pas
+`centerCrop`, un logo est souvent transparent). Aucune notion de "récent"
+possible (`ChannelEntity` n'a pas de `updatedAt`) : simple échantillon des
+premiers logos FR non vides rencontrés.
+
+⚠️ **Compteurs retirés des 3 cartes** (`tv_live_count`/`tv_films_count`/
+`tv_series_count`, 28/08/2026, demande explicite) — les vues XML **et** leurs
+bindings Kotlin ont été supprimés (pas juste cachés), `formatCount()` a
+disparu avec eux. Si un besoin de compteur revient, il faudra les
+réintroduire de zéro, pas les "réafficher".
 
 ## Fiche série (SeriesDetailActivity) — 2 colonnes, pas un empilement vertical
 

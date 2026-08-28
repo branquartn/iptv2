@@ -22,6 +22,7 @@ import com.nicotv.iptv2.ui.resume.ResumeActivity
 import com.nicotv.iptv2.ui.search.SearchActivity
 import com.nicotv.iptv2.ui.series.SeriesActivity
 import com.nicotv.iptv2.update.checkForAppUpdate
+import com.nicotv.iptv2.util.extractLeadingLanguageCode
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -34,14 +35,15 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
     private lateinit var binding: ActivityMainBinding
     private var movieRotationJob: Job? = null
     private var seriesRotationJob: Job? = null
-    private var channelRotationJob: Job? = null
 
     // Listes courantes des fonds de vignettes — mises à jour par Room, lues par
     // les jobs de rotation à chaque tick (mêmes noms/principe que NicoTV
     // MainActivity, cf. son CLAUDE.md).
     private var movieHubUrls: List<String> = emptyList()
     private var seriesHubUrls: List<String> = emptyList()
-    private var channelHubUrls: List<String> = emptyList()
+    // Chaînes : pas de rotation (cf. bindLiveMosaic) — mosaïque fixe, chargée
+    // une seule fois.
+    private var liveMosaicBound = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -95,8 +97,26 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         }
     }
 
+    /** Mosaïque fixe de logos de chaînes FR sur la carte Chaînes (demande
+     * explicite 28/08/2026, remplace la rotation d'un logo unique) — chargée
+     * une seule fois (`liveMosaicBound`), jamais retouchée après même si la
+     * liste de chaînes change par la suite (contrairement aux jaquettes
+     * Films/Séries, qui tournent en continu). */
+    private fun bindLiveMosaic(logoUrls: List<String>) {
+        if (liveMosaicBound || logoUrls.isEmpty()) return
+        liveMosaicBound = true
+        val targets = listOf(
+            binding.ivLiveLogo1, binding.ivLiveLogo2, binding.ivLiveLogo3,
+            binding.ivLiveLogo4, binding.ivLiveLogo5, binding.ivLiveLogo6
+        )
+        targets.forEachIndexed { i, imageView ->
+            val url = logoUrls.getOrNull(i) ?: return@forEachIndexed
+            imageView.load(url) { crossfade(true) }
+        }
+    }
+
     private fun applyHubCardClipping() {
-        listOf(binding.cardLive, binding.cardFilms, binding.cardSeries, binding.ivLiveBg, binding.ivFilmsBg, binding.ivSeriesBg).forEach { view ->
+        listOf(binding.cardLive, binding.cardFilms, binding.cardSeries, binding.ivFilmsBg, binding.ivSeriesBg).forEach { view ->
             view.outlineProvider = object : ViewOutlineProvider() {
                 override fun getOutline(view: View, outline: Outline) {
                     outline.setRoundRect(0, 0, view.width, view.height, dp())
@@ -182,30 +202,25 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         lifecycleScope.launch {
             app.database.channelDao().getAllChannels()
                 .map { channels ->
-                    binding.tvLiveCount.text = formatCount(channels.size, "chaîne")
-                    // Pas de champ "ajouté récemment" côté chaîne (contrairement à
-                    // Movie/SeriesEntity.updatedAt) : simple échantillon des logos
-                    // présents, suffisant pour une rotation décorative.
-                    channels.map { it.logoUrl }.filter { it.isNotBlank() }.distinct().take(12)
+                    // Mosaïque FIXE de logos FR uniquement (demande explicite
+                    // 28/08/2026) — pas de rotation, chargée une seule fois
+                    // (cf. bindLiveMosaic/liveMosaicBound).
+                    channels.filter { extractLeadingLanguageCode(it.name) == "FR" && it.logoUrl.isNotBlank() }
+                        .map { it.logoUrl }.distinct().take(6)
                 }
                 .distinctUntilChanged()
-                .collect { channelUrls ->
-                    channelHubUrls = channelUrls
-                    if (channelRotationJob == null && channelUrls.isNotEmpty()) {
-                        channelRotationJob = lifecycleScope.launch {
-                            while (isActive) {
-                                loadRotatingHubImage(binding.ivLiveBg, channelHubUrls, HUB_LIVE_OFFSET)
-                                delay(HUB_ROTATION_INTERVAL_MS)
-                            }
-                        }
-                    }
-                }
+                .collect { logos -> bindLiveMosaic(logos) }
         }
         lifecycleScope.launch {
             app.database.movieDao().getAllMovies()
                 .map { movies ->
-                    binding.tvFilmsCount.text = formatCount(movies.size, "titre")
-                    movies.filter { it.backdropUrl.isNotBlank() || it.posterUrl.isNotBlank() }
+                    // Films FR uniquement, les plus récents (demande explicite
+                    // 28/08/2026) — cf. util.LanguageCode, même filtre exact
+                    // que le réglage "Langue du contenu" côté MoviesViewModel.
+                    movies.filter {
+                        extractLeadingLanguageCode(it.category) == "FR" &&
+                            (it.backdropUrl.isNotBlank() || it.posterUrl.isNotBlank())
+                    }
                         .sortedByDescending { it.updatedAt }
                         .take(12)
                         .map { it.backdropUrl.ifBlank { it.posterUrl } }
@@ -231,7 +246,6 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         lifecycleScope.launch {
             app.database.seriesDao().getAllSeries()
                 .map { series ->
-                    binding.tvSeriesCount.text = formatCount(series.size, "série")
                     series.filter { it.backdropUrl.isNotBlank() || it.posterUrl.isNotBlank() }
                         .sortedByDescending { it.updatedAt }
                         .take(12)
@@ -272,15 +286,11 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         }
     }
 
-    private fun formatCount(count: Int, label: String): String =
-        "$count $label${if (count > 1) "s" else ""}"
-
     companion object {
         private const val HUB_ROTATION_INTERVAL_MS = 45_000L
         private const val HUB_CARD_RADIUS_DP = 16f
         private const val HUB_MOVIE_OFFSET = 0
         private const val HUB_SERIES_OFFSET = 5
-        private const val HUB_LIVE_OFFSET = 9
         // Fond plein écran : stable pour tout le process (survit à une
         // réouverture de l'accueil), remis à null quand le catalogue change
         // (nouveau profil chargé, cf. SetupActivity.loadProfile) pour ne pas
