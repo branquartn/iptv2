@@ -10,6 +10,7 @@ import com.nicotv.iptv2.IptvApplication
 import com.nicotv.iptv2.data.database.entity.FavoriteEntity
 import com.nicotv.iptv2.domain.model.Movie
 import com.nicotv.iptv2.util.foldAccents
+import com.nicotv.iptv2.util.isFrenchLabel
 import kotlinx.coroutines.launch
 import androidx.lifecycle.viewModelScope
 
@@ -25,7 +26,11 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
     val selectedCategory = MutableLiveData<String?>(null)
 
     val categories: LiveData<List<String>> = MediatorLiveData<List<String>>().apply {
-        addSource(allSeries) { list -> value = list.map { it.category }.filter { it.isNotBlank() }.distinct().sorted() }
+        // Catégories France en premier (demande explicite) — cf. isFrenchLabel.
+        addSource(allSeries) { list ->
+            value = list.map { it.category }.filter { it.isNotBlank() }.distinct()
+                .sortedWith(compareByDescending<String> { isFrenchLabel(it) }.thenBy { it })
+        }
     }
 
     val filteredSeries: LiveData<List<Movie>> = MediatorLiveData<List<Movie>>().apply {

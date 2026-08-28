@@ -3,18 +3,38 @@ package com.nicotv.iptv2.ui.common
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.recyclerview.widget.DiffUtil
-import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.nicotv.iptv2.R
 import com.nicotv.iptv2.databinding.ItemPosterBinding
 import com.nicotv.iptv2.domain.model.Movie
 
-/** Adapter pour le mur d'affiches (grille de posters verticaux) — films et séries. */
+/** Adapter pour le mur d'affiches (grille de posters verticaux) — films et séries.
+ *
+ * ⚠️ Pas un `ListAdapter`/`DiffUtil` (retiré 28/08/2026) : sur un catalogue Xtream
+ * de plusieurs dizaines/centaines de milliers de titres (cf. CLAUDE.md, panel de
+ * test ~136 700 films), un changement de catégorie/recherche remplace la liste
+ * affichée par un sous-ensemble bien plus petit — DiffUtil doit alors calculer un
+ * diff entre une liste énorme et une liste réduite (Myers, coût proche de O(N*D)
+ * avec D ~ N ici) : plusieurs secondes à largement plus, perçu comme "le filtre
+ * ne fait rien" (le compteur de résultats change, l'affichage jamais). Aucune
+ * perte fonctionnelle à l'abandon du diff : `onAttachedToRecyclerView` désactive
+ * déjà l'item animator (conflit avec le zoom de focus), DiffUtil ne servait donc
+ * qu'à calculer des animations jamais jouées. `notifyDataSetChanged()` ne
+ * redessine que les vues effectivement visibles, coût constant quelle que soit
+ * la taille du catalogue. */
 class PosterAdapter(
     private val onClick: (Movie) -> Unit
-) : ListAdapter<Movie, PosterAdapter.PosterViewHolder>(DIFF) {
+) : RecyclerView.Adapter<PosterAdapter.PosterViewHolder>() {
+
+    private var items: List<Movie> = emptyList()
+
+    fun submitList(list: List<Movie>) {
+        items = list
+        notifyDataSetChanged()
+    }
+
+    override fun getItemCount(): Int = items.size
 
     override fun onAttachedToRecyclerView(recyclerView: RecyclerView) {
         // Désactive les animations d'items : DefaultItemAnimator anime itemView via
@@ -33,7 +53,7 @@ class PosterAdapter(
     }
 
     override fun onBindViewHolder(holder: PosterViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        holder.bind(items[position])
     }
 
     inner class PosterViewHolder(private val binding: ItemPosterBinding) :
@@ -71,13 +91,6 @@ class PosterAdapter(
                 binding.focusOverlay.visibility = if (hasFocus) View.VISIBLE else View.INVISIBLE
                 if (hasFocus) binding.focusOverlay.startAnim() else binding.focusOverlay.stopAnim()
             }
-        }
-    }
-
-    companion object {
-        private val DIFF = object : DiffUtil.ItemCallback<Movie>() {
-            override fun areItemsTheSame(a: Movie, b: Movie) = a.id == b.id && a.type == b.type
-            override fun areContentsTheSame(a: Movie, b: Movie) = a == b
         }
     }
 }

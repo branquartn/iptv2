@@ -10,6 +10,7 @@ import com.nicotv.iptv2.IptvApplication
 import com.nicotv.iptv2.data.database.entity.FavoriteEntity
 import com.nicotv.iptv2.domain.model.Channel
 import com.nicotv.iptv2.util.foldAccents
+import com.nicotv.iptv2.util.isFrenchLabel
 import kotlinx.coroutines.launch
 import androidx.lifecycle.viewModelScope
 
@@ -26,7 +27,11 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
     val frenchOnly = MutableLiveData(false)
 
     val categories: LiveData<List<String>> = MediatorLiveData<List<String>>().apply {
-        addSource(allChannels) { list -> value = list.map { it.category }.filter { it.isNotBlank() }.distinct().sorted() }
+        addSource(allChannels) { list ->
+            // Catégories France en premier (demande explicite) — cf. isFrenchLabel.
+            value = list.map { it.category }.filter { it.isNotBlank() }.distinct()
+                .sortedWith(compareByDescending<String> { isFrenchLabel(it) }.thenBy { it })
+        }
     }
 
     val filteredChannels: LiveData<List<Channel>> = MediatorLiveData<List<Channel>>().apply {
@@ -45,22 +50,11 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
         addSource(frenchOnly) { filter() }
     }
 
-    /** Heuristique "France" : les catégories/noms d'un panel Xtream ne suivent
-     * aucune norme fiable (ex. "AFR| AFRICA VIP HD/4K", "4K| 24/7 UHD 3840P")
-     * — pas de champ pays exploitable côté Xtream/M3U. On cherche le token
-     * exact "FR" (délimité, pour éviter de matcher "AFR"/"OFFER") ou les
-     * sous-chaînes "FRANCE"/"FRENCH" dans le nom + la catégorie. Imparfait sur
-     * un panel mal nommé, mais couvre la grande majorité des conventions
-     * (FR|, [FR], FRANCE, FRENCH...). */
-    private fun isFrench(channel: Channel): Boolean {
-        val haystack = "${channel.category} ${channel.name}".uppercase()
-        if (haystack.contains("FRANCE") || haystack.contains("FRENCH")) return true
-        return haystack.split(NON_ALNUM).any { it == "FR" }
-    }
-
-    companion object {
-        private val NON_ALNUM = Regex("[^A-Z0-9]+")
-    }
+    /** Heuristique "France" (cf. util.isFrenchLabel) appliquée nom+catégorie —
+     * plus permissive que le tri des catégories (qui ne regarde que la
+     * catégorie seule) : une chaîne FR peut être classée dans une catégorie au
+     * nom neutre. */
+    private fun isFrench(channel: Channel): Boolean = isFrenchLabel("${channel.category} ${channel.name}")
 
     fun toggleFavorite(channel: Channel) {
         viewModelScope.launch {

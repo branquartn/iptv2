@@ -11,6 +11,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.util.UnstableApi
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.nicotv.iptv2.R
 import com.nicotv.iptv2.databinding.ActivityLiveBinding
@@ -23,7 +24,7 @@ class LiveActivity : BaseActivity() {
 
     private lateinit var binding: ActivityLiveBinding
     private lateinit var viewModel: LiveViewModel
-    private lateinit var channelAdapter: ChannelAdapter
+    private lateinit var channelAdapter: ChannelGridAdapter
     private lateinit var categoryAdapter: CategorySidebarAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -37,7 +38,9 @@ class LiveActivity : BaseActivity() {
         applyRing(binding.btnFavoritesFilter, binding.btnFavoritesFilterRing, 1.2f)
         applyRing(binding.btnFrenchFilter, binding.btnFrenchFilterRing, 1.2f)
 
-        channelAdapter = ChannelAdapter(
+        // Mosaïque de logos (comme IPTV Smarters Pro), pas une liste — tap = lecture,
+        // appui long = favori (pas de bouton dédié sur la tuile, place limitée).
+        channelAdapter = ChannelGridAdapter(
             onClick = { channel ->
                 startActivity(Intent(this, PlayerActivity::class.java).apply {
                     putExtra(PlayerActivity.EXTRA_STREAM_URL, channel.streamUrl)
@@ -48,7 +51,7 @@ class LiveActivity : BaseActivity() {
             epgScope = lifecycleScope,
             fetchEpg = { channel -> viewModel.getShortEpg(channel) }
         )
-        binding.rvChannels.layoutManager = LinearLayoutManager(this)
+        binding.rvChannels.layoutManager = GridLayoutManager(this, computeSpanCount())
         binding.rvChannels.adapter = channelAdapter
 
         categoryAdapter = CategorySidebarAdapter(getString(R.string.category_all)) { category -> viewModel.selectedCategory.value = category }
@@ -89,6 +92,15 @@ class LiveActivity : BaseActivity() {
             binding.tvEmpty.visibility = if (channels.isEmpty()) View.VISIBLE else View.GONE
             binding.rvChannels.visibility = if (channels.isEmpty()) View.GONE else View.VISIBLE
         }
+    }
+
+    /** Cf. MoviesActivity.computeSpanCount — même sidebar catégories à déduire.
+     * Tuile un peu plus large qu'une affiche (logo + nom, pas un poster vertical). */
+    private fun computeSpanCount(): Int {
+        val screenWidthDp = resources.configuration.screenWidthDp
+        val sidebarDp = 210
+        val tileWidthDp = 130
+        return ((screenWidthDp - sidebarDp) / tileWidthDp).coerceIn(3, 8)
     }
 
     private fun hideKeyboard() {

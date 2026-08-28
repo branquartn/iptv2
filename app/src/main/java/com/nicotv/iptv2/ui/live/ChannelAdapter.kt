@@ -3,8 +3,6 @@ package com.nicotv.iptv2.ui.live
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.recyclerview.widget.DiffUtil
-import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.nicotv.iptv2.R
@@ -20,20 +18,35 @@ import kotlinx.coroutines.launch
  * seulement avec le ViewHolder recyclé. [fetchEpg] résout "en cours/à suivre"
  * pour une chaîne (cache Room + appel Xtream à la demande, cf.
  * PlaylistRepository.getShortEpg) — appelé au bind, jamais en amont pour tout
- * le catalogue (des milliers de chaînes = des milliers d'appels). */
+ * le catalogue (des milliers de chaînes = des milliers d'appels).
+ *
+ * ⚠️ Pas un `ListAdapter`/`DiffUtil` (retiré 28/08/2026) — cf. PosterAdapter,
+ * même raison : sur un catalogue de plusieurs dizaines de milliers de chaînes
+ * (cf. CLAUDE.md, panel de test ~47 400 chaînes), un changement de catégorie/
+ * recherche vers un sous-ensemble bien plus petit rendait le diff quasi
+ * infini à calculer — le filtre semblait ne jamais s'appliquer. */
 class ChannelAdapter(
     private val onClick: (Channel) -> Unit,
     private val onToggleFavorite: (Channel) -> Unit,
     private val epgScope: CoroutineScope,
     private val fetchEpg: suspend (Channel) -> EpgNowNext?
-) : ListAdapter<Channel, ChannelAdapter.VH>(DIFF) {
+) : RecyclerView.Adapter<ChannelAdapter.VH>() {
+
+    private var items: List<Channel> = emptyList()
+
+    fun submitList(list: List<Channel>) {
+        items = list
+        notifyDataSetChanged()
+    }
+
+    override fun getItemCount(): Int = items.size
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
         val b = ItemChannelBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         return VH(b)
     }
 
-    override fun onBindViewHolder(holder: VH, position: Int) = holder.bind(getItem(position))
+    override fun onBindViewHolder(holder: VH, position: Int) = holder.bind(items[position])
 
     override fun onViewRecycled(holder: VH) {
         holder.cancelEpgFetch()
@@ -74,9 +87,9 @@ class ChannelAdapter(
             epgJob = epgScope.launch {
                 val epg = fetchEpg(channel)
                 // La vue a pu être recyclée pour une autre chaîne pendant l'appel
-                // réseau — adapterPosition + comparaison d'id avant d'écrire.
+                // réseau — position + comparaison d'id avant d'écrire.
                 val pos = adapterPosition
-                if (pos == RecyclerView.NO_POSITION || getItem(pos).id != channel.id) return@launch
+                if (pos == RecyclerView.NO_POSITION || items.getOrNull(pos)?.id != channel.id) return@launch
                 val text = formatEpg(epg) ?: return@launch
                 b.tvEpg.text = text
                 b.tvEpg.visibility = View.VISIBLE
@@ -86,13 +99,6 @@ class ChannelAdapter(
         private fun formatEpg(epg: EpgNowNext?): String? {
             if (epg == null || epg.nowTitle.isBlank()) return null
             return if (epg.nextTitle.isNotBlank()) "${epg.nowTitle}  ·  à suivre : ${epg.nextTitle}" else epg.nowTitle
-        }
-    }
-
-    companion object {
-        private val DIFF = object : DiffUtil.ItemCallback<Channel>() {
-            override fun areItemsTheSame(a: Channel, b: Channel) = a.id == b.id
-            override fun areContentsTheSame(a: Channel, b: Channel) = a == b
         }
     }
 }

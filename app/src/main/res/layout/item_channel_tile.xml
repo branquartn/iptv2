@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Mosaïque de chaînes (écran Chaînes), comme IPTV Smarters Pro — remplace la
+     liste verticale de lignes (item_channel.xml, gardé tel quel pour les
+     résultats de recherche, où films/séries/chaînes se mélangent dans un même
+     écran compact). -->
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="4dp"
+    android:focusable="true"
+    android:clickable="true"
+    android:clipChildren="false"
+    android:clipToPadding="false">
+
+    <androidx.cardview.widget.CardView
+        android:id="@+id/card_view"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="3dp"
+        app:cardBackgroundColor="@color/bg_card"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="88dp"
+                android:background="@color/bg_card"
+                android:padding="14dp">
+
+                <ImageView
+                    android:id="@+id/iv_logo"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="fitCenter" />
+
+                <ImageView
+                    android:id="@+id/iv_favorite"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_gravity="top|end"
+                    android:layout_margin="4dp"
+                    android:src="@drawable/ic_favorite_filled"
+                    android:visibility="gone" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/tv_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="6dp"
+                android:gravity="center"
+                android:textColor="@color/text_primary"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:ellipsize="end"
+                android:maxLines="1" />
+
+            <!-- Mini-guide "en cours" (Xtream uniquement) — vide/GONE sinon, cf.
+                 ChannelGridAdapter. -->
+            <TextView
+                android:id="@+id/tv_epg"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="8dp"
+                android:gravity="center"
+                android:textColor="@color/text_secondary"
+                android:textSize="10sp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <com.nicotv.iptv2.ui.common.RotatingBorderView
+            android:id="@+id/focus_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:cornerRadius="8dp"
+            android:visibility="invisible" />
+
+    </androidx.cardview.widget.CardView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

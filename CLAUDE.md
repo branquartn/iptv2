@@ -171,6 +171,50 @@ par la largeur d'affiche — sans ça le nombre de colonnes était calculé sur 
 largeur totale de l'écran alors que le mur d'affiches dispose de moins
 d'espace depuis l'ajout de la sidebar.
 
+⚠️ **Catégories France en premier** (demande explicite, même jour) :
+`util.isFrenchLabel()` (extrait de l'ancien `LiveViewModel.isFrench`, gardé
+pour le filtre "FR" existant qui regarde nom+catégorie) trie les 3 listes de
+catégories — `sortedWith(compareByDescending { isFrenchLabel(it) }.thenBy { it })`.
+Ne regarde QUE le libellé de catégorie (pas le nom des chaînes/titres), plus
+restrictif que le filtre FR de l'écran Chaînes : une catégorie au nom neutre
+contenant des chaînes françaises ne remonte pas en tête, seul le nom de la
+catégorie compte ici.
+
+⚠️ **Bug vécu (corrigé 28/08/2026) — sélectionner une catégorie ne changeait
+rien à l'affichage** : la logique de filtre fonctionnait bien (le compteur de
+résultats se mettait à jour, ex. 136718 → 94), mais `PosterAdapter`/
+`ChannelAdapter` étaient des `ListAdapter` (`DiffUtil`) — sur un catalogue de
+plusieurs dizaines/centaines de milliers d'items, un changement de catégorie
+vers un sous-ensemble beaucoup plus petit force DiffUtil à calculer un diff
+entre une liste énorme et une liste réduite (Myers, coût proche de l'ordre du
+carré sur un retrait massif) : plusieurs secondes à largement plus, perçu
+comme "le filtre ne fait rien". Diagnostiqué via `uiautomator dump` +
+captures d'écran sur le téléphone du user (wireless debugging) : le compteur
+changeait, la grille non, même après plusieurs secondes d'attente. **Les
+deux adapters sont repassés en `RecyclerView.Adapter` simple + liste mutable +
+`notifyDataSetChanged()`** (coût constant, ne redessine que les vues
+visibles) — aucune perte : l'item animator était déjà désactivé
+(`onAttachedToRecyclerView`, conflit avec le zoom de focus), DiffUtil ne
+servait donc qu'à calculer des animations jamais jouées. Si un futur écran
+réintroduit `ListAdapter` sur une liste issue du catalogue complet (pas une
+petite liste bornée comme les catégories, `CategorySidebarAdapter` reste un
+`ListAdapter` sans souci), refaire le même raisonnement avant de l'utiliser.
+
+## Mosaïque de chaînes (LiveActivity)
+
+Ajouté 28/08/2026 (demande explicite, comportement IPTV Smarters Pro) :
+`ChannelGridAdapter` + `item_channel_tile.xml` remplacent la liste verticale
+sur l'écran Chaînes — `GridLayoutManager` (comme `PosterAdapter`), tuile
+logo+nom+mini-guide EPG, pas de bouton favori dédié (place limitée) :
+**tap = lecture, appui long = ajouter/retirer des favoris**. L'ancien
+`ChannelAdapter` (liste, avec bouton favori explicite) est **gardé tel quel**
+pour `SearchActivity` uniquement, où chaînes/films/séries se mélangent dans
+un écran de résultats compact — pas de mosaïque là, une liste reste plus
+lisible mélangée à un mur d'affiches. Les deux adapters dupliquent la même
+logique EPG (fetch à la demande au bind, job annulé au recyclage) — accepté,
+pas mutualisé pour éviter une abstraction commune forcée entre deux layouts
+très différents.
+
 ## TMDb — jaquettes et fiche film
 
 Aucun backend : l'app interroge TMDb directement (clé dans `AppConfig.Tmdb`).
