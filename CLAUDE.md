@@ -517,6 +517,17 @@ sens** : ouvrait `SetupActivity` directement jusqu'ici, ouvre maintenant
   vaut exactement "FR", et le tri "France en premier" des sidebars catégories
   (aussi `isFrenchLabel`) est inchangé.
 
+  ⚠️ **Libellés de catégorie (sidebar Chaînes) aussi nettoyés** (ajouté
+  28/08/2026, demande explicite) : `LiveViewModel.displayCategory()` retire le
+  même préfixe langue des noms de catégorie ("FR| Sport" → "Sport") quand il
+  correspond à `contentLanguage` — même helper `extractLeadingLanguageCode`/
+  `stripLeadingLanguageCode` que sur le nom des chaînes. La sidebar ne
+  connaissant que le libellé déjà nettoyé (pas le brut), le filtre par
+  catégorie compare aussi `displayCategory(channel.category)` côté
+  `filteredChannels`, jamais `channel.category` directement — à refaire si
+  une future modif de ce filtre repart du champ brut. Scope volontairement
+  limité à l'écran Chaînes (seul demandé) ; Films/Séries non touchés.
+
 ## Room — migrations
 
 `fallbackToDestructiveMigration()` uniquement, **pas de `Migration` écrite à la

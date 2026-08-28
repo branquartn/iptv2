@@ -10,10 +10,10 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 33
-val appVersionName = "1.0.32"
+val appVersionCode = 34
+val appVersionName = "1.0.33"
 // Changelog affiché dans le modal de mise à jour OTA — mis à jour à chaque bump.
-val appChangelog = "Profils Xtream/playlist désormais sauvegardés hors base de données : plus besoin de retaper les identifiants après une fermeture de l'app ou une mise à jour."
+val appChangelog = "Chaînes : les catégories de la sidebar n'affichent plus le préfixe de langue (ex. \"FR| Sport\" → \"Sport\") quand ce préfixe correspond au réglage Langue du contenu."
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")

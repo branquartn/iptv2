@@ -48,7 +48,7 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
     val categories: LiveData<List<String>> = MediatorLiveData<List<String>>().apply {
         addSource(allChannels) { list ->
             // Catégories France en premier (demande explicite) — cf. isFrenchLabel.
-            value = list.map { it.category }.filter { it.isNotBlank() }.distinct()
+            value = list.map { displayCategory(it.category) }.filter { it.isNotBlank() }.distinct()
                 .sortedWith(compareByDescending<String> { isFrenchLabel(it) }.thenBy { it })
         }
     }
@@ -69,7 +69,7 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
                 var base = if (query.isBlank()) allChannels.value ?: emptyList()
                            else repository.searchChannelsByName(query)
                 if (favoritesOnly.value == true) base = base.filter { it.isFavorite }
-                selectedCategory.value?.let { cat -> base = base.filter { it.category == cat } }
+                selectedCategory.value?.let { cat -> base = base.filter { displayCategory(it.category) == cat } }
                 val onlyFrench = frenchOnly.value == true
                 if (onlyFrench) base = base.filter { isFrench(it) }
 
@@ -107,6 +107,18 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
      * catégorie seule) : une chaîne FR peut être classée dans une catégorie au
      * nom neutre. */
     private fun isFrench(channel: Channel): Boolean = isFrenchLabel("${channel.category} ${channel.name}")
+
+    /** Nom de catégorie affiché dans la sidebar — retire le préfixe langue
+     * ("FR| Sport" → "Sport") quand il correspond au réglage "Langue du
+     * contenu" (contentLanguage), même principe que sur le nom des chaînes
+     * (cf. contentLanguage plus haut). Redondant une fois filtré sur une
+     * seule langue, inutile de le garder affiché. Sert aussi de clé de
+     * comparaison pour selectedCategory (sidebar ne connaît que le libellé
+     * déjà nettoyé, jamais le brut). */
+    private fun displayCategory(category: String): String {
+        val code = contentLanguage ?: return category
+        return if (extractLeadingLanguageCode(category) == code) stripLeadingLanguageCode(category, code) else category
+    }
 
     /** Rang dans la numérotation officielle de la TNT française (1 à 25) —
      * comparaison par sous-chaîne sur le nom nettoyé (accents/casse), tolérant
