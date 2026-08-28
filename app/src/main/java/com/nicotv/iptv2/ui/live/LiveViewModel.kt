@@ -48,7 +48,14 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
     val categories: LiveData<List<String>> = MediatorLiveData<List<String>>().apply {
         addSource(allChannels) { list ->
             // Catégories France en premier (demande explicite) — cf. isFrenchLabel.
-            value = list.map { displayCategory(it.category) }.filter { it.isNotBlank() }.distinct()
+            // Ne garde que les catégories dont le PROPRE préfixe correspond au
+            // réglage "Langue du contenu" (demande explicite 28/08/2026 : la
+            // sidebar affichait encore "CA|"/"AL|"... à côté des catégories FR
+            // une fois nettoyées) — même principe que MoviesViewModel.
+            // applyLanguageFilter, appliqué ici sur la catégorie et non le nom.
+            val base = if (contentLanguage == null) list
+                       else list.filter { extractLeadingLanguageCode(it.category) == contentLanguage }
+            value = base.map { displayCategory(it.category) }.filter { it.isNotBlank() }.distinct()
                 .sortedWith(compareByDescending<String> { isFrenchLabel(it) }.thenBy { it })
         }
     }

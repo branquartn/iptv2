@@ -517,16 +517,25 @@ sens** : ouvrait `SetupActivity` directement jusqu'ici, ouvre maintenant
   vaut exactement "FR", et le tri "France en premier" des sidebars catégories
   (aussi `isFrenchLabel`) est inchangé.
 
-  ⚠️ **Libellés de catégorie (sidebar Chaînes) aussi nettoyés** (ajouté
-  28/08/2026, demande explicite) : `LiveViewModel.displayCategory()` retire le
-  même préfixe langue des noms de catégorie ("FR| Sport" → "Sport") quand il
-  correspond à `contentLanguage` — même helper `extractLeadingLanguageCode`/
-  `stripLeadingLanguageCode` que sur le nom des chaînes. La sidebar ne
-  connaissant que le libellé déjà nettoyé (pas le brut), le filtre par
-  catégorie compare aussi `displayCategory(channel.category)` côté
-  `filteredChannels`, jamais `channel.category` directement — à refaire si
-  une future modif de ce filtre repart du champ brut. Scope volontairement
-  limité à l'écran Chaînes (seul demandé) ; Films/Séries non touchés.
+  ⚠️ **Libellés de catégorie (sidebar Chaînes ET Films) aussi nettoyés**
+  (ajouté 28/08/2026, demande explicite en deux temps — d'abord Chaînes,
+  puis complété le jour même car la sidebar affichait encore les catégories
+  d'autres langues type "CA|"/"AL|" à côté des FR nettoyées) :
+  `LiveViewModel.displayCategory()`/`MoviesViewModel.displayCategory()`
+  retirent le préfixe langue du nom de catégorie ("FR| Sport" → "Sport",
+  "FR - Action" → "Action") quand il correspond à `contentLanguage` — même
+  helper `extractLeadingLanguageCode`/`stripLeadingLanguageCode` que sur le
+  nom des chaînes. **La liste de catégories elle-même est maintenant filtrée**
+  sur le PROPRE préfixe de la catégorie (pas celui des chaînes/titres
+  qu'elle contient) quand `contentLanguage` est actif — Live suit ici le
+  même principe que Movies (`applyLanguageFilter`, préexistant côté Movies,
+  ajouté côté Live pour l'occasion) : une catégorie d'une autre langue ne
+  s'affiche plus du tout dans la sidebar, plutôt que de rester visible avec
+  son préfixe brut. La sidebar ne connaissant que le libellé déjà nettoyé
+  (pas le brut), le filtre par catégorie compare aussi
+  `displayCategory(item.category)` côté `filteredChannels`/`filteredMovies`,
+  jamais `item.category` directement — à refaire si une future modif de ce
+  filtre repart du champ brut. Séries non touché (pas demandé).
 
 ## Room — migrations
 
