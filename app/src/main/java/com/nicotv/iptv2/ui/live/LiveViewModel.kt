@@ -47,13 +47,6 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
     // dans Movies/SeriesViewModel.applyLanguageFilter.
     private val contentLanguage = app.contentLanguagePrefs.getLanguage()
 
-    // Pré-coché si le réglage est spécifiquement Français (bouton FR déjà
-    // existant, heuristique isFrenchLabel plus permissive — nom+catégorie,
-    // pas que le préfixe exact) — reste décochable pour la session, comme
-    // avant. Les deux mécanismes peuvent cohabiter (le filtre par code est
-    // plus strict, le bouton FR plus large).
-    val frenchOnly = MutableLiveData(contentLanguage == ContentLanguagePrefs.FRENCH)
-
     val categories: LiveData<List<String>> = MediatorLiveData<List<String>>().apply {
         addSource(allChannels) { list ->
             // Catégories France en premier (demande explicite) — cf. isFrenchLabel.
@@ -87,8 +80,6 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
                            else repository.searchChannelsByName(query)
                 if (favoritesOnly.value == true) base = base.filter { it.isFavorite }
                 selectedCategory.value?.let { cat -> base = base.filter { displayCategory(it.category) == cat } }
-                val onlyFrench = frenchOnly.value == true
-                if (onlyFrench) base = base.filter { isFrench(it) }
 
                 // Réglage persistant "Langue du contenu" : exclut seulement un
                 // préfixe explicite d'une AUTRE langue ("FR: TF1" avec réglage
@@ -109,12 +100,12 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 // Tri "ordre TNT" (demande explicite) : quand on regarde du
-                // français (catégorie FR, filtre FR actif, ou réglage langue =
-                // FR), TF1/France 2/France 3/... dans l'ordre de la
-                // numérotation officielle plutôt qu'alphabétique/ordre de la
-                // playlist. Hors contexte FR, ordre inchangé (sortOrder/nom,
-                // cf. ChannelDao.getAllChannels).
-                val frenchContext = onlyFrench || contentLanguage == ContentLanguagePrefs.FRENCH ||
+                // français (catégorie FR, ou réglage langue = FR), TF1/
+                // France 2/France 3/... dans l'ordre de la numérotation
+                // officielle plutôt qu'alphabétique/ordre de la playlist. Hors
+                // contexte FR, ordre inchangé (sortOrder/nom, cf.
+                // ChannelDao.getAllChannels).
+                val frenchContext = contentLanguage == ContentLanguagePrefs.FRENCH ||
                     selectedCategory.value?.let { isFrenchLabel(it) } == true
                 value = if (frenchContext) base.sortedWith(compareBy({ tntRank(it) }, { it.name })) else base
             }
@@ -123,14 +114,7 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
         addSource(searchQuery) { filter() }
         addSource(selectedCategory) { filter() }
         addSource(favoritesOnly) { filter() }
-        addSource(frenchOnly) { filter() }
     }
-
-    /** Heuristique "France" (cf. util.isFrenchLabel) appliquée nom+catégorie —
-     * plus permissive que le tri des catégories (qui ne regarde que la
-     * catégorie seule) : une chaîne FR peut être classée dans une catégorie au
-     * nom neutre. */
-    private fun isFrench(channel: Channel): Boolean = isFrenchLabel("${channel.category} ${channel.name}")
 
     /** Nom de catégorie affiché dans la sidebar — retire le préfixe langue
      * ("FR| Sport" → "Sport") quand il correspond au réglage "Langue du

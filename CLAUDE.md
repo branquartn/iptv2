@@ -203,13 +203,15 @@ largeur totale de l'écran alors que le mur d'affiches dispose de moins
 d'espace depuis l'ajout de la sidebar.
 
 ⚠️ **Catégories France en premier** (demande explicite, même jour) :
-`util.isFrenchLabel()` (extrait de l'ancien `LiveViewModel.isFrench`, gardé
-pour le filtre "FR" existant qui regarde nom+catégorie) trie les 3 listes de
-catégories — `sortedWith(compareByDescending { isFrenchLabel(it) }.thenBy { it })`.
-Ne regarde QUE le libellé de catégorie (pas le nom des chaînes/titres), plus
-restrictif que le filtre FR de l'écran Chaînes : une catégorie au nom neutre
-contenant des chaînes françaises ne remonte pas en tête, seul le nom de la
-catégorie compte ici.
+`util.isFrenchLabel()` trie les 3 listes de catégories —
+`sortedWith(compareByDescending { isFrenchLabel(it) }.thenBy { it })`. Ne
+regarde QUE le libellé de catégorie (pas le nom des chaînes/titres) : une
+catégorie au nom neutre contenant des chaînes françaises ne remonte pas en
+tête, seul le nom de la catégorie compte ici. `LiveViewModel.isFrench()`
+(nom+catégorie, plus permissif) a existé un temps pour un bouton "FR" dédié
+sur l'écran Chaînes, **retiré le 28/08/2026** (demande explicite, redondant
+avec Réglages > Langue du contenu une fois ce dernier corrigé) — cf. section
+Réglages plus bas.
 
 ⚠️ **Bug vécu (corrigé 28/08/2026) — sélectionner une catégorie ne changeait
 rien à l'affichage** : la logique de filtre fonctionnait bien (le compteur de
@@ -334,8 +336,8 @@ section **Réglages** plus bas — `ContentLanguagePrefs`.
 ## Tri "ordre TNT" des chaînes françaises (LiveViewModel)
 
 Demande explicite 28/08/2026 : quand le contexte est français (catégorie
-sélectionnée reconnue par `isFrenchLabel`, ou filtre FR actif), les chaînes
-sont triées par `tntRank()` (TF1, France 2, France 3, Canal+, France 5, M6,
+sélectionnée reconnue par `isFrenchLabel`, ou réglage Langue du contenu = FR),
+les chaînes sont triées par `tntRank()` (TF1, France 2, France 3, Canal+, France 5, M6,
 Arte, C8, W9, TMC, TFX, NRJ 12, LCP, France 4, BFM TV, CNews, CStar, Gulli,
 TF1 Séries Films, L'Équipe, 6ter, RMC Story, RMC Découverte, Chérie 25,
 franceinfo:) plutôt que l'ordre de la playlist. Comparaison par sous-chaîne
@@ -523,12 +525,20 @@ sens** : ouvrait `SetupActivity` directement jusqu'ici, ouvre maintenant
   (`MoviesViewModel`/`SeriesViewModel`/`LiveViewModel` — un nouveau ViewModel
   à chaque ouverture d'écran, cf. section cache catalogue) : changer le
   réglage ne met PAS à jour un écran déjà ouvert, seulement le prochain.
-  Cohabite avec deux mécanismes plus anciens et volontairement **non
-  remplacés** (redondance acceptée, pas de régression sur de l'existant qui
-  marchait) : le bouton `frenchOnly` de Chaînes (heuristique `isFrenchLabel`
-  plus permissive, nom+catégorie complets) reste **pré-coché** si le réglage
-  vaut exactement "FR", et le tri "France en premier" des sidebars catégories
-  (aussi `isFrenchLabel`) est inchangé.
+  Cohabite avec le tri "France en premier" des sidebars catégories (aussi
+  `isFrenchLabel`), inchangé.
+
+  ⚠️ **Bouton "FR" de l'écran Chaînes retiré** (28/08/2026, demande
+  explicite) : `LiveViewModel.frenchOnly`/`isFrench()` (heuristique
+  `isFrenchLabel`, nom+catégorie complets, pré-coché si le réglage valait
+  exactement "FR") existaient en plus du réglage "Langue du contenu"
+  ci-dessus, redondants une fois ce dernier corrigé (cf. plus bas — le
+  premier passage du filtre par code excluait à tort tout item sans préfixe).
+  Supprimés entièrement (ViewModel + `btn_french_filter`/`tv_french_filter`
+  dans `activity_live.xml` + câblage `LiveActivity`), pas juste masqués. Si
+  un filtre "France uniquement" séparé redevient utile, repartir de
+  `isFrenchLabel` (toujours présent, utilisé par le tri des catégories et
+  `tntRank`) plutôt que de réintroduire `frenchOnly` tel quel.
 
   ⚠️ **Libellés de catégorie (sidebar Chaînes ET Films) aussi nettoyés**
   (ajouté 28/08/2026, demande explicite en deux temps — d'abord Chaînes,
