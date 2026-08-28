@@ -1,6 +1,6 @@
 {
-  "versionCode": 16,
-  "versionName": "1.0.15",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.15.apk",
+  "versionCode": 19,
+  "versionName": "1.0.18",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.18.apk",
   "changelog": "Profils Xtream/playlist désormais sauvegardés hors base de données : plus besoin de retaper les identifiants après une fermeture de l'app ou une mise à jour."
 }
