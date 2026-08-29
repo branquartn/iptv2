@@ -318,6 +318,96 @@ défaut significative) évitent un flash "aucun favori" pendant que le second
 flux n'a pas encore répondu. Si un 3ᵉ type de favori est ajouté un jour,
 reprendre ce même patron plutôt qu'un simple `isEmpty()` sur une seule liste.
 
+## Pagination écran Films (MoviesViewModel)
+
+⚠️ **Réécriture 29/08/2026, après plusieurs correctifs insuffisants seuls**
+(dans l'ordre : filtre/catégories déportés en `Dispatchers.Default`, debounce
+150ms limité à la recherche texte, fond aléatoire accueil déporté hors thread
+principal, spinner honnête distinguant "pas encore chargé" de "vraiment
+vide" — cf. sections dédiées ci-dessous pour chacun) — signalé par
+l'utilisateur après le dernier de ces correctifs : "encore pire, film met du
+temps encore à charger, on dirait que rien n'est en cache". Diagnostic par
+instrumentation réelle (adb wireless sur le Shield de test, captures d'écran
+en rafale + logcat) : tous les correctifs précédents avaient bien éliminé
+les blocages du thread principal, mais le coût de fond restait entier —
+mapper la TOTALITÉ du catalogue (jusqu'à ~136 000 films sur un gros panel
+Xtream) en objets domaine prend plusieurs dizaines de secondes de CPU, même
+en arrière-plan (GC libérant plus de 100 Mo par passe, heap montant à
+~300 Mo). Le spinner honnête (correctif précédent) ne faisait que RÉVÉLER
+cette attente réelle au lieu de la masquer derrière un faux "Aucun titre
+trouvé" — d'où le ressenti "encore pire".
+
+**Solution retenue (demande explicite : "refonte pagination", après avoir
+présenté l'alternative plus sûre mais à gain limité)** : ne plus charger tout
+le catalogue Films en mémoire avant affichage.
+
+- `MovieEntity` : deux colonnes ajoutées, calculées **une seule fois** au
+  chargement de la playlist (`MovieEntity.languageCodeFor`/
+  `categoryStrippedFor`, mêmes `util.extractLeadingLanguageCode`/
+  `stripLeadingLanguageCode` qu'avant, mais plus jamais rappelées à chaque
+  écran) : `languageCode` (code détecté en tête de `category`, vide si
+  aucun) et `categoryStripped` (`category` avec ce préfixe retiré si détecté,
+  identique à `category` sinon). Peuplées dans `PlaylistRepository.loadM3u`/
+  `loadXtream` aux 3 sites de construction de `MovieEntity`. Room version 7
+  (`fallbackToDestructiveMigration`, catalogue à recharger une fois après la
+  mise à jour — coût déjà accepté dans ce projet à chaque bump de schéma).
+- `MovieDao.getMoviesPage(lang, category, limit, offset)` : `SELECT` filtré
+  directement en SQL sur ces deux colonnes (`:lang IS NULL OR languageCode
+  = '' OR languageCode = :lang`, idiome Room standard pour un paramètre
+  optionnel — reproduit exactement l'ancien filtre Kotlin `applyLanguageFilter`)
+  + `LIMIT`/`OFFSET`. `getDistinctCategoriesForLanguage(lang)` : sidebar
+  catégories sans mapper le catalogue complet.
+  ⚠️ Preuve que `categoryStripped` peut remplacer l'ancien `displayCategory()`
+  sans changer le comportement : pour un item qui SURVIT au filtre langue
+  (`languageCode == '' OU == contentLanguage`), l'ancien `displayCategory()`
+  valait déjà `categoryStripped` dans les deux cas — quand `languageCode ==
+  ''`, rien n'a été retiré donc `categoryStripped == category` par
+  construction (l'une des deux branches de `displayCategory`) ; quand
+  `languageCode == contentLanguage`, `displayCategory` retourne explicitement
+  `categoryStripped`. Les deux branches convergent, donc filtrer/afficher sur
+  `categoryStripped` post-filtre-langue est strictement équivalent.
+- `PlaylistRepository.getMoviesPage()`/`getMoviesCategories()`/
+  `getFavoriteMovieIds()` : même principe que `searchMoviesByTitle` déjà
+  existant (favoris/historique joints seulement sur le sous-ensemble déjà
+  réduit par SQL, jamais sur tout le catalogue). `MOVIES_PAGE_SIZE = 60`
+  (constante `companion object`).
+- `MoviesViewModel` : `movies` (`MediatorLiveData`, remplace `filteredMovies`)
+  charge la première page à l'ouverture/changement de recherche ou catégorie
+  (reset `pagingOffset = 0`), `loadNextPage()` ajoute la page suivante à la
+  liste déjà affichée (déclenché par `MoviesActivity` au scroll, cf.
+  plus bas). `categories` chargé une fois via `getMoviesCategories`, trié
+  "France en premier" côté Kotlin (liste petite, coût négligeable).
+  **Recherche texte non paginée** (delta volontaire) : `searchMoviesByTitle`
+  reste borné à 200 résultats côté SQL (déjà rapide, cf. section suivante),
+  pas besoin de pagination en plus — filtre langue/catégorie appliqué en
+  Kotlin sur ce résultat déjà réduit, comme avant.
+- `MoviesActivity` : `GridLayoutManager` + `RecyclerView.OnScrollListener.
+  onScrolled` déclenche `viewModel.loadNextPage()` quand il reste moins de 2
+  rangées visibles avant la fin du contenu déjà chargé (infini scroll
+  classique). Rendu (spinner/vide/grille) recombine `movies` + `isReady` dans
+  un `MediatorLiveData<Unit>`, même principe que le correctif précédent.
+  ⚠️ **Favoris non réactifs pendant la pagination** (régression assumée,
+  compensée) — l'ancienne version (`moviesFlow`, Flow réactif à la table
+  `favorites`) répercutait un favori togglé depuis `DetailActivity`
+  automatiquement sur la grille déjà affichée ; la pagination fait des
+  requêtes ponctuelles (`suspend fun`, pas un `Flow`), donc plus de mise à
+  jour automatique. Compensé par `MoviesActivity.onResume()` →
+  `viewModel.refreshFavoriteStates()` (relit juste les ids favoris — table
+  toujours petite, jamais 47 000 lignes — et met à jour les films déjà en
+  mémoire) : le cœur du retour depuis la fiche détail.
+- **Portée volontairement limitée à Films** (pas Séries/Chaînes) — le
+  signalement portait spécifiquement sur Films ; refaire les trois d'un coup
+  sans pouvoir builder/tester triplait le risque pour un gain non demandé
+  ailleurs. Si Séries/Chaînes deviennent douloureux sur un très gros
+  catalogue, reprendre exactement ce principe (colonnes `languageCode`/
+  `categoryStripped` + DAO paginé) plutôt qu'improviser autre chose.
+- `PlaylistRepository.getMovies()`/`moviesFlow` (catalogue complet, chaud)
+  **reste utilisé tel quel** par Favoris/Reprise/Recherche globale/l'accueil
+  (fond aléatoire) — ces écrans ont besoin du catalogue complet et ne sont
+  pas la douleur signalée ; le coût de leur premier calcul (cf. section
+  suivante) n'a pas disparu, seulement déplacé hors du chemin critique de
+  l'écran Films.
+
 ## Cache catalogue chaud (PlaylistRepository) + recherche interne en SQL
 
 ⚠️ **"Toujours long à recharger en revisitant Films" (corrigé 28/08/2026)** :

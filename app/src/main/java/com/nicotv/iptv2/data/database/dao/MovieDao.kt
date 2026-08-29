@@ -46,6 +46,35 @@ interface MovieDao {
     @Query("SELECT * FROM movies WHERE title LIKE '%' || :query || '%' COLLATE NOCASE ORDER BY title ASC LIMIT :limit")
     suspend fun searchByTitle(query: String, limit: Int = 200): List<MovieEntity>
 
+    // ⚠️ Pagination (29/08/2026, cf. CLAUDE.md) — remplace le chargement en
+    // mémoire de la TOTALITÉ du catalogue avant affichage (jusqu'à ~136 000
+    // films, confirmé lent même hors thread principal). Filtre langue/
+    // catégorie directement en SQL via languageCode/categoryStripped
+    // (calculés une fois au chargement, cf. MovieEntity) : `:lang IS NULL`
+    // court-circuite la comparaison quand aucun filtre de langue n'est actif
+    // (réglage "Toutes"), idiome standard Room/SQLite pour un paramètre
+    // optionnel — un film sans préfixe détecté (languageCode = '') passe
+    // toujours, même principe que l'ancien filtre Kotlin (applyLanguageFilter).
+    // `:category IS NULL` = "Toutes" catégories.
+    @Query("""
+        SELECT * FROM movies
+        WHERE (:lang IS NULL OR languageCode = '' OR languageCode = :lang)
+          AND (:category IS NULL OR categoryStripped = :category)
+        ORDER BY title ASC
+        LIMIT :limit OFFSET :offset
+    """)
+    suspend fun getMoviesPage(lang: String?, category: String?, limit: Int, offset: Int): List<MovieEntity>
+
+    /** Catégories déjà "nettoyées" (categoryStripped) et déjà filtrées par
+     * langue — alimente directement la sidebar, sans avoir à mapper le
+     * catalogue complet en objets domaine pour les en extraire (cf.
+     * l'ancien MoviesViewModel.categories, remplacé). */
+    @Query("""
+        SELECT DISTINCT categoryStripped FROM movies
+        WHERE categoryStripped != '' AND (:lang IS NULL OR languageCode = '' OR languageCode = :lang)
+    """)
+    suspend fun getDistinctCategoriesForLanguage(lang: String?): List<String>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(movies: List<MovieEntity>)
 

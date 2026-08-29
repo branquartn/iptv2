@@ -36,14 +36,28 @@ class MoviesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
             })
         })
 
+        val gridLayoutManager = GridLayoutManager(this@MoviesActivity, computeSpanCount())
         binding.rvPosters.apply {
-            layoutManager = GridLayoutManager(this@MoviesActivity, computeSpanCount())
+            layoutManager = gridLayoutManager
             adapter = this@MoviesActivity.adapter
             setHasFixedSize(false)
-            // Ferme le clavier dès qu'on défile / touche le mur d'affiches
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 override fun onScrollStateChanged(rv: RecyclerView, newState: Int) {
+                    // Ferme le clavier dès qu'on défile / touche le mur d'affiches
                     if (newState == RecyclerView.SCROLL_STATE_DRAGGING) hideKeyboard()
+                }
+                override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
+                    // ⚠️ Pagination (29/08/2026, cf. MoviesViewModel) : charge la
+                    // page suivante quand il reste moins de 2 rangées visibles
+                    // avant la fin de ce qui est déjà chargé — no-op côté
+                    // ViewModel pendant une recherche/dernière page/chargement
+                    // déjà en cours (cf. loadNextPage).
+                    if (dy <= 0) return
+                    val total = gridLayoutManager.itemCount
+                    val lastVisible = gridLayoutManager.findLastVisibleItemPosition()
+                    if (total > 0 && lastVisible >= total - gridLayoutManager.spanCount * 2) {
+                        viewModel.loadNextPage()
+                    }
                 }
             })
             setOnTouchListener { v, _ -> v.performClick(); hideKeyboard(); false }
@@ -95,23 +109,18 @@ class MoviesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
             if (actionId == EditorInfo.IME_ACTION_SEARCH) { hideKeyboard(); true } else false
         }
 
-        // ⚠️ Rendu recalculé sur CHAQUE émission de filteredMovies OU isReady
-        // (corrigé 29/08/2026, signalé "la première fois que je vais dans
-        // Films il ne charge pas") — avant, le spinner se cachait dès la
-        // toute première émission de filteredMovies, qui peut être une liste
-        // vide (valeur de départ de moviesFlow, cf. PlaylistRepository)
-        // arrivée AVANT que la vraie requête Room (des dizaines de milliers
-        // de lignes) n'ait fini de s'exécuter en arrière-plan : "Aucun titre
-        // trouvé" s'affichait donc à tort le temps que le catalogue arrive,
-        // perçu comme "ça ne charge pas" plutôt que "ça charge encore".
-        // `MediatorLiveData` recombine les deux à chaque changement de l'un
-        // ou l'autre — `isReady` passe à `true` une seule fois (la requête ne
+        // ⚠️ Rendu recalculé sur CHAQUE émission de movies OU isReady (corrigé
+        // 29/08/2026, signalé "la première fois que je vais dans Films il ne
+        // charge pas") — le spinner ne se cache que quand isReady est vrai,
+        // jamais sur une émission vide qui ne serait qu'une valeur de départ.
+        // `MediatorLiveData` recombine les deux à chaque changement de l'un ou
+        // l'autre — `isReady` passe à `true` une seule fois (la requête ne
         // "redevient" jamais non-répondue), donc pas de flicker après coup.
         val render = androidx.lifecycle.MediatorLiveData<Unit>()
-        render.addSource(viewModel.filteredMovies) { render.value = Unit }
+        render.addSource(viewModel.movies) { render.value = Unit }
         render.addSource(viewModel.isReady) { render.value = Unit }
         render.observe(this) {
-            val movies = viewModel.filteredMovies.value ?: emptyList()
+            val movies = viewModel.movies.value ?: emptyList()
             val ready = viewModel.isReady.value == true
             binding.progressLoading.visibility = if (!ready) View.VISIBLE else View.GONE
             adapter.submitList(movies)
@@ -119,6 +128,16 @@ class MoviesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
             binding.tvEmpty.visibility = if (ready && movies.isEmpty()) View.VISIBLE else View.GONE
             binding.rvPosters.visibility = if (!ready || movies.isEmpty()) View.GONE else View.VISIBLE
         }
+    }
+
+    // ⚠️ La pagination (cf. MoviesViewModel) n'est plus un Flow réactif à la
+    // table favoris comme l'était l'ancienne version — un favori togglé
+    // depuis la fiche détail (DetailActivity) ne se répercute plus tout seul
+    // sur la grille déjà chargée. La table favoris reste petite, ce
+    // rafraîchissement est bon marché même à chaque retour sur cet écran.
+    override fun onResume() {
+        super.onResume()
+        viewModel.refreshFavoriteStates()
     }
 
     private fun hideKeyboard() {

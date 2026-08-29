@@ -10,8 +10,8 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 67
-val appVersionName = "1.0.66"
+val appVersionCode = 68
+val appVersionName = "1.0.67"
 // Changelog affiché dans le modal de mise à jour OTA.
 // ⚠️ OUBLIÉ PENDANT ~15 VERSIONS (29/08/2026, bug signalé par l'utilisateur :
 // "le texte de la maj n'est pas le bon") — appVersionCode/appVersionName ont
@@ -20,7 +20,7 @@ val appVersionName = "1.0.66"
 // modif du 28/08 alors qu'on en était à v1.0.50). Ce commentaire ne suffit
 // visiblement pas tout seul à s'en souvenir : à chaque bump de version,
 // updater CETTE ligne AVANT de commit, pas après coup.
-val appChangelog = "Chaînes/Films/Séries : le spinner reste affiché tant que le catalogue charge vraiment, au lieu d'afficher \"Aucun titre trouvé\" par erreur au premier accès."
+val appChangelog = "Films : chargement par pages (affichage quasi instantané même sur un très gros catalogue) au lieu de tout charger d'un coup — catalogue à recharger une fois après cette mise à jour."
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")

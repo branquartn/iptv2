@@ -5,6 +5,8 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.nicotv.iptv2.domain.model.Movie
+import com.nicotv.iptv2.util.extractLeadingLanguageCode
+import com.nicotv.iptv2.util.stripLeadingLanguageCode
 
 /** Un film VOD. Index unique (title, streamUrl) : un rechargement de la playlist
  * met à jour la ligne existante au lieu d'en créer une doublonnée. */
@@ -40,7 +42,29 @@ data class MovieEntity(
     // par PlaylistRepository.enrichMovieFromXtreamIfNeeded pour aller chercher
     // le synopsis via get_vod_info à l'ouverture de la fiche (get_vod_streams,
     // liste en masse, ne le fournit pas sur la plupart des panels réels).
-    val xtreamStreamId: String = ""
+    val xtreamStreamId: String = "",
+    // ⚠️ Ajoutés 29/08/2026 (pagination MoviesViewModel, cf. CLAUDE.md) —
+    // calculés UNE FOIS ici, au chargement de la playlist (util.
+    // extractLeadingLanguageCode/stripLeadingLanguageCode sur `category`),
+    // au lieu d'être recalculés en Kotlin sur chaque film à CHAQUE ouverture
+    // de l'écran Films (coût réel sur ~136 000 films, confirmé par
+    // instrumentation logcat). Permettent de filtrer langue/catégorie
+    // directement en SQL (MovieDao.getMoviesPage) sans mapper tout le
+    // catalogue en mémoire au préalable.
+    // - languageCode : code détecté en tête de `category` ("FR", "AF"...),
+    //   vide si aucun préfixe reconnu — jamais recalculé au runtime, un film
+    //   ne change pas de préfixe de catégorie après coup.
+    // - categoryStripped : `category` avec ce préfixe retiré si détecté,
+    //   sinon identique à `category` (rien à retirer). Après le filtre
+    //   langue (languageCode == '' OU == contentLanguage), c'est TOUJOURS la
+    //   valeur affichée dans la sidebar (même principe que l'ancien
+    //   MoviesViewModel.displayCategory, cf. CLAUDE.md pour la démonstration :
+    //   quand languageCode == '', categoryStripped == category par
+    //   construction — rien n'a été retiré — donc les deux branches de
+    //   l'ancien displayCategory convergent vers categoryStripped une fois le
+    //   filtre langue appliqué).
+    @ColumnInfo(defaultValue = "") val languageCode: String = "",
+    @ColumnInfo(defaultValue = "") val categoryStripped: String = ""
 ) {
     fun toDomain(
         isFavorite: Boolean = false,
@@ -64,4 +88,17 @@ data class MovieEntity(
         isFinished = isFinished,
         xtreamStreamId = xtreamStreamId
     )
+
+    companion object {
+        /** cf. commentaire sur languageCode/categoryStripped plus haut —
+         * centralisé ici pour que les chemins M3U et Xtream (PlaylistRepository)
+         * restent cohérents. Appelé une fois par film au chargement, jamais au
+         * runtime. */
+        fun languageCodeFor(category: String): String = extractLeadingLanguageCode(category) ?: ""
+
+        fun categoryStrippedFor(category: String): String {
+            val code = extractLeadingLanguageCode(category) ?: return category
+            return stripLeadingLanguageCode(category, code)
+        }
+    }
 }

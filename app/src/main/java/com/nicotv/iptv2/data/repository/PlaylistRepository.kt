@@ -78,6 +78,10 @@ class PlaylistRepository(
         // sans bloquer l'écran. Le tap sur un profil (SetupActivity) reste lui
         // toujours un rechargement réseau explicite, jamais servi depuis Room.
         private const val CATALOG_MAX_AGE_MS = 24 * 60 * 60 * 1000L
+        // Taille de page pour l'écran Films (cf. getMoviesPage) — assez pour
+        // remplir l'écran + une marge de scroll sans viser l'exhaustivité
+        // immédiate (tout l'intérêt de la pagination).
+        const val MOVIES_PAGE_SIZE = 60
     }
 
     class LoadException(message: String, cause: Throwable? = null) : Exception(message, cause)
@@ -253,14 +257,22 @@ class PlaylistRepository(
                     ChannelEntity(name = entry.name, streamUrl = entry.url, logoUrl = entry.logo, category = entry.groupTitle, sortOrder = order++)
                 )
                 M3uParser.Kind.MOVIE -> movies.add(
-                    MovieEntity(title = entry.name, streamUrl = entry.url, posterUrl = entry.logo, category = entry.groupTitle)
+                    MovieEntity(
+                        title = entry.name, streamUrl = entry.url, posterUrl = entry.logo, category = entry.groupTitle,
+                        languageCode = MovieEntity.languageCodeFor(entry.groupTitle), categoryStripped = MovieEntity.categoryStrippedFor(entry.groupTitle)
+                    )
                 )
                 M3uParser.Kind.EPISODE -> {
                     val parsed = M3uParser.parseEpisodeTitle(entry.name)
                     if (parsed == null) {
                         // Motif SxxEyy absent malgré la classification par group-title :
                         // traité comme film plutôt que perdu.
-                        movies.add(MovieEntity(title = entry.name, streamUrl = entry.url, posterUrl = entry.logo, category = entry.groupTitle))
+                        movies.add(
+                            MovieEntity(
+                                title = entry.name, streamUrl = entry.url, posterUrl = entry.logo, category = entry.groupTitle,
+                                languageCode = MovieEntity.languageCodeFor(entry.groupTitle), categoryStripped = MovieEntity.categoryStrippedFor(entry.groupTitle)
+                            )
+                        )
                     } else {
                         seriesEpisodes.getOrPut(parsed.seriesTitle) { mutableListOf() }.add(Triple(entry, parsed, order++))
                     }
@@ -445,11 +457,13 @@ class PlaylistRepository(
         // lent et lourd (CPU/réseau) pour un gain marginal. Pas de secours TMDb
         // possible ici de toute façon.
         val movies = vodStreams.map {
+            val cat = vodCats[it.categoryId]?.name.orEmpty()
             MovieEntity(
                 title = it.name, streamUrl = client.vodStreamUrl(it.streamId, it.containerExtension),
                 posterUrl = it.icon, overview = it.plot, rating = it.rating,
-                category = vodCats[it.categoryId]?.name.orEmpty(),
-                xtreamStreamId = it.streamId
+                category = cat,
+                xtreamStreamId = it.streamId,
+                languageCode = MovieEntity.languageCodeFor(cat), categoryStripped = MovieEntity.categoryStrippedFor(cat)
             )
         }
 
@@ -813,6 +827,46 @@ class PlaylistRepository(
         // appliqué au catalogue complet.
         val historyByKey = db.watchHistoryDao().getPositions(entities.map { "m${it.id}" }).associateBy { it.historyKey }
         entities.map { m -> m.toDomain(isFavorite = m.id in favIds, watchProgress = historyByKey["m${m.id}"]?.progressPercent ?: 0) }
+    }
+
+    // ── Pagination écran Films ──────────────────────────────────────────────
+    // ⚠️ 29/08/2026 (cf. CLAUDE.md) : remplace le chargement en mémoire de
+    // TOUT le catalogue (moviesFlow) pour l'écran Films — celui-ci reste
+    // utilisé tel quel par Favoris/Reprise/Recherche globale/l'accueil
+    // (fond aléatoire), qui ont besoin du catalogue complet. Même principe
+    // que searchMoviesByTitle (favoris/historique joints seulement sur le
+    // sous-ensemble déjà réduit par SQL), mais filtré par langue/catégorie
+    // au lieu d'un titre recherché.
+
+    /** Une page de films filtrés en SQL (langue + catégorie déjà "nettoyée",
+     * cf. MovieDao.getMoviesPage/MovieEntity.categoryStripped) — [lang] =
+     * contentLanguage (null = "Toutes"), [category] = valeur choisie dans la
+     * sidebar (null = "Toutes"). */
+    suspend fun getMoviesPage(lang: String?, category: String?, offset: Int, limit: Int = MOVIES_PAGE_SIZE): List<Movie> = withContext(Dispatchers.IO) {
+        val entities = db.movieDao().getMoviesPage(lang, category, limit, offset)
+        if (entities.isEmpty()) return@withContext emptyList()
+        val favIds = db.favoriteDao().getFavoriteIds(FavoriteEntity.Type.MOVIE).toSet()
+        val historyByKey = db.watchHistoryDao().getPositions(entities.map { "m${it.id}" }).associateBy { it.historyKey }
+        entities.map { m -> m.toDomain(isFavorite = m.id in favIds, watchProgress = historyByKey["m${m.id}"]?.progressPercent ?: 0) }
+    }
+
+    /** Catégories pour la sidebar Films, déjà filtrées par langue et déjà
+     * "nettoyées" (categoryStripped) — cf. MovieDao.getDistinctCategoriesForLanguage.
+     * Le tri (France en premier, cf. isFrenchLabel) reste fait côté ViewModel,
+     * la liste de catégories est de toute façon petite (quelques dizaines). */
+    suspend fun getMoviesCategories(lang: String?): List<String> = withContext(Dispatchers.IO) {
+        db.movieDao().getDistinctCategoriesForLanguage(lang)
+    }
+
+    /** cf. MoviesActivity.onResume — rafraîchit l'état favori des films déjà
+     * chargés (page(s) en mémoire côté ViewModel) après un aller-retour par
+     * la fiche détail : la pagination n'est plus un Flow réactif à la table
+     * favorites comme l'était moviesFlow, donc un favori togglé depuis
+     * DetailActivity ne se répercute plus tout seul sur la grille déjà
+     * affichée. La table favoris reste petite (jamais 47 000 lignes) : ce
+     * rafraîchissement est bon marché même appelé à chaque retour sur l'écran. */
+    suspend fun getFavoriteMovieIds(): Set<Long> = withContext(Dispatchers.IO) {
+        db.favoriteDao().getFavoriteIds(FavoriteEntity.Type.MOVIE).toSet()
     }
 
     /** Cf. searchMoviesByTitle. */
