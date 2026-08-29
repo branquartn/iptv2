@@ -273,6 +273,38 @@ Migration`, cf. section Room plus bas) pour refléter la table en moins. Si
 un mini-guide EPG redevient utile, repartir de zéro plutôt que de chercher
 un reste — rien n'a été laissé en place derrière un flag.
 
+## Favoris (FavoritesActivity)
+
+⚠️ **Bug corrigé 29/08/2026 : une chaîne en favori n'apparaissait nulle
+part** — signalé par l'utilisateur ("quand je mets une chaîne en favoris
+elle n'apparaît [pas] dans les favoris"). `FavoritesViewModel` n'interrogeait
+que `repository.getFavoriteMoviesAndSeries()` — `getFavoriteChannels()`
+existait déjà (utilisée par le bouton favoris de l'écran Chaînes) mais
+n'était jamais branchée ici. `FavoritesActivity` a maintenant son **propre
+layout dédié** (`activity_favorites.xml`, ne partage plus
+`activity_movies.xml` avec `MoviesActivity`/`ResumeActivity`) : une section
+"Chaînes" (mosaïque `ChannelGridAdapter`, même tuile que l'écran Chaînes,
+appui long = retirer des favoris) au-dessus du mur d'affiches films/séries
+existant (`PosterAdapter`, inchangé). `rv_channels` en hauteur fixe (160dp,
+scroll interne si plusieurs lignes) plutôt que `wrap_content` — un
+`RecyclerView` avec `GridLayoutManager` a besoin d'une hauteur bornée dans ce
+contexte (page entière dans un `ScrollView`, `nestedScrollingEnabled=false`
+sur `rv_posters` pour éviter le double-scroll).
+
+⚠️ **Tip affiché quand aucune chaîne n'est en favori** (même jour, demande
+explicite : "un texte ou tips qui explique comment mettre en favoris les
+chaînes") — le geste (appui long sur une tuile de l'écran Chaînes) n'est pas
+découvrable de lui-même. `tv_channels_tip`/`favorites_channels_tip`
+remplacent la mosaïque tant que `getFavoriteChannels()` est vide,
+visibilités mutuellement exclusives.
+
+⚠️ **"Vide" global attend les DEUX flux** (favoris films/séries et chaînes
+répondent indépendamment, l'un peut émettre avant l'autre) —
+`movieFavoritesLoaded`/`channelFavoritesLoaded` (booléens, pas de valeur par
+défaut significative) évitent un flash "aucun favori" pendant que le second
+flux n'a pas encore répondu. Si un 3ᵉ type de favori est ajouté un jour,
+reprendre ce même patron plutôt qu'un simple `isEmpty()` sur une seule liste.
+
 ## Cache catalogue chaud (PlaylistRepository) + recherche interne en SQL
 
 ⚠️ **"Toujours long à recharger en revisitant Films" (corrigé 28/08/2026)** :

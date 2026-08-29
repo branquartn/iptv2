@@ -7,6 +7,9 @@
     <string name="search_hint_series">Rechercher une série…</string>
     <string name="update_downloading">Téléchargement de la mise à jour…</string>
     <string name="setup_loading_in_progress">Chargement en cours…</string>
+    <string name="favorites_channels_title">Chaînes</string>
+    <string name="favorites_channels_tip">Aucune chaîne en favori — sur l\'écran Chaînes, appui long sur une chaîne pour l\'ajouter.</string>
+    <string name="favorites_movies_series_title">Films &amp; séries</string>
 
     <!-- Navigation -->
     <string name="nav_live">Chaînes</string>

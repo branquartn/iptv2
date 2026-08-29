@@ -155,9 +155,10 @@
                 android:clipToPadding="false"
                 app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
-            <!-- id : ResumeActivity/FavoritesActivity (même layout partagé) la
-                 masquent avec rv_categories — pas de sidebar catégories pour
-                 elles, cf. leur commentaire dans le code. -->
+            <!-- id : ResumeActivity (même layout partagé) la masque avec
+                 rv_categories — pas de sidebar catégories pour elle, cf. son
+                 commentaire dans le code. FavoritesActivity a son propre
+                 layout dédié depuis 29/08/2026 (activity_favorites.xml). -->
             <View
                 android:id="@+id/sidebar_divider"
                 android:layout_width="1dp"
