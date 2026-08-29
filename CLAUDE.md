@@ -351,16 +351,26 @@ en amont. Sur ce projet où Claude ne compile jamais (cf. consigne de build),
 `adb logcat -b crash` sur le Shield reste le moyen le plus rapide d'obtenir
 la cause exacte plutôt que de deviner.
 
-⚠️ **Piège recyclerview 1.0.0** (build cassé le 30/08/2026, `Unresolved
-reference 'currentList'`) : le projet ne déclare PAS `androidx.recyclerview`
-directement, il le tire **transitivement de `androidx.leanback` 1.0.0**, donc
-en **version 1.0.0**. `ListAdapter.currentList` n'existe qu'à partir de
-recyclerview **1.1.0** — d'où `CategorySidebarAdapter.positionOf()` qui
-parcourt `getItem()`/`itemCount` à la place. Avant d'utiliser une API
-RecyclerView "moderne" (`currentList`, `submitList(list, commitCallback)`,
-`ConcatAdapter`...), vérifier qu'elle existe en 1.0.0 — sinon ça compile chez
-personne. Monter la version de recyclerview est possible mais n'a pas été
-fait : ça toucherait aussi leanback, non testé ici.
+⚠️ **Piège recyclerview 1.0.0 — build cassé DEUX fois le 30/08/2026**
+(`Unresolved reference 'currentList'`, puis `Unresolved reference
+'bindingAdapterPosition'`). Le projet ne déclare PAS `androidx.recyclerview`
+directement : il le tire **transitivement de `androidx.leanback` 1.0.0**, donc
+en **version 1.0.0** — rien dans `libs.versions.toml` ne le laisse deviner,
+d'où la récidive. Équivalences à utiliser :
+
+| API récente | Depuis | À utiliser ici |
+|---|---|---|
+| `ListAdapter.currentList` | 1.1.0 | `getItem(i)` + `itemCount` |
+| `ViewHolder.bindingAdapterPosition` | 1.2.0 | `adapterPosition` |
+| `ViewHolder.absoluteAdapterPosition` | 1.2.0 | `adapterPosition` |
+| `submitList(list, commitCallback)` | 1.1.0 | `submitList(list)` + `post {}` |
+| `ConcatAdapter` | 1.2.0 | — |
+
+**Avant d'écrire du code RecyclerView, vérifier que l'API existe en 1.0.0** :
+l'IDE et la complétion proposent les versions récentes, et l'erreur n'apparaît
+qu'au build (que Claude ne lance jamais sur ce projet). Monter recyclerview
+explicitement réglerait la classe entière de problèmes, mais toucherait aussi
+leanback (`VerticalGridView` étend `RecyclerView`) — non testé, donc non fait.
 
 ⚠️ **Focus D-pad posé sur la catégorie par défaut — Chaînes uniquement**
 (30/08/2026, demande explicite : "quand ça va dans Général FR je voudrais que

@@ -56,7 +56,12 @@ class CategoryFastScroll(
         if (!isBurst) return false // premier appui (ou trop lent) : pas à pas
 
         val layoutManager = recyclerView.layoutManager as? LinearLayoutManager ?: return false
-        val current = holder.bindingAdapterPosition
+        // ⚠️ `adapterPosition` et NON `bindingAdapterPosition` : ce dernier
+        // n'existe qu'à partir de recyclerview 1.2.0, or le projet tire la
+        // 1.0.0 transitivement depuis androidx.leanback (cf. CLAUDE.md, même
+        // piège que `currentList`). Un seul adapter ici, les deux seraient de
+        // toute façon équivalents.
+        val current = holder.adapterPosition
         if (current == RecyclerView.NO_POSITION) return false
 
         val count = recyclerView.adapter?.itemCount ?: return false
