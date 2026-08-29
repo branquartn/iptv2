@@ -397,6 +397,44 @@ focus au bon endroit — le lui reprendre serait pire que de ne rien faire.
 **Films n'a volontairement pas ce comportement** (non demandé) : y ajouter le
 même appel suffirait, `positionOf` est déjà partagé dans l'adapter.
 
+## Enregistrement long "à partir de 96%" : index, lots, PRAGMA
+
+⚠️ **30/08/2026, suite du point précédent** — après le passage à un `insertAll`
+unique, l'utilisateur signale que l'enregistrement reste long **"à partir de
+96%"**. Trois causes distinctes, dont une que j'avais moi-même introduite :
+
+**1. Les index que j'avais ajoutés coûtaient plus qu'ils ne rapportaient.**
+Chaque index doit être mis à jour à CHAQUE insertion : sur ~136 000 films,
+5 index = 5 arbres à réécrire par ligne. Réduits à 3 par table, en ne gardant
+que ceux qui servent une requête chaude. **Retirés** : `(languageCode)` /
+`(nameLanguageCode)` — le filtre de langue est un `OR` combiné à la catégorie,
+donc c'est l'index composite qui mène la requête et SQLite ne choisissait
+quasiment jamais celui-là — et `(updatedAt)`, qui ne servait qu'aux 12
+jaquettes du fond d'accueil, une fois par lancement (un balayage ponctuel y
+coûte moins cher que l'entretien de l'index sur chaque insertion).
+**Leçon** : un index n'est pas gratuit ; sur une table écrite en masse et lue
+par quelques requêtes connues, il faut compter les DEUX sens.
+
+**2. Aucune progression pendant l'écriture.** Le dialogue affichait 90 % puis
+rampait jusqu'à son plafond automatique (`CREEP_HARD_CAP = 96`) pendant TOUTE
+l'écriture — d'où le "bloqué à 96 %". `insertInChunks` insère désormais par
+lots de 2 000 en signalant l'avancement réel (90→99 %, avec le compte
+`n/total`). Ça ne rend pas l'écriture plus rapide : ça la rend **mesurable**,
+donc honnête. Les lots restent DANS la transaction unique — ni l'atomicité ni
+le gain de la transaction unique ne sont perdus.
+
+**3. `PRAGMA synchronous = NORMAL`** (via `RoomDatabase.Callback.onOpen`) :
+avec le mode WAL — activé par défaut par Room — SQLite cesse de forcer une
+synchronisation disque à chaque commit, ce qui est le gros du coût d'écriture.
+⚠️ Compromis **valable ici précisément parce que cette base est un CACHE** :
+la seule perte possible concerne les toutes dernières écritures en cas de
+coupure de courant ou de crash SYSTÈME (un crash de l'app ne perd rien), et le
+catalogue est entièrement reconstructible en rechargeant la playlist. **Ne pas
+reprendre ce réglage dans une base contenant des données non reproductibles.**
+
+Room **version 14** (index modifiés) → un dernier rechargement, qui sera lui
+aussi plus rapide.
+
 ## Actualisation du catalogue : pourquoi un "diff" n'aiderait pas
 
 ⚠️ **30/08/2026, question "est-ce que l'actualisation ne peut pas aller plus

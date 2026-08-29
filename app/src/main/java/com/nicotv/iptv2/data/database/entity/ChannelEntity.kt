@@ -23,8 +23,7 @@ import com.nicotv.iptv2.util.withoutLeadingLanguageCode
     indices = [
         Index(value = ["name", "streamUrl"], unique = true),
         Index(value = ["category", "sortOrder", "categoryOrder"]),
-        Index(value = ["sortOrder"]),
-        Index(value = ["nameLanguageCode"])
+        Index(value = ["sortOrder"])
     ]
 )
 data class ChannelEntity(

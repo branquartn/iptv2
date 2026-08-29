@@ -29,12 +29,26 @@ import com.nicotv.iptv2.util.withoutLeadingLanguageCode
     // Chaque index coûte au CHARGEMENT de la playlist (47 000 insertions) : ne
     // pas en ajouter sans vérifier qu'aucun existant ne peut couvrir le besoin
     // en réordonnant ses colonnes.
+    // ⚠️ ARBITRAGE LECTURE/ÉCRITURE (révisé 30/08/2026, "l'enregistrement est
+    // long à partir de 96%") : chaque index doit être mis à jour à CHAQUE
+    // insertion — sur ~136 000 films, 5 index coûtaient nettement plus cher au
+    // chargement qu'ils ne rapportaient à la lecture. Ne restent que ceux qui
+    // servent une requête chaude :
+    // - ("title","streamUrl") UNIQUE : indispensable (déduplication REPLACE).
+    // - ("category","sortOrder","categoryOrder") : l'écran par défaut (une
+    //   catégorie, ordre du panel) — positionnement direct ET lignes déjà
+    //   triées, plus la requête des catégories rendue couvrante.
+    // - ("sortOrder") : même tri sans catégorie ("Toutes").
+    // RETIRÉS : ("languageCode") et ("updatedAt"). Le filtre de langue est un
+    // `OR` combiné à la catégorie — l'index composite mène déjà la requête, et
+    // SQLite ne choisissait quasiment jamais celui-là. `updatedAt` ne servait
+    // qu'aux 12 jaquettes du fond d'accueil, une fois par lancement : un
+    // balayage ponctuel y coûte moins cher que l'entretien de l'index sur
+    // chaque insertion.
     indices = [
         Index(value = ["title", "streamUrl"], unique = true),
         Index(value = ["category", "sortOrder", "categoryOrder"]),
-        Index(value = ["sortOrder"]),
-        Index(value = ["languageCode"]),
-        Index(value = ["updatedAt"])
+        Index(value = ["sortOrder"])
     ]
 )
 data class MovieEntity(

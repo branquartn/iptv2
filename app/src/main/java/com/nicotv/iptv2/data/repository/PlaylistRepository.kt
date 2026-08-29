@@ -94,6 +94,9 @@ class PlaylistRepository(
         private const val SQLITE_MAX_VARIABLES = 900
         /** Nombre de jaquettes candidates pour le fond de l'accueil. */
         private const val HOME_BG_LIMIT = 12
+        /** Taille des lots d'insertion — assez gros pour rester efficace, assez
+         * petit pour que la progression affichée avance régulièrement. */
+        private const val DB_INSERT_CHUNK = 2_000
     }
 
     class LoadException(message: String, cause: Throwable? = null) : Exception(message, cause)
@@ -366,6 +369,32 @@ class PlaylistRepository(
             .mapValues { it.value.await() }
     }
 
+    /** Insère [items] par lots en signalant l'avancement entre [from] et [to] %.
+     *
+     * ⚠️ Sans ça, l'enregistrement était un trou noir : le dialogue affichait
+     * 90% puis rampait jusqu'à son plafond de 96% pendant TOUTE l'écriture
+     * (~215 000 lignes), ce que l'utilisateur a signalé comme "long à partir de
+     * 96%". Le découpage ne rend pas l'écriture plus rapide en soi — il la rend
+     * mesurable, donc affichable. Les lots restent DANS la transaction
+     * appelante : on ne perd ni l'atomicité ni le gain d'une transaction
+     * unique. */
+    private suspend fun <T> insertInChunks(
+        items: List<T>,
+        from: Int,
+        to: Int,
+        label: String,
+        onProgress: (percent: Int, message: String) -> Unit,
+        insert: suspend (List<T>) -> Unit
+    ) {
+        if (items.isEmpty()) return
+        var done = 0
+        items.chunked(DB_INSERT_CHUNK).forEach { part ->
+            insert(part)
+            done += part.size
+            onProgress(from + (to - from) * done / items.size, "$label ($done/${items.size})")
+        }
+    }
+
     private suspend fun replaceCatalog(
         channels: List<ChannelEntity>,
         movies: List<MovieEntity>,
@@ -420,8 +449,8 @@ class PlaylistRepository(
             db.movieDao().deleteAll()
             db.seriesDao().deleteAll() // cascade → episodes déjà supprimés
 
-            db.channelDao().insertAll(channels)
-            db.movieDao().insertAll(enrichedMovies)
+            insertInChunks(channels, 92, 94, "Chaînes", onProgress) { db.channelDao().insertAll(it) }
+            insertInChunks(enrichedMovies, 94, 97, "Films", onProgress) { db.movieDao().insertAll(it) }
 
             // Les id reviennent dans l'ordre de la liste fournie : on peut donc
             // rattacher les épisodes sans insérer les séries une par une.
@@ -446,7 +475,7 @@ class PlaylistRepository(
                     )
                 }
             }
-            db.episodeDao().insertAll(allEpisodes)
+            insertInChunks(allEpisodes, 97, 99, "Épisodes", onProgress) { db.episodeDao().insertAll(it) }
         }
     }
 
@@ -583,9 +612,9 @@ class PlaylistRepository(
         // Une seule transaction pour tout le remplacement — cf. replaceCatalog.
         db.withTransaction {
             db.channelDao().deleteAll(); db.movieDao().deleteAll(); db.seriesDao().deleteAll()
-            db.channelDao().insertAll(channels)
-            db.movieDao().insertAll(movies)
-            db.seriesDao().insertAll(seriesEntities)
+            insertInChunks(channels, 90, 93, "Chaînes", onProgress) { db.channelDao().insertAll(it) }
+            insertInChunks(movies, 93, 98, "Films", onProgress) { db.movieDao().insertAll(it) }
+            insertInChunks(seriesEntities, 98, 99, "Séries", onProgress) { db.seriesDao().insertAll(it) }
         }
         // Épisodes chargés à la demande (loadEpisodesForSeries) : des milliers de
         // séries impliqueraient sinon des milliers d'appels get_series_info au

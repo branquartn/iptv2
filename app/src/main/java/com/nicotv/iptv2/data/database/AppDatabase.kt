@@ -22,7 +22,7 @@ import com.nicotv.iptv2.data.database.entity.WatchHistoryEntity
 @Database(
     entities = [ChannelEntity::class, MovieEntity::class, SeriesEntity::class, EpisodeEntity::class,
                 FavoriteEntity::class, WatchHistoryEntity::class, PlaylistProfileEntity::class],
-    version = 13,
+    version = 14,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -49,6 +49,23 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "iptv2_database"
                 ).fallbackToDestructiveMigration()
+                    // ⚠️ `synchronous = NORMAL` (30/08/2026) : avec le mode WAL
+                    // — celui que Room active par défaut — SQLite n'a plus
+                    // besoin de forcer une synchronisation disque à chaque
+                    // commit, ce qui est le gros du coût d'écriture d'un
+                    // catalogue de ~215 000 lignes. Compromis assumé et adapté
+                    // ICI : la seule perte possible est celle des toutes
+                    // dernières écritures en cas de coupure de courant ou de
+                    // crash SYSTÈME (un crash de l'app, lui, ne perd rien) — or
+                    // cette base n'est qu'un CACHE de la playlist, entièrement
+                    // reconstructible en la rechargeant. À ne pas reprendre tel
+                    // quel dans une base contenant des données non
+                    // reproductibles.
+                    .addCallback(object : RoomDatabase.Callback() {
+                        override fun onOpen(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                            db.execSQL("PRAGMA synchronous = NORMAL")
+                        }
+                    })
                     .build().also { INSTANCE = it }
             }
     }
