@@ -1797,17 +1797,27 @@ la taille retenue — pas de logique de centrage séparée à maintenir.
   nom explicite (ex. `chaines.jpg`) est le canal établi par l'utilisateur
   pour remettre une image de remplacement à Claude — vérifier ce dossier en
   premier si une future demande "remplace la photo par celle dans update".
-- **Films** (`card_films`) : `res/drawable-nodpi/hub_films_collage.jpg`,
-  couloir de cinéma avec affiches de films (image **générée** via
-  `mcp__pollinations__generateImageUrl`, modèle `sana`, seed fixe pour
-  reproductibilité — prompt simple et concret plutôt que des instructions de
-  composition détaillées, `sana` suit mal les prompts complexes multi-zones :
-  premiers essais avec un prompt décrivant une grille de 5 cases précises
-  ont donné des images abstraites sans rapport). Aucune marque/titre réel
-  représenté — image générique, pas de risque équivalent à Chaînes.
-- **Séries** (`card_series`) : `res/drawable-nodpi/hub_series_collage.jpg`,
-  salle de home cinéma avec écran allumé, même méthode de génération que
-  Films.
+- **Films** (`card_films`) : `res/drawable-nodpi/hub_films_collage.jpg` —
+  **remplacée le 30/08/2026** (demande explicite : "une salle de cinéma IMAX
+  avec Matrix comme film") : salle IMAX vue des derniers rangs, écran géant
+  couvert d'une pluie de code vert, silhouettes du public au premier plan.
+- **Séries** (`card_series`) : `res/drawable-nodpi/hub_series_collage.jpg` —
+  **remplacée le même jour** ("un salon avec une grande TV et Breaking Bad
+  dedans") : salon chaleureux de nuit, grand écran mural diffusant un désert
+  du Nouveau-Mexique avec un camping-car sur une piste.
+
+  ⚠️ **Générées avec l'API Gemini** (`gemini-2.5-flash-image`, clé dans
+  `/var/lib/claude-sessions/gemini.conf`), en `aspectRatio: "3:2"`, puis
+  recadrées/redimensionnées en **940×627** — exactement le format des deux
+  images précédentes et le ratio des cartes (`MainActivity.sizeHubCards`
+  dérive la hauteur en 3:2, donc aucun rognage `centerCrop` à l'affichage).
+  ⚠️ Le base64 de la réponse ne doit JAMAIS transiter par le contexte (il
+  tokenise très mal) : décodage direct vers un fichier dans le script.
+  ⚠️ Les prompts décrivent l'ATMOSPHÈRE des œuvres citées (pluie de code
+  verte, camping-car dans le désert) et non les œuvres elles-mêmes : ni
+  acteur, ni logo, ni affiche reconnaissable. L'évocation voulue est obtenue
+  sans reproduire d'élément protégé — contrairement au collage Chaînes, qui
+  contient de vraies marques et dont le risque a été explicitement accepté.
 
 `iv_home_bg` (fond plein écran, alpha 0.26) est **indépendant** de ces 3
 images de carte : il continue de tirer un fond au hasard parmi les
