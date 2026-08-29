@@ -70,8 +70,10 @@ keytool -genkeypair -v -keystore app/iptv2-release.jks -alias iptv2 \
 ## Sources supportées
 
 Chaque source est enregistrée comme un **profil nommé** : l'écran de démarrage
-liste les profils existants (tap = recharger, sans retaper les identifiants) et
-propose deux cartes pour en ajouter un.
+liste les profils existants (tap = charger, sans retaper les identifiants —
+si c'est déjà le profil actif, direct vers l'accueil sans rechargement
+réseau inutile) et propose deux cartes pour en ajouter un, chacune sur sa
+propre page complète (avec retour vers l'écran Profils).
 
 - **Charger votre playlist** — au choix dans le même formulaire :
   - *fichier M3U local*, via le sélecteur de fichiers système (permission de
