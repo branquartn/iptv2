@@ -12,9 +12,11 @@ import com.nicotv.iptv2.domain.model.Movie
 import com.nicotv.iptv2.util.extractLeadingLanguageCode
 import com.nicotv.iptv2.util.isFrenchLabel
 import com.nicotv.iptv2.util.stripLeadingLanguageCode
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.lifecycle.viewModelScope
 
 class MoviesViewModel(application: Application) : AndroidViewModel(application) {
@@ -65,9 +67,21 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
         // Calculées sur le catalogue déjà filtré par langue : pas de catégorie
         // 100% non-FR listée si "Français uniquement" est actif, elle donnerait
         // toujours zéro résultat une fois sélectionnée.
+        // ⚠️ Calcul déporté en Dispatchers.Default (corrigé 29/08/2026) : sur
+        // ~136 000 films, filter+map+distinct+sort tournait en synchrone dans ce
+        // callback — livré sur le thread principal par LiveData, donc un vrai
+        // freeze perçu comme "toujours long à charger" à CHAQUE ouverture de
+        // l'écran Films, malgré allMovies déjà en cache (moviesFlow chaud, cf.
+        // PlaylistRepository). Seule la réassignation de `value` reste sur Main
+        // (obligatoire pour LiveData.setValue).
         addSource(allMovies) { list ->
-            value = applyLanguageFilter(list).map { displayCategory(it.category) }.filter { it.isNotBlank() }.distinct()
-                .sortedWith(compareByDescending<String> { isFrenchLabel(it) }.thenBy { it })
+            viewModelScope.launch {
+                val result = withContext(Dispatchers.Default) {
+                    applyLanguageFilter(list).map { displayCategory(it.category) }.filter { it.isNotBlank() }.distinct()
+                        .sortedWith(compareByDescending<String> { isFrenchLabel(it) }.thenBy { it })
+                }
+                value = result
+            }
         }
     }
 
@@ -87,10 +101,21 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
             job = viewModelScope.launch {
                 delay(150)
                 val query = searchQuery.value.orEmpty().trim()
-                var movies = if (query.isBlank()) allMovies.value ?: emptyList()
-                             else repository.searchMoviesByTitle(query)
-                movies = applyLanguageFilter(movies)
-                selectedCategory.value?.let { cat -> movies = movies.filter { displayCategory(it.category) == cat } }
+                // ⚠️ applyLanguageFilter/filtre catégorie déportés en
+                // Dispatchers.Default (corrigé 29/08/2026) : viewModelScope
+                // lance sur Main.immediate par défaut — malgré le commentaire
+                // au-dessus (qui promettait "même sur un thread de fond"), ce
+                // filtre tournait en réalité sur le thread principal à chaque
+                // ouverture de l'écran/frappe, sur un catalogue déjà en cache
+                // mais toujours ~136 000 films à parcourir. searchMoviesByTitle
+                // fait déjà son propre withContext(Dispatchers.IO) en interne.
+                val movies = withContext(Dispatchers.Default) {
+                    var m = if (query.isBlank()) allMovies.value ?: emptyList()
+                            else repository.searchMoviesByTitle(query)
+                    m = applyLanguageFilter(m)
+                    selectedCategory.value?.let { cat -> m = m.filter { displayCategory(it.category) == cat } }
+                    m
+                }
                 value = movies
             }
         }

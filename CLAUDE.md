@@ -352,6 +352,25 @@ accepté : perte de l'insensibilité aux accents sur ces 3 champs de recherche
 (SQLite `LIKE` ne connaît pas `foldAccents()`) — déjà le cas côté recherche
 globale, jamais signalé comme un manque.
 
+⚠️ **Filtre/catégories sur main thread malgré le cache chaud (corrigé
+29/08/2026, signalé par l'utilisateur : "même si j'y suis déjà allé, Films
+est long à charger, pourtant tout est en cache")** — `moviesFlow`/`seriesFlow`/
+`channelsFlow` sont bien chauds (cf. section suivante), mais les 3 ViewModel
+(Movies/Series/Live) recalculaient `categories` (filter+map+distinct+sort) et
+`filteredMovies`/`filteredSeries`/`filteredChannels` (filtre langue+catégorie,
++ tri TNT côté Live) **sur le thread principal** à chaque ouverture d'écran :
+`viewModelScope.launch` utilise `Dispatchers.Main.immediate` par défaut, et
+aucun de ces blocs n'avait de `withContext(Dispatchers.Default)` malgré un
+commentaire l'affirmant. Sur ~136 000 films/47 000 chaînes, ce calcul CPU
+synchrone sur Main donnait le freeze perçu comme "toujours long", alors
+qu'aucune requête réseau/DB n'était en cause. Les 3 blocs sont maintenant
+enveloppés dans `withContext(Dispatchers.Default)`, seule la réassignation de
+`value` (obligatoire sur Main pour `LiveData.setValue`) reste hors de ce
+bloc. Si un futur écran (re)filtre un gros catalogue dans un `addSource`/
+`viewModelScope.launch`, vérifier qu'un `withContext(Dispatchers.Default)`
+entoure bien le calcul — ne pas se fier à un commentaire l'affirmant sans
+relire le code.
+
 ## Titre "propre" à l'affichage (Movie.displayTitle)
 
 Demande explicite 28/08/2026 : "voir le vrai nom du film" — `util.

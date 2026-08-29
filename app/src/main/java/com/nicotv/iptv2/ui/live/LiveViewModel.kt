@@ -14,9 +14,11 @@ import com.nicotv.iptv2.util.extractLeadingLanguageCode
 import com.nicotv.iptv2.util.foldAccents
 import com.nicotv.iptv2.util.isFrenchLabel
 import com.nicotv.iptv2.util.stripLeadingLanguageCode
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.lifecycle.viewModelScope
 
 class LiveViewModel(application: Application) : AndroidViewModel(application) {
@@ -48,18 +50,26 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
     private val contentLanguage = app.contentLanguagePrefs.getLanguage()
 
     val categories: LiveData<List<String>> = MediatorLiveData<List<String>>().apply {
+        // ⚠️ Calcul déporté en Dispatchers.Default (corrigé 29/08/2026) — cf.
+        // MoviesViewModel.categories, même freeze main thread constaté sur
+        // l'écran Chaînes (jusqu'à ~47 000 chaînes).
         addSource(allChannels) { list ->
-            // Catégories France en premier (demande explicite) — cf. isFrenchLabel.
-            // N'exclut que les catégories dont le PROPRE préfixe désigne
-            // explicitement une AUTRE langue (demande explicite 28/08/2026 :
-            // la sidebar affichait encore "CA|"/"AL|"... à côté des catégories
-            // FR une fois nettoyées) — garde les catégories sans préfixe du
-            // tout (cf. commentaire sur contentLanguage plus haut : pas un
-            // "exact match", sinon "Sport" sans préfixe disparaissait aussi).
-            val base = if (contentLanguage == null) list
-                       else list.filter { val c = extractLeadingLanguageCode(it.category); c == null || c == contentLanguage }
-            value = base.map { displayCategory(it.category) }.filter { it.isNotBlank() }.distinct()
-                .sortedWith(compareByDescending<String> { isFrenchLabel(it) }.thenBy { it })
+            viewModelScope.launch {
+                val result = withContext(Dispatchers.Default) {
+                    // Catégories France en premier (demande explicite) — cf. isFrenchLabel.
+                    // N'exclut que les catégories dont le PROPRE préfixe désigne
+                    // explicitement une AUTRE langue (demande explicite 28/08/2026 :
+                    // la sidebar affichait encore "CA|"/"AL|"... à côté des catégories
+                    // FR une fois nettoyées) — garde les catégories sans préfixe du
+                    // tout (cf. commentaire sur contentLanguage plus haut : pas un
+                    // "exact match", sinon "Sport" sans préfixe disparaissait aussi).
+                    val base = if (contentLanguage == null) list
+                               else list.filter { val c = extractLeadingLanguageCode(it.category); c == null || c == contentLanguage }
+                    base.map { displayCategory(it.category) }.filter { it.isNotBlank() }.distinct()
+                        .sortedWith(compareByDescending<String> { isFrenchLabel(it) }.thenBy { it })
+                }
+                value = result
+            }
         }
     }
 
@@ -76,38 +86,46 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
             job = viewModelScope.launch {
                 delay(150)
                 val query = searchQuery.value.orEmpty().trim()
-                var base = if (query.isBlank()) allChannels.value ?: emptyList()
-                           else repository.searchChannelsByName(query)
-                if (favoritesOnly.value == true) base = base.filter { it.isFavorite }
-                selectedCategory.value?.let { cat -> base = base.filter { displayCategory(it.category) == cat } }
+                val favOnly = favoritesOnly.value == true
+                val cat = selectedCategory.value
+                // ⚠️ Déporté en Dispatchers.Default (corrigé 29/08/2026) — cf.
+                // MoviesViewModel.filteredMovies, même correctif : ce filtre +
+                // le tri TNT (foldAccents par chaîne) tournaient sur le thread
+                // principal jusqu'à ~47 000 chaînes.
+                val result = withContext(Dispatchers.Default) {
+                    var base = if (query.isBlank()) allChannels.value ?: emptyList()
+                               else repository.searchChannelsByName(query)
+                    if (favOnly) base = base.filter { it.isFavorite }
+                    cat?.let { c -> base = base.filter { displayCategory(it.category) == c } }
 
-                // Réglage persistant "Langue du contenu" : exclut seulement un
-                // préfixe explicite d'une AUTRE langue ("FR: TF1" avec réglage
-                // "AF" → exclu) et retire le préfixe quand il correspond
-                // ("FR: TF1" → "TF1") — une chaîne sans préfixe du tout est
-                // gardée telle quelle, cf. commentaire sur contentLanguage
-                // plus haut (pas un "exact match", régression "beIN Sport"
-                // corrigée le 28/08/2026).
-                if (contentLanguage != null) {
-                    base = base.mapNotNull { channel ->
-                        val code = extractLeadingLanguageCode(channel.name)
-                        when {
-                            code == null -> channel
-                            code == contentLanguage -> channel.copy(name = stripLeadingLanguageCode(channel.name, contentLanguage))
-                            else -> null
+                    // Réglage persistant "Langue du contenu" : exclut seulement un
+                    // préfixe explicite d'une AUTRE langue ("FR: TF1" avec réglage
+                    // "AF" → exclu) et retire le préfixe quand il correspond
+                    // ("FR: TF1" → "TF1") — une chaîne sans préfixe du tout est
+                    // gardée telle quelle, cf. commentaire sur contentLanguage
+                    // plus haut (pas un "exact match", régression "beIN Sport"
+                    // corrigée le 28/08/2026).
+                    if (contentLanguage != null) {
+                        base = base.mapNotNull { channel ->
+                            val code = extractLeadingLanguageCode(channel.name)
+                            when {
+                                code == null -> channel
+                                code == contentLanguage -> channel.copy(name = stripLeadingLanguageCode(channel.name, contentLanguage))
+                                else -> null
+                            }
                         }
                     }
-                }
 
-                // Tri "ordre TNT" (demande explicite) : quand on regarde du
-                // français (catégorie FR, ou réglage langue = FR), TF1/
-                // France 2/France 3/... dans l'ordre de la numérotation
-                // officielle plutôt qu'alphabétique/ordre de la playlist. Hors
-                // contexte FR, ordre inchangé (sortOrder/nom, cf.
-                // ChannelDao.getAllChannels).
-                val frenchContext = contentLanguage == ContentLanguagePrefs.FRENCH ||
-                    selectedCategory.value?.let { isFrenchLabel(it) } == true
-                value = if (frenchContext) base.sortedWith(compareBy({ tntRank(it) }, { it.name })) else base
+                    // Tri "ordre TNT" (demande explicite) : quand on regarde du
+                    // français (catégorie FR, ou réglage langue = FR), TF1/
+                    // France 2/France 3/... dans l'ordre de la numérotation
+                    // officielle plutôt qu'alphabétique/ordre de la playlist. Hors
+                    // contexte FR, ordre inchangé (sortOrder/nom, cf.
+                    // ChannelDao.getAllChannels).
+                    val frenchContext = contentLanguage == ContentLanguagePrefs.FRENCH || cat?.let { isFrenchLabel(it) } == true
+                    if (frenchContext) base.sortedWith(compareBy({ tntRank(it) }, { it.name })) else base
+                }
+                value = result
             }
         }
         addSource(allChannels) { filter() }

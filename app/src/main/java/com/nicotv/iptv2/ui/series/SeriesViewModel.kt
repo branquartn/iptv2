@@ -11,9 +11,11 @@ import com.nicotv.iptv2.data.database.entity.FavoriteEntity
 import com.nicotv.iptv2.domain.model.Movie
 import com.nicotv.iptv2.util.extractLeadingLanguageCode
 import com.nicotv.iptv2.util.isFrenchLabel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.lifecycle.viewModelScope
 
 class SeriesViewModel(application: Application) : AndroidViewModel(application) {
@@ -41,9 +43,17 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
 
     val categories: LiveData<List<String>> = MediatorLiveData<List<String>>().apply {
         // Catégories France en premier (demande explicite) — cf. isFrenchLabel.
+        // ⚠️ Calcul déporté en Dispatchers.Default (corrigé 29/08/2026) — cf.
+        // MoviesViewModel.categories, même freeze main thread constaté sur
+        // l'écran Séries.
         addSource(allSeries) { list ->
-            value = applyLanguageFilter(list).map { it.category }.filter { it.isNotBlank() }.distinct()
-                .sortedWith(compareByDescending<String> { isFrenchLabel(it) }.thenBy { it })
+            viewModelScope.launch {
+                val result = withContext(Dispatchers.Default) {
+                    applyLanguageFilter(list).map { it.category }.filter { it.isNotBlank() }.distinct()
+                        .sortedWith(compareByDescending<String> { isFrenchLabel(it) }.thenBy { it })
+                }
+                value = result
+            }
         }
     }
 
@@ -56,10 +66,15 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
             job = viewModelScope.launch {
                 delay(150)
                 val query = searchQuery.value.orEmpty().trim()
-                var series = if (query.isBlank()) allSeries.value ?: emptyList()
-                             else repository.searchSeriesByTitle(query)
-                series = applyLanguageFilter(series)
-                selectedCategory.value?.let { cat -> series = series.filter { it.category == cat } }
+                // ⚠️ Déporté en Dispatchers.Default (corrigé 29/08/2026) — cf.
+                // MoviesViewModel.filteredMovies, même correctif.
+                val series = withContext(Dispatchers.Default) {
+                    var s = if (query.isBlank()) allSeries.value ?: emptyList()
+                            else repository.searchSeriesByTitle(query)
+                    s = applyLanguageFilter(s)
+                    selectedCategory.value?.let { cat -> s = s.filter { it.category == cat } }
+                    s
+                }
                 value = series
             }
         }
