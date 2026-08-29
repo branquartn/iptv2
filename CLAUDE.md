@@ -371,6 +371,21 @@ bloc. Si un futur écran (re)filtre un gros catalogue dans un `addSource`/
 entoure bien le calcul — ne pas se fier à un commentaire l'affirmant sans
 relire le code.
 
+⚠️ **Debounce 150ms appliqué même hors recherche (corrigé 29/08/2026, signalé
+"je sors de Films et je reviens, ça recharge tout")** — `filteredMovies`/
+`filteredSeries`/`filteredChannels` faisaient `delay(150)` **avant toute
+chose** dans `filter()`, y compris à l'appel initial (`addSource(allMovies) {
+filter() }`, déclenché à chaque ouverture d'écran vu que chaque visite crée un
+nouveau ViewModel) et à chaque changement de catégorie/favoris — pas
+seulement à la frappe dans le champ recherche, seul cas où ce debounce a un
+sens (éviter une requête SQL par caractère tapé). Conséquence : spinner plein
+écran + liste vide pendant ~150ms à CHAQUE retour sur Films/Séries/Chaînes,
+perçu comme un rechargement complet alors que le catalogue était déjà en
+cache (`moviesFlow` chaud, cf. section dédiée) et le filtre déjà rapide
+(`Dispatchers.Default`, cf. correctif précédent le même jour). Le `delay(150)`
+n'est maintenant exécuté que si `searchQuery` n'est pas vide — ouverture
+d'écran/changement de catégorie filtrent immédiatement.
+
 ## Titre "propre" à l'affichage (Movie.displayTitle)
 
 Demande explicite 28/08/2026 : "voir le vrai nom du film" — `util.

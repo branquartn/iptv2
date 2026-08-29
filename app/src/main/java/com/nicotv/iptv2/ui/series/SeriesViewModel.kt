@@ -59,13 +59,16 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
 
     // ⚠️ Recherche par titre en SQL — cf. MoviesViewModel.filteredMovies, même
     // raison et même principe (repository.searchSeriesByTitle).
+    // ⚠️ Debounce seulement si recherche en cours — cf. MoviesViewModel.
+    // filteredMovies, même correctif (le delay(150) s'appliquait aussi à
+    // l'ouverture de l'écran, "recharge tout" perçu à chaque retour).
     val filteredSeries: LiveData<List<Movie>> = MediatorLiveData<List<Movie>>().apply {
         var job: Job? = null
         fun filter() {
             job?.cancel()
             job = viewModelScope.launch {
-                delay(150)
                 val query = searchQuery.value.orEmpty().trim()
+                if (query.isNotBlank()) delay(150)
                 // ⚠️ Déporté en Dispatchers.Default (corrigé 29/08/2026) — cf.
                 // MoviesViewModel.filteredMovies, même correctif.
                 val series = withContext(Dispatchers.Default) {

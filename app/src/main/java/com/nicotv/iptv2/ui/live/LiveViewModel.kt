@@ -79,13 +79,17 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
     // même en coroutine). Favoris/catégorie/FR appliqués ensuite sur le
     // résultat déjà réduit par le SQL (ou sur le catalogue complet sans
     // recherche en cours).
+    // ⚠️ Debounce seulement si recherche en cours — cf. MoviesViewModel.
+    // filteredMovies, même correctif (le delay(150) s'appliquait aussi à
+    // l'ouverture de l'écran/changement de catégorie ou favoris, "recharge
+    // tout" perçu à chaque retour sur Chaînes).
     val filteredChannels: LiveData<List<Channel>> = MediatorLiveData<List<Channel>>().apply {
         var job: Job? = null
         fun filter() {
             job?.cancel()
             job = viewModelScope.launch {
-                delay(150)
                 val query = searchQuery.value.orEmpty().trim()
+                if (query.isNotBlank()) delay(150)
                 val favOnly = favoritesOnly.value == true
                 val cat = selectedCategory.value
                 // ⚠️ Déporté en Dispatchers.Default (corrigé 29/08/2026) — cf.

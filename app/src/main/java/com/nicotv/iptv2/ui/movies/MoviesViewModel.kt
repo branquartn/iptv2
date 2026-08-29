@@ -94,13 +94,22 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
     // le SQL (ou sur le catalogue complet si pas de recherche en cours) —
     // jamais sur les 136 000 lignes à la fois. Debounce (150ms) pour ne pas
     // lancer une requête par caractère tapé rapidement.
+    // ⚠️ Debounce seulement si une recherche est en cours (corrigé 29/08/2026,
+    // signalé "je sors de Films et je reviens, ça recharge tout") : le
+    // `delay(150)` s'appliquait AUSSI au tout premier appel (`addSource
+    // (allMovies) { filter() }`, déclenché dès l'ouverture de l'écran) et à
+    // chaque changement de catégorie — pas seulement à la frappe. Résultat :
+    // ~150ms de spinner plein écran + liste vide à CHAQUE retour sur Films,
+    // même avec le catalogue déjà en cache (moviesFlow chaud). Le debounce ne
+    // sert qu'à éviter une requête SQL par caractère tapé — inutile quand il
+    // n'y a pas de recherche texte en cours.
     val filteredMovies: LiveData<List<Movie>> = MediatorLiveData<List<Movie>>().apply {
         var job: Job? = null
         fun filter() {
             job?.cancel()
             job = viewModelScope.launch {
-                delay(150)
                 val query = searchQuery.value.orEmpty().trim()
+                if (query.isNotBlank()) delay(150)
                 // ⚠️ applyLanguageFilter/filtre catégorie déportés en
                 // Dispatchers.Default (corrigé 29/08/2026) : viewModelScope
                 // lance sur Main.immediate par défaut — malgré le commentaire

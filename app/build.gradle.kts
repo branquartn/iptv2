@@ -10,8 +10,8 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 64
-val appVersionName = "1.0.63"
+val appVersionCode = 65
+val appVersionName = "1.0.64"
 // Changelog affiché dans le modal de mise à jour OTA.
 // ⚠️ OUBLIÉ PENDANT ~15 VERSIONS (29/08/2026, bug signalé par l'utilisateur :
 // "le texte de la maj n'est pas le bon") — appVersionCode/appVersionName ont
@@ -20,7 +20,7 @@ val appVersionName = "1.0.63"
 // modif du 28/08 alors qu'on en était à v1.0.50). Ce commentaire ne suffit
 // visiblement pas tout seul à s'en souvenir : à chaque bump de version,
 // updater CETTE ligne AVANT de commit, pas après coup.
-val appChangelog = "Langue du contenu : défaut toujours FR sur une nouvelle installation, quelle que soit la langue de l'appareil."
+val appChangelog = "Retour sur Chaînes/Films/Séries instantané (le délai de 150ms ne s'applique plus qu'à la recherche texte)."
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
