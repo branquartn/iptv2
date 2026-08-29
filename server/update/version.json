@@ -1,6 +1,6 @@
 {
-  "versionCode": 61,
-  "versionName": "1.0.60",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.60.apk",
-  "changelog": "Fenêtre de chargement : cercle de progression avec pourcentage animé en temps réel, plus fidèle qu'avant."
+  "versionCode": 64,
+  "versionName": "1.0.63",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.63.apk",
+  "changelog": "Langue du contenu : défaut toujours FR sur une nouvelle installation, quelle que soit la langue de l'appareil."
 }
