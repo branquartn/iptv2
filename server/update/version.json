@@ -1,6 +1,6 @@
 {
-  "versionCode": 57,
-  "versionName": "1.0.56",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.56.apk",
-  "changelog": "Bandeaux du haut (Profils, Réglages, ajout de source) maintenant tous à la même hauteur."
+  "versionCode": 59,
+  "versionName": "1.0.58",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.58.apk",
+  "changelog": "Les chaînes en favori apparaissent maintenant dans Favoris, avec une astuce pour expliquer comment en ajouter."
 }
