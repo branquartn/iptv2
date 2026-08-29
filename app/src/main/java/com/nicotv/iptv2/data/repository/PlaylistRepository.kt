@@ -158,16 +158,33 @@ class PlaylistRepository(
     /** Charge (ou recharge) un profil sauvegardé : dispatch selon son type,
      * remplace le catalogue Room, le marque actif si le chargement réussit —
      * en cas d'échec le profil reste sauvegardé (pas de retype des identifiants
-     * pour réessayer). */
-    suspend fun loadProfile(profileId: Long): Result<Int> {
+     * pour réessayer).
+     *
+     * [onProgress] : pourcentage (0-100) + message d'étape, pour le dialogue
+     * de chargement (29/08/2026, demande explicite "fenêtre de chargement...
+     * avec un pourcentage") — best-effort, pas une mesure précise partout :
+     * réel (compte fait/total) pendant l'enrichissement TMDb d'un M3U (seule
+     * étape vraiment longue et dénombrable), par paliers fixes ailleurs
+     * (connexion Xtream, récupération des flux — pas d'unité de progression
+     * naturelle sur ces appels réseau groupés). Par défaut no-op : les
+     * appelants qui n'affichent pas de dialogue (refreshActiveProfileIfStale)
+     * n'ont rien à changer. */
+    suspend fun loadProfile(profileId: Long, onProgress: (percent: Int, message: String) -> Unit = { _, _ -> }): Result<Int> {
         val profile = withContext(Dispatchers.IO) { db.playlistProfileDao().getById(profileId) }
             ?: return Result.failure(LoadException("Profil introuvable"))
         return try {
             val count = when (SourceType.valueOf(profile.type)) {
-                SourceType.M3U_URL -> loadM3u(fetchUrl(profile.m3uUrl))
-                SourceType.M3U_FILE -> loadM3u(readLocalFile(profile.m3uFileUri))
-                SourceType.XTREAM -> loadXtream(profile)
+                SourceType.M3U_URL -> {
+                    onProgress(5, "Téléchargement de la playlist…")
+                    loadM3u(fetchUrl(profile.m3uUrl), onProgress)
+                }
+                SourceType.M3U_FILE -> {
+                    onProgress(5, "Lecture du fichier…")
+                    loadM3u(readLocalFile(profile.m3uFileUri), onProgress)
+                }
+                SourceType.XTREAM -> loadXtream(profile, onProgress)
             }
+            onProgress(100, "Terminé")
             sourcePrefs.setActiveProfileId(profileId)
             db.playlistProfileDao().touchLastUsed(profileId)
             Result.success(count)
@@ -216,7 +233,8 @@ class PlaylistRepository(
 
     // ── M3U (URL ou fichier local, même parsing) ────────────────────────────
 
-    private suspend fun loadM3u(text: String): Int = withContext(Dispatchers.Default) {
+    private suspend fun loadM3u(text: String, onProgress: (percent: Int, message: String) -> Unit = { _, _ -> }): Int = withContext(Dispatchers.Default) {
+        onProgress(15, "Analyse de la playlist…")
         val entries = M3uParser.parse(text)
         if (entries.isEmpty()) throw LoadException("Playlist vide ou format M3U non reconnu")
 
@@ -247,7 +265,7 @@ class PlaylistRepository(
             }
         }
 
-        replaceCatalog(channels, movies, seriesEpisodes)
+        replaceCatalog(channels, movies, seriesEpisodes, onProgress)
         channels.size + movies.size + seriesEpisodes.size
     }
 
@@ -261,10 +279,25 @@ class PlaylistRepository(
      * réutilisé par la fiche détail (casting/similaires/bande-annonce) sans
      * repasser par une recherche. Best-effort : un échec individuel (réseau,
      * aucune correspondance) laisse simplement l'entrée d'origine intacte. */
-    private suspend fun enrichMovies(movies: List<MovieEntity>): List<MovieEntity> = coroutineScope {
+    private suspend fun enrichMovies(
+        movies: List<MovieEntity>,
+        onProgress: (percent: Int, message: String) -> Unit = { _, _ -> }
+    ): List<MovieEntity> = coroutineScope {
+        // Seule étape avec un compte réel fait/total (29/08/2026) : mappée sur
+        // la plage 20-90% du chargement M3U global — le reste (téléchargement,
+        // analyse, enregistrement) est trop bref/indivisible pour valoir la
+        // peine d'un pourcentage précis.
+        val done = java.util.concurrent.atomic.AtomicInteger(0)
+        val total = movies.size
         movies.map { m ->
             async {
-                val hit = tmdbSemaphore.withPermit { tmdbClient.searchMovie(m.title) } ?: return@async m
+                val hit = tmdbSemaphore.withPermit { tmdbClient.searchMovie(m.title) }
+                val n = done.incrementAndGet()
+                if (total > 0) {
+                    val pct = 20 + (n * 70 / total)
+                    onProgress(pct.coerceIn(20, 90), "Jaquettes… ($n/$total)")
+                }
+                if (hit == null) return@async m
                 m.copy(
                     tmdbId = hit.id,
                     posterUrl = hit.posterUrl.ifBlank { m.posterUrl },
@@ -288,10 +321,12 @@ class PlaylistRepository(
     private suspend fun replaceCatalog(
         channels: List<ChannelEntity>,
         movies: List<MovieEntity>,
-        seriesEpisodes: Map<String, List<Triple<M3uEntry, M3uParser.ParsedEpisode, Int>>>
+        seriesEpisodes: Map<String, List<Triple<M3uEntry, M3uParser.ParsedEpisode, Int>>>,
+        onProgress: (percent: Int, message: String) -> Unit = { _, _ -> }
     ) = withContext(Dispatchers.IO) {
-        val enrichedMovies = enrichMovies(movies)
+        val enrichedMovies = enrichMovies(movies, onProgress)
 
+        onProgress(92, "Enregistrement…")
         val seriesLogos = seriesEpisodes.mapValues { (_, items) ->
             items.firstOrNull { it.first.logo.isNotBlank() }?.first?.logo.orEmpty()
         }
@@ -358,14 +393,24 @@ class PlaylistRepository(
             categoryIds.map { id -> async { xtreamSemaphore.withPermit { client.getSeriesList(id) } } }.awaitAll().flatten()
         }
 
-    private suspend fun loadXtream(profile: PlaylistProfileEntity): Int = withContext(Dispatchers.IO) {
+    private suspend fun loadXtream(
+        profile: PlaylistProfileEntity,
+        onProgress: (percent: Int, message: String) -> Unit = { _, _ -> }
+    ): Int = withContext(Dispatchers.IO) {
+        // Paliers fixes, pas de compte réel (29/08/2026) : ces appels renvoient
+        // chacun un bloc entier d'un coup, pas d'unité de progression naturelle
+        // comme "n éléments traités sur un total" (contrairement à
+        // enrichMovies, seule étape du chargement M3U qui a un vrai compteur).
+        onProgress(10, "Connexion au serveur…")
         val client = xtreamClientFor(profile)
         client.login()
 
+        onProgress(30, "Récupération des chaînes…")
         val liveCats = client.getLiveCategories().associateBy { it.id }
         val liveStreams = client.getLiveStreams()
         val vodCats = client.getVodCategories().associateBy { it.id }
         val seriesCats = client.getSeriesCategories().associateBy { it.id }
+        onProgress(60, "Récupération des films et séries…")
         val vodStreams = client.getVodStreams().ifEmpty { fetchVodStreamsByCategory(client, vodCats.keys) }
         val seriesList = client.getSeriesList().ifEmpty { fetchSeriesByCategory(client, seriesCats.keys) }
 
@@ -378,7 +423,7 @@ class PlaylistRepository(
         // pipeline que le mode M3U (classification par chemin d'URL /live/,
         // /movie/, /series/ — particulièrement fiable sur un export Xtream).
         if (liveStreams.isEmpty() && vodStreams.isEmpty() && seriesList.isEmpty()) {
-            return@withContext loadM3u(fetchUrl(client.playlistM3uUrl()))
+            return@withContext loadM3u(fetchUrl(client.playlistM3uUrl()), onProgress)
         }
 
         val channels = liveStreams.map {
@@ -405,6 +450,7 @@ class PlaylistRepository(
             )
         }
 
+        onProgress(90, "Enregistrement…")
         db.channelDao().deleteAll(); db.movieDao().deleteAll(); db.seriesDao().deleteAll()
         db.channelDao().insertAll(channels)
         db.movieDao().insertAll(movies)

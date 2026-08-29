@@ -454,11 +454,21 @@ voulu, ne pas restreindre sans en avoir reparlé avec l'utilisateur.
 ## Écran de démarrage (SetupActivity)
 
 Profils enregistrés en **cartes façon sélecteur Netflix** tout en haut de
-l'écran, avant même le wordmark (avatar rond coloré par profil, tap =
-recharger, crayon = modifier, croix = supprimer — cf. `ProfileAdapter`/
-`item_profile.xml`), puis 2 cartes « Charger votre playlist » (URL M3U **ou**
-fichier local, un seul formulaire, un seul bouton qui priorise le fichier
-choisi) et « Xtream Codes ».
+l'écran (avatar rond coloré par profil, tap = recharger, crayon = modifier,
+croix = supprimer — cf. `ProfileAdapter`/`item_profile.xml`), puis 2 cartes
+« Charger votre playlist » (URL M3U **ou** fichier local, un seul formulaire,
+un seul bouton qui priorise le fichier choisi) et « Xtream Codes ». Wordmark
+désormais dans la barre d'en-tête (cf. plus bas), plus mi-page.
+
+⚠️ **Tap sur le profil déjà actif ne recharge plus rien** (29/08/2026,
+demande explicite : "si je suis déjà actif... il se recharge et je ne veux
+pas") — `loadProfile()` compare `profileId` à `profileAdapter.activeProfileId`
+avant tout, et va direct à l'accueil (`goToMain()`) si égal : le catalogue
+actif est déjà servi depuis le cache Room, un rechargement réseau complet
+(potentiellement long sur un gros panel) n'apportait rien. Seul un profil
+DIFFÉRENT déclenche un vrai rechargement — modifier le profil actif via le
+crayon (`editProfile`) puis "Charger" le recharge quand même normalement
+(passe par `AddPlaylistActivity`/`AddXtreamActivity`, pas ce chemin).
 
 ⚠️ **Barre d'en-tête + mise en page sans scroll (1.0.37, demande explicite)** :
 `activity_setup.xml` avait un `ScrollView` — sur un écran bas
@@ -551,16 +561,31 @@ Ces 2 pages n'avaient jusqu'ici aucun logo. **Profils et l'accueil
 (MainActivity) non touchés** par cette demande — cf. leur section respective
 (Profils a son propre logo, ailleurs dans son layout, corrigé séparément).
 
-⚠️ **Rond de chargement au milieu, pas en bas** (29/08/2026, demande
-explicite : "au milieu pas en bas... indique chargement en cours") — le
-`ProgressBar` `progress_loading` était un petit rond sans texte, tout en bas
-du formulaire (après le bouton "Charger"/"Se connecter"), invisible sans
-scroller. Retiré des 2 layouts, remplacé par un `AlertDialog` centré
-(`dialog_loading.xml`, réutilisable — `ProgressBar` + texte
-`setup_loading_in_progress` "Chargement en cours…") — même style que
-`UpdateManager.showUpdateProgress` (fond `bg_dialog` sur la vue, fenêtre du
-dialogue en transparent). `setLoading()` construit/affiche ce dialogue à
-`true`, le `dismiss()` à `false` — `loadingDialog` gardé en champ pour ça.
+⚠️ **Rond de chargement au milieu, pas en bas, avec pourcentage** (29/08/2026,
+demande explicite : "au milieu pas en bas... indique chargement en cours",
+puis "avec un pourcentage ça serait bien" le jour même) — le `ProgressBar`
+`progress_loading` était un petit rond sans texte, tout en bas du formulaire
+(après le bouton "Charger"/"Se connecter"), invisible sans scroller. Retiré
+des 3 écrans concernés (`AddPlaylistActivity`/`AddXtreamActivity`/
+`SetupActivity` — ce dernier avait le même souci pour le tap sur une
+carte), remplacé par `ui/common/LoadingDialog` (classe réutilisable — construit
+et affiche un `AlertDialog` centré sur `dialog_loading.xml` : `ProgressBar`
+déterminé + `%` + message d'étape, même style que
+`UpdateManager.showUpdateProgress`). `setLoading()` sur les 3 écrans
+construit/affiche `LoadingDialog` à `true`, `dismiss()` à `false`.
+
+`PlaylistRepository.loadProfile(profileId, onProgress)` pousse les valeurs —
+`onProgress: (percent, message) -> Unit`, no-op par défaut (les appelants
+sans dialogue, ex. `refreshActiveProfileIfStale`, n'ont rien à changer).
+**Best-effort, pas précis partout** : réel (`n/total`) pendant
+l'enrichissement TMDb d'un M3U (`enrichMovies`, seule étape à la fois longue
+et dénombrable, mappée sur la plage 20-90%) ; paliers fixes ailleurs
+(connexion Xtream 10%, récupération chaînes 30%, films/séries 60%,
+enregistrement 90-92% — ces appels réseau renvoient un bloc entier d'un
+coup, pas de compteur naturel). `LoadingDialog.onProgress()` fait le
+`runOnUiThread` lui-même — safe à appeler depuis le thread où tourne
+`enrichMovies` (`Dispatchers.IO`/`Default`), pas besoin d'y penser côté
+appelant.
 
 ⚠️ **`installSplashScreen()` obligatoire** : `SetupActivity` déclare
 `android:theme="@style/Theme.IPTV.Splash"` dans le manifeste (parent

@@ -1,6 +1,5 @@
 package com.nicotv.iptv2.ui.setup
 
-import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
@@ -10,6 +9,7 @@ import com.nicotv.iptv2.IptvApplication
 import com.nicotv.iptv2.R
 import com.nicotv.iptv2.databinding.ActivityAddXtreamBinding
 import com.nicotv.iptv2.ui.common.BaseActivity
+import com.nicotv.iptv2.ui.common.LoadingDialog
 import com.nicotv.iptv2.ui.main.MainActivity
 import kotlinx.coroutines.launch
 
@@ -74,7 +74,9 @@ class AddXtreamActivity : BaseActivity() {
 
     private fun loadProfile(profileId: Long) {
         lifecycleScope.launch {
-            val result = (application as IptvApplication).playlistRepository.loadProfile(profileId)
+            val result = (application as IptvApplication).playlistRepository.loadProfile(profileId) { pct, msg ->
+                loadingDialog?.onProgress(pct, msg)
+            }
             setLoading(false)
             result.onSuccess { count ->
                 showStatus(getString(R.string.setup_success, count))
@@ -87,18 +89,15 @@ class AddXtreamActivity : BaseActivity() {
         }
     }
 
-    // Rond de chargement au milieu de l'écran (29/08/2026, demande explicite
-    // "au milieu pas en bas... indique chargement en cours") — cf. même
-    // correctif sur AddPlaylistActivity.
-    private var loadingDialog: AlertDialog? = null
+    // Rond de chargement au milieu de l'écran, avec pourcentage (29/08/2026,
+    // demande explicite "au milieu pas en bas... indique chargement en
+    // cours" puis "avec un pourcentage ça serait bien") — cf. LoadingDialog,
+    // même correctif sur AddPlaylistActivity.
+    private var loadingDialog: LoadingDialog? = null
 
     private fun setLoading(loading: Boolean) {
         if (loading) {
-            val view = layoutInflater.inflate(R.layout.dialog_loading, null)
-            loadingDialog = AlertDialog.Builder(this).setView(view).setCancelable(false).create().also {
-                it.show()
-                it.window?.setBackgroundDrawableResource(android.R.color.transparent)
-            }
+            loadingDialog = LoadingDialog(this).also { it.show() }
         } else {
             loadingDialog?.dismiss()
             loadingDialog = null

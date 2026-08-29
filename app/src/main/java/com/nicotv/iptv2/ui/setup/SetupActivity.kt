@@ -12,6 +12,7 @@ import com.nicotv.iptv2.R
 import com.nicotv.iptv2.data.database.entity.PlaylistProfileEntity
 import com.nicotv.iptv2.databinding.ActivitySetupBinding
 import com.nicotv.iptv2.ui.common.BaseActivity
+import com.nicotv.iptv2.ui.common.LoadingDialog
 import com.nicotv.iptv2.ui.common.RotatingBorderView
 import com.nicotv.iptv2.ui.main.MainActivity
 import com.nicotv.iptv2.update.checkForAppUpdate
@@ -212,10 +213,23 @@ class SetupActivity : BaseActivity() {
         }
     }
 
+    /** Tap sur un profil (29/08/2026, demande explicite "si je suis déjà
+     * actif... il se recharge et je ne veux pas") : le profil déjà actif est
+     * déjà servi depuis le cache Room, un rechargement réseau complet n'a
+     * rien à apporter — direct vers l'accueil, comme `maybeAutoLoadLastProfile`
+     * au démarrage. Seul un profil DIFFÉRENT (ou le même après une
+     * modification via le crayon, qui ne change pas `activeProfileId`)
+     * déclenche un vrai rechargement. */
     private fun loadProfile(profileId: Long) {
+        if (profileId == profileAdapter.activeProfileId) {
+            goToMain()
+            return
+        }
         setLoading(true)
         lifecycleScope.launch {
-            val result = (application as IptvApplication).playlistRepository.loadProfile(profileId)
+            val result = (application as IptvApplication).playlistRepository.loadProfile(profileId) { pct, msg ->
+                loadingDialog?.onProgress(pct, msg)
+            }
             setLoading(false)
             result.onSuccess { count ->
                 showStatus(getString(R.string.setup_success, count))
@@ -229,8 +243,19 @@ class SetupActivity : BaseActivity() {
         }
     }
 
+    // Rond de chargement au milieu de l'écran, avec pourcentage (29/08/2026,
+    // demande explicite "je veux aussi la fenêtre de chargement... avec un
+    // pourcentage") — cf. LoadingDialog, même dialogue que les pages Ajouter
+    // une source.
+    private var loadingDialog: LoadingDialog? = null
+
     private fun setLoading(loading: Boolean) {
-        binding.progressLoading.visibility = if (loading) View.VISIBLE else View.GONE
+        if (loading) {
+            loadingDialog = LoadingDialog(this).also { it.show() }
+        } else {
+            loadingDialog?.dismiss()
+            loadingDialog = null
+        }
     }
 
     private fun showStatus(text: String) {

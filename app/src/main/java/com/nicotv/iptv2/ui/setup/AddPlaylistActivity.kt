@@ -1,6 +1,5 @@
 package com.nicotv.iptv2.ui.setup
 
-import android.app.AlertDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -12,6 +11,7 @@ import com.nicotv.iptv2.IptvApplication
 import com.nicotv.iptv2.R
 import com.nicotv.iptv2.databinding.ActivityAddPlaylistBinding
 import com.nicotv.iptv2.ui.common.BaseActivity
+import com.nicotv.iptv2.ui.common.LoadingDialog
 import com.nicotv.iptv2.ui.main.MainActivity
 import kotlinx.coroutines.launch
 
@@ -105,7 +105,9 @@ class AddPlaylistActivity : BaseActivity() {
 
     private fun loadProfile(profileId: Long) {
         lifecycleScope.launch {
-            val result = (application as IptvApplication).playlistRepository.loadProfile(profileId)
+            val result = (application as IptvApplication).playlistRepository.loadProfile(profileId) { pct, msg ->
+                loadingDialog?.onProgress(pct, msg)
+            }
             setLoading(false)
             result.onSuccess { count ->
                 showStatus(getString(R.string.setup_success, count))
@@ -120,20 +122,14 @@ class AddPlaylistActivity : BaseActivity() {
         }
     }
 
-    // Rond de chargement au milieu de l'écran (29/08/2026, demande explicite
-    // "au milieu pas en bas... indique chargement en cours") — avant, un petit
-    // ProgressBar sans texte, tout en bas du formulaire, sous le clavier ou
-    // hors champ de vision le temps de scroller. Même style que le dialogue
-    // de mise à jour (UpdateManager.showUpdateProgress).
-    private var loadingDialog: AlertDialog? = null
+    // Rond de chargement au milieu de l'écran, avec pourcentage (29/08/2026,
+    // demande explicite "au milieu pas en bas... indique chargement en
+    // cours" puis "avec un pourcentage ça serait bien") — cf. LoadingDialog.
+    private var loadingDialog: LoadingDialog? = null
 
     private fun setLoading(loading: Boolean) {
         if (loading) {
-            val view = layoutInflater.inflate(R.layout.dialog_loading, null)
-            loadingDialog = AlertDialog.Builder(this).setView(view).setCancelable(false).create().also {
-                it.show()
-                it.window?.setBackgroundDrawableResource(android.R.color.transparent)
-            }
+            loadingDialog = LoadingDialog(this).also { it.show() }
         } else {
             loadingDialog?.dismiss()
             loadingDialog = null

@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Rond de chargement au milieu de l'écran, générique (29/08/2026, demande
-     explicite : "au milieu pas en bas... indique chargement en cours") —
-     remplace un petit ProgressBar sans texte perdu en bas du formulaire.
-     Même style que dialog_update_progress.xml (fond bg_dialog sur la vue
-     elle-même, fenêtre du dialogue mise en transparent côté Kotlin). -->
+     explicite : "au milieu pas en bas... indique chargement en cours").
+     Barre déterminée + pourcentage ajoutés le jour même (demande explicite
+     "avec un pourcentage ça serait bien") — cf. PlaylistRepository.loadProfile
+     (onProgress) pour la source des valeurs. Même style que
+     dialog_update_progress.xml (fond bg_dialog sur la vue elle-même, fenêtre
+     du dialogue mise en transparent côté Kotlin). -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="280dp"
+    android:layout_width="300dp"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:background="@drawable/bg_dialog"
@@ -15,19 +17,33 @@
     android:paddingTop="32dp"
     android:paddingBottom="32dp">
 
+    <TextView
+        android:id="@+id/tv_loading_percent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0%"
+        android:textColor="@color/accent"
+        android:textSize="28sp"
+        android:textStyle="bold" />
+
     <ProgressBar
-        android:layout_width="44dp"
-        android:layout_height="44dp"
-        android:indeterminateTint="@color/accent" />
+        android:id="@+id/progress_bar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:max="100"
+        android:progress="0"
+        android:progressTint="@color/accent" />
 
     <TextView
         android:id="@+id/tv_loading_message"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="18dp"
+        android:layout_marginTop="14dp"
+        android:gravity="center"
         android:text="@string/setup_loading_in_progress"
         android:textColor="@color/text_primary"
-        android:textSize="16sp"
-        android:textStyle="bold" />
+        android:textSize="14sp" />
 
 </LinearLayout>
