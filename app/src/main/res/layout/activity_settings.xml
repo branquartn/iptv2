@@ -1,79 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- En-tête en superposition, pas empilé au-dessus du ScrollView (29/08/2026,
+     demande explicite "le texte passe encore au-dessus de Réglages... créer
+     une zone en haut") : avant, l'en-tête et le ScrollView étaient de simples
+     frères dans une LinearLayout verticale — un cas limite de mesure
+     (poids 0dp + wrap_content voisin) pouvait laisser le contenu défilant
+     déborder visuellement sur la barre de titre, qui n'avait ni fond opaque
+     ni z-index garanti au-dessus. Ici le ScrollView occupe tout l'écran en
+     dessous, l'en-tête est un frère AJOUTÉ APRÈS (donc dessiné par-dessus) et
+     porte son propre fond opaque (@color/bg_nav, distinct de bg_dark) — le
+     contenu qui défile ne peut plus jamais passer visuellement devant elle,
+     quelle que soit la mesure. Le contenu du ScrollView compense avec un
+     paddingTop qui dégage la hauteur de cette barre. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/bg_dark">
 
-    <LinearLayout
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:clipChildren="false"
-        android:clipToPadding="false">
+        android:clipToPadding="false"
+        android:paddingBottom="24dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
+            android:orientation="vertical"
             android:paddingStart="40dp"
             android:paddingEnd="40dp"
-            android:paddingTop="24dp"
-            android:paddingBottom="16dp"
-            android:clipChildren="false"
-            android:clipToPadding="false">
-
-            <FrameLayout
-                android:id="@+id/btn_back"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_marginEnd="20dp"
-                android:focusable="true"
-                android:clickable="true"
-                android:clipChildren="false"
-                android:clipToPadding="false"
-                android:defaultFocusHighlightEnabled="false">
-
-                <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:layout_gravity="center"
-                    android:src="@drawable/ic_pwa_back"
-                    app:tint="@color/text_primary" />
-
-                <com.nicotv.iptv2.ui.common.RotatingBorderView
-                    android:id="@+id/btn_back_ring"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    app:circular="true"
-                    app:borderColor="@android:color/white"
-                    android:visibility="invisible" />
-            </FrameLayout>
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/settings_title"
-                android:textColor="@color/text_primary"
-                android:textSize="20sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <ScrollView
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:clipToPadding="false"
-            android:paddingBottom="24dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:paddingStart="40dp"
-                android:paddingEnd="40dp">
+            android:paddingTop="96dp">
 
                 <!-- ── Playlist ────────────────────────────────────────────── -->
                 <TextView
@@ -296,13 +252,66 @@
             </LinearLayout>
         </ScrollView>
 
-        <ProgressBar
-            android:id="@+id/progress_loading"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:visibility="gone" />
+    <!-- Barre de titre fixe, ajoutée APRÈS le ScrollView : dessinée par-dessus
+         (ordre de dessin = ordre des enfants), fond opaque propre (bg_nav) —
+         le contenu qui défile ne peut jamais visuellement passer devant. -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:background="@color/bg_nav"
+        android:elevation="4dp"
+        android:paddingStart="40dp"
+        android:paddingEnd="40dp"
+        android:paddingTop="24dp"
+        android:paddingBottom="16dp"
+        android:clipChildren="false"
+        android:clipToPadding="false">
 
+        <FrameLayout
+            android:id="@+id/btn_back"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="20dp"
+            android:focusable="true"
+            android:clickable="true"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:defaultFocusHighlightEnabled="false">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_pwa_back"
+                app:tint="@color/text_primary" />
+
+            <com.nicotv.iptv2.ui.common.RotatingBorderView
+                android:id="@+id/btn_back_ring"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                app:circular="true"
+                app:borderColor="@android:color/white"
+                android:visibility="invisible" />
+        </FrameLayout>
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/settings_title"
+            android:textColor="@color/text_primary"
+            android:textSize="20sp"
+            android:textStyle="bold" />
     </LinearLayout>
+
+    <ProgressBar
+        android:id="@+id/progress_loading"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:visibility="gone" />
 
 </FrameLayout>

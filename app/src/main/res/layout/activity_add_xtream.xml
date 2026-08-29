@@ -1,177 +1,183 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Page complète "Xtream Codes" (29/08/2026, demande explicite — remplace
      l'ancien AlertDialog centré affiché par-dessus l'écran Profils). Flèche
-     retour = annuler, revient sur Profils (SetupActivity). -->
+     retour = annuler, revient sur Profils (SetupActivity).
+
+     En-tête en superposition, pas empilé au-dessus du ScrollView (même
+     correctif que activity_settings.xml, 29/08/2026 — "le texte passe
+     encore au-dessus de Réglages... créer une zone en haut") : le
+     ScrollView occupe tout l'écran, l'en-tête est ajouté APRÈS (dessiné
+     par-dessus) avec son propre fond opaque — le contenu qui défile ne
+     peut plus jamais passer visuellement devant. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/bg_dark">
 
-    <LinearLayout
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:paddingStart="24dp"
-        android:paddingEnd="24dp"
-        android:paddingTop="16dp"
-        android:paddingBottom="16dp"
-        android:clipChildren="false"
-        android:clipToPadding="false">
+        android:fillViewport="true"
+        android:clipToPadding="false"
+        android:paddingBottom="16dp">
 
-        <!-- Barre d'en-tête : même structure que Profils/Réglages. -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="16dp"
-            android:orientation="horizontal"
-            android:clipChildren="false"
-            android:clipToPadding="false">
-
-            <FrameLayout
-                android:id="@+id/btn_back"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:layout_marginEnd="12dp"
-                android:focusable="true"
-                android:clickable="true"
-                android:clipChildren="false"
-                android:clipToPadding="false"
-                android:defaultFocusHighlightEnabled="false">
-
-                <ImageView
-                    android:layout_width="18dp"
-                    android:layout_height="18dp"
-                    android:layout_gravity="center"
-                    android:src="@drawable/ic_pwa_back"
-                    app:tint="@color/text_primary" />
-
-                <com.nicotv.iptv2.ui.common.RotatingBorderView
-                    android:id="@+id/btn_back_ring"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    app:circular="true"
-                    app:borderColor="@android:color/white"
-                    android:visibility="invisible" />
-            </FrameLayout>
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/setup_type_xtream"
-                android:textColor="@color/text_primary"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <ScrollView
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:fillViewport="true"
-            android:clipToPadding="false">
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:paddingTop="76dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center_horizontal">
+                android:maxWidth="480dp"
+                android:orientation="vertical">
 
-                <LinearLayout
+                <EditText
+                    android:id="@+id/et_xtream_name"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:background="@drawable/bg_input"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:hint="@string/setup_name_hint"
+                    android:textColor="@android:color/white"
+                    android:textColorHint="@color/text_secondary"
+                    android:maxLines="1"
+                    android:singleLine="true" />
+
+                <EditText
+                    android:id="@+id/et_xtream_host"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_input"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:hint="@string/setup_xtream_host_hint"
+                    android:textColor="@android:color/white"
+                    android:textColorHint="@color/text_secondary"
+                    android:inputType="textUri"
+                    android:maxLines="1"
+                    android:singleLine="true" />
+
+                <EditText
+                    android:id="@+id/et_xtream_user"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_input"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:hint="@string/setup_xtream_user_hint"
+                    android:textColor="@android:color/white"
+                    android:textColorHint="@color/text_secondary"
+                    android:inputType="text"
+                    android:maxLines="1"
+                    android:singleLine="true" />
+
+                <EditText
+                    android:id="@+id/et_xtream_pass"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_input"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:hint="@string/setup_xtream_pass_hint"
+                    android:textColor="@android:color/white"
+                    android:textColorHint="@color/text_secondary"
+                    android:inputType="textPassword"
+                    android:maxLines="1"
+                    android:singleLine="true" />
+
+                <Button
+                    android:id="@+id/btn_load_xtream"
+                    style="?android:attr/borderlessButtonStyle"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="16dp"
+                    android:background="@drawable/bg_btn_primary"
+                    android:text="@string/action_connect"
+                    android:textAllCaps="false"
+                    android:textColor="@android:color/white" />
+
+                <ProgressBar
+                    android:id="@+id/progress_loading"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:layout_marginTop="16dp"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/tv_status"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:maxWidth="480dp"
-                    android:orientation="vertical">
-
-                    <EditText
-                        android:id="@+id/et_xtream_name"
-                        android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:background="@drawable/bg_input"
-                        android:paddingStart="14dp"
-                        android:paddingEnd="14dp"
-                        android:hint="@string/setup_name_hint"
-                        android:textColor="@android:color/white"
-                        android:textColorHint="@color/text_secondary"
-                        android:maxLines="1"
-                        android:singleLine="true" />
-
-                    <EditText
-                        android:id="@+id/et_xtream_host"
-                        android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:layout_marginTop="10dp"
-                        android:background="@drawable/bg_input"
-                        android:paddingStart="14dp"
-                        android:paddingEnd="14dp"
-                        android:hint="@string/setup_xtream_host_hint"
-                        android:textColor="@android:color/white"
-                        android:textColorHint="@color/text_secondary"
-                        android:inputType="textUri"
-                        android:maxLines="1"
-                        android:singleLine="true" />
-
-                    <EditText
-                        android:id="@+id/et_xtream_user"
-                        android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:layout_marginTop="10dp"
-                        android:background="@drawable/bg_input"
-                        android:paddingStart="14dp"
-                        android:paddingEnd="14dp"
-                        android:hint="@string/setup_xtream_user_hint"
-                        android:textColor="@android:color/white"
-                        android:textColorHint="@color/text_secondary"
-                        android:inputType="text"
-                        android:maxLines="1"
-                        android:singleLine="true" />
-
-                    <EditText
-                        android:id="@+id/et_xtream_pass"
-                        android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:layout_marginTop="10dp"
-                        android:background="@drawable/bg_input"
-                        android:paddingStart="14dp"
-                        android:paddingEnd="14dp"
-                        android:hint="@string/setup_xtream_pass_hint"
-                        android:textColor="@android:color/white"
-                        android:textColorHint="@color/text_secondary"
-                        android:inputType="textPassword"
-                        android:maxLines="1"
-                        android:singleLine="true" />
-
-                    <Button
-                        android:id="@+id/btn_load_xtream"
-                        style="?android:attr/borderlessButtonStyle"
-                        android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:layout_marginTop="16dp"
-                        android:background="@drawable/bg_btn_primary"
-                        android:text="@string/action_connect"
-                        android:textAllCaps="false"
-                        android:textColor="@android:color/white" />
-
-                    <ProgressBar
-                        android:id="@+id/progress_loading"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center"
-                        android:layout_marginTop="16dp"
-                        android:visibility="gone" />
-
-                    <TextView
-                        android:id="@+id/tv_status"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:gravity="center"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="13sp"
-                        android:visibility="gone" />
-                </LinearLayout>
+                    android:layout_marginTop="12dp"
+                    android:gravity="center"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:visibility="gone" />
             </LinearLayout>
-        </ScrollView>
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Barre d'en-tête fixe, ajoutée APRÈS le ScrollView (dessinée par-dessus),
+         fond opaque propre — cf. commentaire en tête de fichier. -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:background="@color/bg_nav"
+        android:elevation="4dp"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="12dp"
+        android:clipChildren="false"
+        android:clipToPadding="false">
+
+        <FrameLayout
+            android:id="@+id/btn_back"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginEnd="12dp"
+            android:focusable="true"
+            android:clickable="true"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:defaultFocusHighlightEnabled="false">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_pwa_back"
+                app:tint="@color/text_primary" />
+
+            <com.nicotv.iptv2.ui.common.RotatingBorderView
+                android:id="@+id/btn_back_ring"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                app:circular="true"
+                app:borderColor="@android:color/white"
+                android:visibility="invisible" />
+        </FrameLayout>
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/setup_type_xtream"
+            android:textColor="@color/text_primary"
+            android:textSize="16sp"
+            android:textStyle="bold" />
     </LinearLayout>
 </FrameLayout>

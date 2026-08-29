@@ -506,8 +506,27 @@ mauvais thème et n'avait donc aucun effet.
 sens** : ouvrait `SetupActivity` directement jusqu'ici, ouvre maintenant
 `SettingsActivity`, qui elle-même propose "Changer de source" vers
 `SetupActivity(EXTRA_FORCE_SHOW)`). Ne pas revenir à l'ancien raccourci direct.
-Depuis 29/08/2026, `SetupActivity` a elle aussi son propre accès direct
-(icône Réglages dans sa barre d'en-tête, cf. sa section plus haut).
+`SetupActivity` (Profils), elle, n'a **aucun** accès Réglages — cf. sa
+section plus haut (retiré définitivement le 29/08/2026 après 2 essais).
+
+⚠️ **En-tête en superposition, pas empilée avec le ScrollView** (corrigé
+29/08/2026, demande explicite : "le texte passe encore au-dessus de
+Réglages... créer une zone en haut") — `activity_settings.xml` empilait
+l'en-tête et le `ScrollView` comme deux frères dans une `LinearLayout`
+verticale (poids 0dp sur le ScrollView) ; le contenu qui défile pouvait
+visuellement passer devant le titre "Réglages", l'en-tête n'ayant ni fond
+opaque propre ni z-index garanti au-dessus. Restructuré en superposition :
+le `ScrollView` occupe tout l'écran, l'en-tête est un frère ajouté **après**
+lui dans le XML (donc dessiné par-dessus, l'ordre de dessin suit l'ordre des
+enfants) avec son propre fond opaque (`@color/bg_nav`, distinct de
+`bg_dark`) + `elevation="4dp"` — le contenu ne peut plus jamais passer
+devant, quelle que soit la mesure. Le contenu du `ScrollView` compense avec
+un `paddingTop` fixe (96dp) qui dégage la hauteur de la barre. **Même
+correctif appliqué à `activity_add_playlist.xml`/`activity_add_xtream.xml`**
+(même risque structurel, ces deux pages construites plus tôt le même jour) —
+si un futur écran empile encore un en-tête `wrap_content` au-dessus d'un
+`ScrollView` en simples frères, reprendre ce même patron de superposition
+plutôt que redemander "pourquoi ça déborde".
 
 - **Cache images (Coil)** : config explicite dans `IptvApplication`
   (`ImageLoaderFactory`) — 300 Mo disque, 25% de la RAM en mémoire. Par défaut
