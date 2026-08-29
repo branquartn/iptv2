@@ -10,8 +10,8 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 79
-val appVersionName = "1.0.78"
+val appVersionCode = 80
+val appVersionName = "1.0.79"
 // Changelog affiché dans le modal de mise à jour OTA.
 // ⚠️ OUBLIÉ PENDANT ~15 VERSIONS (29/08/2026, bug signalé par l'utilisateur :
 // "le texte de la maj n'est pas le bon") — appVersionCode/appVersionName ont
@@ -20,7 +20,7 @@ val appVersionName = "1.0.78"
 // modif du 28/08 alors qu'on en était à v1.0.50). Ce commentaire ne suffit
 // visiblement pas tout seul à s'en souvenir : à chaque bump de version,
 // updater CETTE ligne AVANT de commit, pas après coup.
-val appChangelog = "Bibliothèques mises à jour (lecteur vidéo, base de données, images) et dépendances inutilisées retirées."
+val appChangelog = "Compilation avec le SDK Android 37 (le plus récent) ; comportement d'exécution inchangé."
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
@@ -35,7 +35,18 @@ fun secretProperty(localName: String, envName: String): String =
 
 android {
     namespace = "com.nicotv.iptv2"
-    compileSdk = 36
+    // ⚠️ compileSdk et targetSdk sont volontairement DÉSYNCHRONISÉS (30/08/2026).
+    // - compileSdk 37 : compiler avec le SDK le plus récent est sans effet à
+    //   l'exécution — ça donne accès aux nouvelles API et à un lint à jour.
+    //   API 37 est bien une version STABLE (vérifié sur le dépôt Google :
+    //   platforms;android-37.2, canal stable, codename vide — pas une preview).
+    // - targetSdk 36 : monter le targetSdk, LUI, change le comportement à
+    //   l'exécution (restrictions arrière-plan, média, PiP) — impossible à
+    //   valider par relecture de code sur une app dont la lecture vidéo et le
+    //   PiP sont critiques, et le Play Store n'exige pas 37 aujourd'hui.
+    //   À monter dans un lot dédié, en vérifiant lecture + PiP + sortie de
+    //   veille sur un vrai appareil.
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.nicotv.iptv2"

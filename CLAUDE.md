@@ -397,6 +397,36 @@ focus au bon endroit — le lui reprendre serait pire que de ne rien faire.
 **Films n'a volontairement pas ce comportement** (non demandé) : y ajouter le
 même appel suffirait, `positionOf` est déjà partagé dans l'adapter.
 
+## SDK Android : compileSdk 37, targetSdk 36 (désynchronisation volontaire)
+
+⚠️ **30/08/2026, question "et même les API pour le Play Store, c'est les
+dernières ?"** — vérifié sur le dépôt Google (`repository2-3.xml`), pas
+supposé : la dernière plateforme STABLE est **android-37.2** (canal stable,
+`<codename>` vide — donc pas une preview ; Android numérote désormais en
+versions mineures : 36.1, 37.0, 37.1, 37.2).
+
+État retenu : **compileSdk 37 / targetSdk 36 / minSdk 21**. Les deux premiers
+sont désynchronisés **exprès** :
+- `compileSdk` n'a **aucun effet à l'exécution** : compiler avec le SDK le plus
+  récent donne accès aux nouvelles API et à un lint à jour, sans rien changer
+  au comportement de l'app. Aucun risque → pris.
+- `targetSdk` **change le comportement à l'exécution** (restrictions
+  arrière-plan, média, PiP, permissions). C'est le seul changement de cette
+  série qu'une relecture de code ne peut PAS valider, sur une app dont la
+  lecture vidéo et le PiP sont critiques. Et le Play Store ne l'exige pas
+  aujourd'hui : la conformité se mesure à l'API publiée l'année précédente,
+  que 36 satisfait.
+  **Pour le monter un jour** : lot dédié, rien d'autre dedans, puis vérifier
+  sur un vrai appareil la lecture, le PiP, la sortie de veille et la reprise
+  après mise en arrière-plan.
+
+⚠️ **Le serveur de build n'avait que les plateformes 34/35/36.** `platforms;
+android-37.2` + `build-tools;37.0.0` ont été installés via
+`/opt/android-sdk/cmdline-tools/latest/bin/sdkmanager` (licences déjà
+acceptées). Sans ça, `compileSdk = 37` fait échouer le build sur un
+"Failed to install the following SDK components". Si le build casse après un
+changement de `compileSdk`, vérifier d'abord `ls /opt/android-sdk/platforms`.
+
 ## Dépendances : montée de version + retrait des dépendances mortes
 
 ⚠️ **30/08/2026, demande "c'est possible de mettre les dernières API pour
