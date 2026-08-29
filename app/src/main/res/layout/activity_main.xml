@@ -246,39 +246,23 @@
 
         <FrameLayout
             android:id="@+id/card_films"
-            android:layout_width="220dp"
+            android:layout_width="280dp"
             android:layout_height="188dp"
             android:layout_marginEnd="18dp"
-            android:background="@drawable/bg_hub_card"
             android:focusable="true"
             android:focusableInTouchMode="true">
 
-            <!-- Remplacée par une jaquette/backdrop du catalogue en rotation dès
-                 qu'il y en a une (cf. MainActivity.loadRotatingHubImage) — hub_films
-                 reste le repli tant que rien n'est chargé (M3U vide, pas encore
-                 de profil...). -->
+            <!-- Image collage générée (29/08/2026, demande explicite "comme
+                 Chaînes mais avec des films") — remplace la jaquette/backdrop
+                 du catalogue en rotation (MainActivity.loadRotatingHubImage,
+                 retiré) : image fixe, plus de dépendance au catalogue. Même
+                 traitement que card_live : pleine opacité, pas de dégradé
+                 par-dessus, carte élargie à 280dp pour le ratio 3:2. -->
             <ImageView
-                android:id="@+id/iv_films_bg"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:alpha="0.5"
                 android:scaleType="centerCrop"
-                android:src="@drawable/hub_films" />
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="@drawable/gradient_hub" />
-
-            <ImageView
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:layout_gravity="top|end"
-                android:layout_marginTop="18dp"
-                android:layout_marginEnd="18dp"
-                android:alpha="0.85"
-                android:src="@drawable/ic_movies"
-                app:tint="@android:color/white" />
+                android:src="@drawable/hub_films_collage" />
 
             <LinearLayout
                 android:layout_width="wrap_content"
@@ -308,35 +292,19 @@
 
         <FrameLayout
             android:id="@+id/card_series"
-            android:layout_width="220dp"
+            android:layout_width="280dp"
             android:layout_height="188dp"
-            android:background="@drawable/bg_hub_card"
             android:focusable="true"
             android:focusableInTouchMode="true">
 
-            <!-- Cf. iv_films_bg juste au-dessus : même principe pour les séries. -->
+            <!-- Cf. card_films juste au-dessus : même principe pour les séries
+                 (image collage générée, plus de rotation catalogue, pas de
+                 dégradé). -->
             <ImageView
-                android:id="@+id/iv_series_bg"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:alpha="0.5"
                 android:scaleType="centerCrop"
-                android:src="@drawable/hub_series" />
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="@drawable/gradient_hub" />
-
-            <ImageView
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:layout_gravity="top|end"
-                android:layout_marginTop="18dp"
-                android:layout_marginEnd="18dp"
-                android:alpha="0.85"
-                android:src="@drawable/ic_series"
-                app:tint="@android:color/white" />
+                android:src="@drawable/hub_series_collage" />
 
             <LinearLayout
                 android:layout_width="wrap_content"

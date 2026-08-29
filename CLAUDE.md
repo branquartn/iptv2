@@ -619,67 +619,52 @@ la tester sur un vrai upgrade, pas seulement sur une install neuve.
   en lecture). Redondant avec le flag déjà posé par `PlayerActivity` — sans
   conséquence, jamais retiré nulle part.
 
-## Accueil (MainActivity) — jaquettes en rotation + fond aléatoire
+## Accueil (MainActivity) — 3 cartes en images collage statiques
 
-Porté depuis NicoTV (28/08/2026, demande explicite « ressemble plus à mon
-apli NicoTV ») : `iv_films_bg`/`iv_series_bg` affichent une jaquette/backdrop
-du catalogue chargé, tirée dans les 12 titres les plus récents
-(`updatedAt`), et tournent toutes les 45s (`loadRotatingHubImage`, offset
-décalé entre films/séries pour ne pas changer en même temps). `iv_home_bg`
-(plein écran, alpha 0.26) tire un fond au hasard parmi films+séries, **stable
-pour tout le process** (`MainActivity.cachedHomeBgUrl`, companion) — remis à
-`null` par `SetupActivity.loadProfile()` quand un nouveau catalogue est
-chargé (`resetHomeBg()`), sinon l'ancien fond resterait affiché après un
-changement de source.
+⚠️ **Dénouement d'une longue série de revirements le 29/08/2026** — les 3
+cartes (Chaînes/Films/Séries) sont passées par plusieurs traitements dans la
+même journée (rotation de jaquettes catalogue, mosaïque de logos par
+correspondance dynamique, logos embarqués en dur...) avant de se stabiliser
+sur un principe unique et volontairement simple pour les 3 : **une image
+collage statique en plein cadre, aucune dépendance au catalogue de
+l'utilisateur, pas de dégradé, pas d'icône superposée**. Carte élargie
+**220dp → 280dp** (hauteur inchangée 188dp) pour coller au ratio ~3:2 des
+images. **Ne pas réintroduire de rotation/logique dynamique sur ces 3 cartes
+sans redemander** — ce point précis a changé plusieurs fois avant de se
+fixer ici.
 
-⚠️ **Carte Films : rotation restreinte aux films FR** (28/08/2026, demande
-explicite) — le pool de jaquettes tournantes (`movieHubUrls`) est filtré par
-`extractLeadingLanguageCode(it.category)` avant de prendre les 12 plus
-récents, même filtre que le réglage "Langue du contenu" (cf. section
-Réglages) — pas l'ancienne heuristique `isFrenchLabel`. **Carte Séries non
-filtrée** (pas demandé) : continue de tourner sur tout le catalogue série.
+- **Chaînes** (`card_live`) : `res/drawable-nodpi/hub_live_collage.jpg`,
+  collage Canal+/TF1/OCS/Netflix/Prime/beIN **fourni par l'utilisateur**
+  (trouvé dans `iptv2/update/`, PNG original ~2,4 Mo converti en JPEG
+  qualité 90 → ~400 Ko) — pas une image générée ou choisie par Claude.
+  **⚠️ Inclut de vraies marques déposées**, réserve sur le risque juridique
+  déjà actée avec l'utilisateur pour cette image précise (cf. historique de
+  la mosaïque de logos qui l'a précédée).
+- **Films** (`card_films`) : `res/drawable-nodpi/hub_films_collage.jpg`,
+  couloir de cinéma avec affiches de films (image **générée** via
+  `mcp__pollinations__generateImageUrl`, modèle `sana`, seed fixe pour
+  reproductibilité — prompt simple et concret plutôt que des instructions de
+  composition détaillées, `sana` suit mal les prompts complexes multi-zones :
+  premiers essais avec un prompt décrivant une grille de 5 cases précises
+  ont donné des images abstraites sans rapport). Aucune marque/titre réel
+  représenté — image générique, pas de risque équivalent à Chaînes.
+- **Séries** (`card_series`) : `res/drawable-nodpi/hub_series_collage.jpg`,
+  salle de home cinéma avec écran allumé, même méthode de génération que
+  Films.
 
-⚠️ **Bug corrigé 29/08/2026 : "l'image de fond ne change jamais"** — le
-filtre utilisait `== "FR"` en égalité stricte au lieu de la règle "aucun
-préfixe détecté = accepté" (`c == null || c == "FR"`, cf. `MoviesViewModel.
-applyLanguageFilter`, même piège déjà rencontré et corrigé là-bas pour la
-même raison : sur un panel où la plupart des catégories françaises n'ont
-justement aucun préfixe de langue, l'égalité stricte ne laissait passer
-qu'une poignée de films voire un seul — `movieHubUrls` de taille 1, la
-rotation (`loadRotatingHubImage`, `urls[(slot+offset) % urls.size]`) retombe
-alors toujours sur le même index. Si un futur filtre par langue est ajouté
-ailleurs dans l'app, reprendre `c == null || c == contentLanguage`
-systématiquement — ne jamais réintroduire une égalité stricte sur
-`extractLeadingLanguageCode`.
-
-⚠️ **Carte Chaînes : image collage unique, pas une mosaïque de logos**
-(29/08/2026, dénouement d'une longue série de revirements le même jour —
-d'abord aucune image, puis un logo unique en rotation, puis une mosaïque de
-6 logos statique par correspondance dynamique sur le catalogue (jamais
-fiable : Canal+/OCS/Prime quasi jamais présents comme "chaîne" Xtream avec
-logo), puis 6 logos embarqués en dur (`MosaicLogo`/`brandMosaicLogos`/
-`bindLiveMosaic`, avec repli `Local`/`Remote`, correspondance par mot entier
-`hasWord()`...) — **tout ce mécanisme a été retiré**, remplacé par une seule
-image fournie par l'utilisateur (collage Canal+/TF1/OCS/Netflix/Prime/beIN
-déjà composé). **Ne pas réintroduire un système de correspondance
-dynamique/logos séparés sans redemander** — ce choix a déjà changé 4 fois
-dans la journée avant de se stabiliser ici.
-
-`card_live` (`activity_main.xml`) : un simple `ImageView` plein cadre
-(`android:src="@drawable/hub_live_collage"`, `centerCrop`), plus aucune
-dépendance au catalogue Room ni logique Kotlin (`MainActivity` ne contient
-plus rien lié à cette carte à part `applyHubCardClipping`/le focus). Carte
-élargie **220dp → 280dp** (hauteur inchangée 188dp) pour coller au ratio 3:2
-de l'image (1536×1024) et limiter le rognage en `centerCrop` — Films/Séries
-restent à 220dp, seule Chaînes a changé (demande explicite "adapte le bouton
-à la photo"). **Pas de dégradé par-dessus** (`gradient_hub`, retiré) : le
-texte "Chaînes" reste lisible directement sur l'image (fond déjà sombre).
-Icône TV en haut à droite (`ic_live`) retirée aussi (demande explicite,
-même jour). Asset : `res/drawable-nodpi/hub_live_collage.jpg` (converti en
-JPEG qualité 90 depuis le PNG original ~2,4 Mo → ~400 Ko, image fournie par
-l'utilisateur — pas une image générée ou choisie par Claude, mêmes réserves
-sur le risque marque déposée que les tentatives précédentes puisqu'elle
-inclut les logos Canal+/TF1/OCS/Netflix/Prime/beIN).
+`iv_home_bg` (fond plein écran, alpha 0.26) est **indépendant** de ces 3
+images de carte : il continue de tirer un fond au hasard parmi les
+films/séries du catalogue chargé de l'utilisateur (`maybeSetHomeBg`,
+`movieHubUrls`/`seriesHubUrls` — ces deux champs n'existent plus que pour
+alimenter ce fond, `loadRotatingHubImage`/`movieRotationJob`/
+`seriesRotationJob` ont disparu avec la rotation des cartes), stable pour
+tout le process (`MainActivity.cachedHomeBgUrl`) — remis à `null` par
+`SetupActivity.loadProfile()` quand un nouveau catalogue est chargé
+(`resetHomeBg()`). Le filtre FR des films pour ce fond (`extractLeading
+LanguageCode(it.category)`) a gardé son correctif du 29/08/2026 : `c == null
+|| c == "FR"`, jamais une égalité stricte (un panel où la plupart des
+catégories françaises n'ont aucun préfixe de langue détecté — égalité
+stricte = quasi aucun film retenu).
 
 ⚠️ **Compteurs retirés des 3 cartes** (`tv_live_count`/`tv_films_count`/
 `tv_series_count`, 28/08/2026, demande explicite) — les vues XML **et** leurs

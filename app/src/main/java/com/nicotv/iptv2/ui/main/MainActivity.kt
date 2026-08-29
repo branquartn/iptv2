@@ -7,11 +7,9 @@ import android.os.Bundle
 import android.view.View
 import android.view.ViewOutlineProvider
 import android.widget.Button
-import android.widget.ImageView
 import androidx.activity.OnBackPressedCallback
 import androidx.lifecycle.lifecycleScope
 import coil.load
-import coil.transform.RoundedCornersTransformation
 import com.nicotv.iptv2.IptvApplication
 import com.nicotv.iptv2.R
 import com.nicotv.iptv2.databinding.ActivityMainBinding
@@ -23,22 +21,17 @@ import com.nicotv.iptv2.ui.search.SearchActivity
 import com.nicotv.iptv2.ui.series.SeriesActivity
 import com.nicotv.iptv2.update.checkForAppUpdate
 import com.nicotv.iptv2.util.extractLeadingLanguageCode
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private var movieRotationJob: Job? = null
-    private var seriesRotationJob: Job? = null
 
-    // Listes courantes des fonds de vignettes — mises à jour par Room, lues par
-    // les jobs de rotation à chaque tick (mêmes noms/principe que NicoTV
-    // MainActivity, cf. son CLAUDE.md).
+    // Dernières listes de films/séries récents connues — servent uniquement au
+    // fond plein écran aléatoire (maybeSetHomeBg). Les cartes Films/Séries,
+    // elles, n'en dépendent plus (images collage statiques, cf. activity_main.xml).
     private var movieHubUrls: List<String> = emptyList()
     private var seriesHubUrls: List<String> = emptyList()
 
@@ -81,21 +74,8 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         binding.ivHomeBg.load(cachedHomeBgUrl) { crossfade(true) }
     }
 
-    private fun loadRotatingHubImage(imageView: ImageView?, urls: List<String>, offset: Int) {
-        if (imageView == null || urls.isEmpty()) return
-        val slot = (System.currentTimeMillis() / HUB_ROTATION_INTERVAL_MS).toInt()
-        val url = urls[(slot + offset).floorMod(urls.size)]
-        // Évite de relancer un crossfade si l'image affichée est déjà la bonne.
-        if (imageView.tag == url) return
-        imageView.tag = url
-        imageView.load(url) {
-            crossfade(true)
-            transformations(RoundedCornersTransformation(dp()))
-        }
-    }
-
     private fun applyHubCardClipping() {
-        listOf(binding.cardLive, binding.cardFilms, binding.cardSeries, binding.ivFilmsBg, binding.ivSeriesBg).forEach { view ->
+        listOf(binding.cardLive, binding.cardFilms, binding.cardSeries).forEach { view ->
             view.outlineProvider = object : ViewOutlineProvider() {
                 override fun getOutline(view: View, outline: Outline) {
                     outline.setRoundRect(0, 0, view.width, view.height, dp())
@@ -106,8 +86,6 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
     }
 
     private fun dp(value: Float = HUB_CARD_RADIUS_DP): Float = value * resources.displayMetrics.density
-
-    private fun Int.floorMod(other: Int): Int = ((this % other) + other) % other
 
     private var quitDialog: AlertDialog? = null
 
@@ -206,19 +184,8 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                 }
                 .distinctUntilChanged()
                 .collect { movieUrls ->
-                    // Room émet en rafale pendant un chargement de profil : on ne
-                    // redémarre pas le job (sinon les images défilent trop vite),
-                    // juste la liste que la rotation lit à son prochain tick.
                     movieHubUrls = movieUrls
                     maybeSetHomeBg(movieUrls + seriesHubUrls)
-                    if (movieRotationJob == null && movieUrls.isNotEmpty()) {
-                        movieRotationJob = lifecycleScope.launch {
-                            while (isActive) {
-                                loadRotatingHubImage(binding.ivFilmsBg, movieHubUrls, HUB_MOVIE_OFFSET)
-                                delay(HUB_ROTATION_INTERVAL_MS)
-                            }
-                        }
-                    }
                 }
         }
         lifecycleScope.launch {
@@ -234,14 +201,6 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                 .collect { seriesUrls ->
                     seriesHubUrls = seriesUrls
                     maybeSetHomeBg(movieHubUrls + seriesUrls)
-                    if (seriesRotationJob == null && seriesUrls.isNotEmpty()) {
-                        seriesRotationJob = lifecycleScope.launch {
-                            while (isActive) {
-                                loadRotatingHubImage(binding.ivSeriesBg, seriesHubUrls, HUB_SERIES_OFFSET)
-                                delay(HUB_ROTATION_INTERVAL_MS)
-                            }
-                        }
-                    }
                 }
         }
 
@@ -265,10 +224,7 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
     }
 
     companion object {
-        private const val HUB_ROTATION_INTERVAL_MS = 45_000L
         private const val HUB_CARD_RADIUS_DP = 16f
-        private const val HUB_MOVIE_OFFSET = 0
-        private const val HUB_SERIES_OFFSET = 5
         // Fond plein écran : stable pour tout le process (survit à une
         // réouverture de l'accueil), remis à null quand le catalogue change
         // (nouveau profil chargé, cf. SetupActivity.loadProfile) pour ne pas
