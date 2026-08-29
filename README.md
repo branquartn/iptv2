@@ -30,7 +30,10 @@ app/src/main/java/com/nicotv/iptv2/
   player/                # PlayerActivity (Media3/ExoPlayer)
   ui/
     setup/                # écran de démarrage : profils + choix de la source
+                          # (AddPlaylistActivity/AddXtreamActivity, pages
+                          # dédiées avec retour vers l'écran Profils)
     main/                 # accueil (3 tuiles : Chaînes / Films / Séries)
+    settings/             # cache images/playlist, langue du contenu
     live/ movies/ series/ detail/ favorites/ resume/ search/
     common/               # BaseActivity, PosterAdapter, RotatingBorderView...
   update/UpdateManager.kt # OTA : lit version.json, télécharge + installe l'APK
