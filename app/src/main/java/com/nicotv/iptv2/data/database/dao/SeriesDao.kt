@@ -37,7 +37,9 @@ interface SeriesDao {
         SELECT * FROM series
         WHERE (:lang IS NULL OR languageCode = '' OR languageCode = :lang)
           AND (:category IS NULL OR category = :category)
-        ORDER BY title ASC
+        -- Cf. MovieDao.getMoviesPage : `id` en dernier critère pour un ordre
+        -- total, sans quoi la pagination peut dupliquer/perdre des lignes.
+        ORDER BY title ASC, id ASC
         LIMIT :limit OFFSET :offset
     """)
     suspend fun getSeriesPage(lang: String?, category: String?, limit: Int, offset: Int): List<SeriesEntity>

@@ -397,6 +397,40 @@ focus au bon endroit — le lui reprendre serait pire que de ne rien faire.
 **Films n'a volontairement pas ce comportement** (non demandé) : y ajouter le
 même appel suffirait, `positionOf` est déjà partagé dans l'adapter.
 
+## Doublons en pagination : l'ORDER BY doit être TOTAL
+
+⚠️ **30/08/2026, signalé "dans les films j'ai des doublons maintenant"** —
+apparu avec la pagination. Cause classique :
+
+```sql
+ORDER BY title ASC LIMIT 60 OFFSET 120   -- ❌ instable
+```
+Un catalogue IPTV contient **énormément de titres identiques** (même film en
+plusieurs qualités/sources). SQLite ne garantit AUCUN ordre entre des lignes
+ex æquo, et cet ordre peut différer d'une exécution à l'autre : une ligne déjà
+renvoyée en page 2 peut donc ressortir en page 3 (et une autre disparaître
+définitivement). Correctif : **terminer tout ORDER BY paginé par une colonne
+unique** (`id`), ce qui rend l'ordre total et la pagination stable.
+
+C'est encore plus critique sur les chaînes : `tntRank` vaut `Int.MAX_VALUE`
+pour toutes les chaînes non reconnues et `sortOrder` vaut 0 pour toutes celles
+issues d'Xtream — soit des paquets d'ex æquo énormes.
+
+Deux garde-fous ajoutés au passage dans les 3 ViewModel :
+- **`loadGeneration`** : incrémenté à chaque `reload()`. Une page demandée pour
+  un filtre abandonné entre-temps (l'utilisateur change de catégorie pendant
+  que la requête tourne) est **jetée** au lieu d'être empilée sur la nouvelle
+  liste — sinon on mélange les résultats de deux filtres.
+- **Dédoublonnage par `id`** à l'ajout d'une page : redondant maintenant que
+  l'ordre est total, mais si le cas se represente, mieux vaut afficher un
+  élément de moins que la même affiche deux fois.
+
+⚠️ **Distinguer les deux sortes de doublons** : si des doublons persistent dans
+une CATÉGORIE précise (chargée en entier, donc sans pagination), ce ne sont pas
+des artefacts de pagination mais de **vraies lignes distinctes** du panel —
+même titre, `streamUrl` différent (l'index unique est `(title, streamUrl)`).
+Rien à corriger côté app dans ce cas.
+
 ## minSdk 23 (Android 6.0) — Android 5.x abandonné
 
 ⚠️ **30/08/2026, décision utilisateur explicite**, prise après un build cassé :

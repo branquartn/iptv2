@@ -59,6 +59,9 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
     private var endReached = false
     private var isSearching = false
 
+    /** Cf. MoviesViewModel.loadGeneration. */
+    private var loadGeneration = 0
+
     private val _series = MediatorLiveData<List<Movie>>()
     val series: LiveData<List<Movie>> = _series
 
@@ -123,13 +126,27 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
     fun loadNextPage() {
         if (isSearching || endReached || _isLoadingMore.value == true) return
         _isLoadingMore.value = true
+        val generation = loadGeneration
         viewModelScope.launch {
             val page = withContext(Dispatchers.Default) {
                 repository.getSeriesPage(contentLanguage, selectedCategory.value, offset = pagingOffset, limit = PlaylistRepository.MOVIES_PAGE_SIZE)
             }
+            // Le filtre a changé pendant la requête : cette page appartient à
+            // un état révolu, l'ajouter mélangerait deux résultats.
+            if (generation != loadGeneration) {
+                _isLoadingMore.value = false
+                return@launch
+            }
+            val current = _series.value ?: emptyList()
+            // Filet anti-doublons : l'ordre SQL est désormais total (cf.
+            // MovieDao.getMoviesPage) donc une page ne devrait plus jamais
+            // recouper la précédente — mais si ça arrivait, mieux vaut afficher
+            // moins que deux fois la même affiche.
+            val known = current.mapTo(HashSet(current.size)) { it.id }
+            val fresh = page.filterNot { it.id in known }
             pagingOffset += page.size
             if (page.size < PlaylistRepository.MOVIES_PAGE_SIZE) endReached = true
-            _series.value = (_series.value ?: emptyList()) + page
+            if (fresh.isNotEmpty()) _series.value = current + fresh
             _isLoadingMore.value = false
         }
     }

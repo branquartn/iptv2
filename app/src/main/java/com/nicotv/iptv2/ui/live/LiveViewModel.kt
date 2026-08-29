@@ -88,6 +88,9 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
      * ouvrir directement sur "Général FR" plutôt que sur "Toutes". */
     private var awaitingDefaultCategory = true
 
+    /** Cf. MoviesViewModel.loadGeneration. */
+    private var loadGeneration = 0
+
     init {
         _channels.addSource(searchQuery) { reload() }
         _channels.addSource(selectedCategory) { reload() }
@@ -98,6 +101,7 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
     private fun reload() {
         if (awaitingDefaultCategory) return
         job?.cancel()
+        loadGeneration++
         pagingOffset = 0
         endReached = false
         _isReady.value = false
@@ -171,6 +175,7 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
     fun loadNextPage() {
         if (isSearching || endReached || _isLoadingMore.value == true) return
         _isLoadingMore.value = true
+        val generation = loadGeneration
         viewModelScope.launch {
             val cat = selectedCategory.value
             val page = withContext(Dispatchers.Default) {
@@ -179,9 +184,17 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
                     frenchSort = frenchSortFor(cat), offset = pagingOffset, limit = PlaylistRepository.MOVIES_PAGE_SIZE
                 )
             }
+            // Cf. MoviesViewModel.loadNextPage : page d'un filtre abandonné.
+            if (generation != loadGeneration) {
+                _isLoadingMore.value = false
+                return@launch
+            }
+            val current = _channels.value ?: emptyList()
+            val known = current.mapTo(HashSet(current.size)) { it.id }
+            val fresh = page.filterNot { it.id in known }
             pagingOffset += page.size
             if (page.size < PlaylistRepository.MOVIES_PAGE_SIZE) endReached = true
-            _channels.value = (_channels.value ?: emptyList()) + page
+            if (fresh.isNotEmpty()) _channels.value = current + fresh
             _isLoadingMore.value = false
         }
     }

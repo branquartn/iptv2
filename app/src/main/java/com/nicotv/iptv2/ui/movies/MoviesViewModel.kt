@@ -106,6 +106,13 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
     // deux chargements, dont le plus coûteux pour rien.
     private var awaitingDefaultCategory = true
 
+    /** ⚠️ Incrémenté à chaque `reload()` : une page demandée pour un filtre
+     * abandonné entre-temps (changement de catégorie/recherche pendant que la
+     * requête tournait) ne doit PAS être ajoutée à la nouvelle liste, sinon on
+     * empile des résultats de deux filtres différents — l'une des causes
+     * possibles des doublons signalés le 30/08/2026. */
+    private var loadGeneration = 0
+
     init {
         _movies.addSource(searchQuery) { reload() }
         _movies.addSource(selectedCategory) { reload() }
@@ -115,6 +122,7 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
     private fun reload() {
         if (awaitingDefaultCategory) return
         job?.cancel()
+        loadGeneration++
         pagingOffset = 0
         endReached = false
         _isReady.value = false
@@ -189,13 +197,27 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
     fun loadNextPage() {
         if (isSearching || endReached || _isLoadingMore.value == true) return
         _isLoadingMore.value = true
+        val generation = loadGeneration
         viewModelScope.launch {
             val page = withContext(Dispatchers.Default) {
                 repository.getMoviesPage(contentLanguage, selectedCategory.value, offset = pagingOffset, limit = PlaylistRepository.MOVIES_PAGE_SIZE)
             }
+            // Le filtre a changé pendant la requête : cette page appartient à
+            // un état révolu, l'ajouter mélangerait deux résultats.
+            if (generation != loadGeneration) {
+                _isLoadingMore.value = false
+                return@launch
+            }
+            val current = _movies.value ?: emptyList()
+            // Filet anti-doublons : l'ordre SQL est désormais total (cf.
+            // MovieDao.getMoviesPage) donc une page ne devrait plus jamais
+            // recouper la précédente — mais si ça arrivait, mieux vaut afficher
+            // moins que deux fois la même affiche.
+            val known = current.mapTo(HashSet(current.size)) { it.id }
+            val fresh = page.filterNot { it.id in known }
             pagingOffset += page.size
             if (page.size < PlaylistRepository.MOVIES_PAGE_SIZE) endReached = true
-            _movies.value = (_movies.value ?: emptyList()) + page
+            if (fresh.isNotEmpty()) _movies.value = current + fresh
             _isLoadingMore.value = false
         }
     }

@@ -46,9 +46,14 @@ interface ChannelDao {
         WHERE (:lang IS NULL OR nameLanguageCode = '' OR nameLanguageCode = :lang)
           AND (:category IS NULL OR category = :category)
           AND (:favOnly = 0 OR id IN (SELECT itemId FROM favorites WHERE itemType = :favType))
+        -- Cf. MovieDao.getMoviesPage : `id` en dernier critère. Ici c'est
+        -- d'autant plus nécessaire que tntRank vaut Int.MAX_VALUE pour TOUTES
+        -- les chaînes non reconnues et sortOrder 0 pour toutes celles d'Xtream
+        -- — soit d'énormes paquets d'ex æquo.
         ORDER BY
           CASE WHEN :frenchSort = 1 THEN tntRank ELSE sortOrder END ASC,
-          name ASC
+          name ASC,
+          id ASC
         LIMIT :limit OFFSET :offset
     """)
     suspend fun getChannelsPage(

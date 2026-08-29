@@ -65,7 +65,14 @@ interface MovieDao {
         SELECT * FROM movies
         WHERE (:lang IS NULL OR languageCode = '' OR languageCode = :lang)
           AND (:category IS NULL OR category = :category)
-        ORDER BY title ASC
+        -- ⚠️ `id` OBLIGATOIRE en dernier critère (30/08/2026, doublons signalés) :
+        -- des titres IDENTIQUES existent en masse dans un catalogue IPTV (mêmes
+        -- films en plusieurs qualités/sources). Avec `ORDER BY title` seul,
+        -- l'ordre des ex æquo n'est pas garanti d'une requête à l'autre, donc
+        -- une même ligne pouvait ressortir sur deux pages consécutives (et une
+        -- autre disparaître). Ajouter une colonne UNIQUE en fin de tri rend
+        -- l'ordre total et la pagination stable.
+        ORDER BY title ASC, id ASC
         LIMIT :limit OFFSET :offset
     """)
     suspend fun getMoviesPage(lang: String?, category: String?, limit: Int, offset: Int): List<MovieEntity>
