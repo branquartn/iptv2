@@ -1,6 +1,6 @@
 {
-  "versionCode": 56,
-  "versionName": "1.0.55",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.55.apk",
-  "changelog": "En-têtes Profils/Réglages harmonisées avec logo, taille du cache images maintenant affichée dans Réglages."
+  "versionCode": 57,
+  "versionName": "1.0.56",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.56.apk",
+  "changelog": "Bandeaux du haut (Profils, Réglages, ajout de source) maintenant tous à la même hauteur."
 }
