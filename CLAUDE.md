@@ -424,6 +424,36 @@ vérifier qu'un `flowOn(Dispatchers.Default)` est présent avant le `collect`**
 — l'absence ne casse rien visuellement en dev sur un petit catalogue de test,
 elle ne se voit qu'à l'échelle d'un vrai panel Xtream volumineux.
 
+⚠️ **"La première fois que je vais dans Films il ne charge pas" (corrigé
+29/08/2026, distinct du correctif précédent sur l'accueil)** — confirmé
+"ça finit par charger si j'attends" : ce n'était pas un blocage permanent
+mais un affichage trompeur. `moviesFlow`/`seriesFlow`/`channelsFlow`
+(`stateIn(appScope, SharingStarted.Eagerly, emptyList())`) fournissent
+`emptyList()` comme valeur de départ **synchrone**, disponible immédiatement
+pour tout nouveau collecteur, AVANT même que la vraie requête Room (des
+dizaines de milliers de lignes) ait fini de s'exécuter en arrière-plan. Rien
+ne distinguait "catalogue vraiment vide" de "pas encore chargé" : les 3
+écrans (`MoviesActivity`/`SeriesActivity`/`LiveActivity`) cachaient le
+spinner et affichaient "Aucun titre trouvé" dès cette première valeur
+(vide), puis se repeuplaient d'un coup une fois la vraie valeur arrivée —
+perçu comme "ça ne charge pas" plutôt que "ça charge encore, patiente".
+Fix : `PlaylistRepository` expose maintenant `isMoviesReady()`/
+`isSeriesReady()`/`isChannelsReady()` (`StateFlow<Boolean>`, mis à `true` via
+un `.onEach{}` sur le `combine()` AVANT le `stateIn` — `onEach` s'exécute
+pour chaque émission de l'amont, y compris la toute première, contrairement
+à la valeur de départ de `stateIn` qui n'en fait jamais partie : signal
+fiable de "la vraie requête a répondu au moins une fois", peu importe si le
+résultat est vide ou non). Chaque ViewModel expose `isReady` (`asLiveData()`
+dessus), et chaque Activity combine `isReady` + sa liste filtrée dans un
+`MediatorLiveData<Unit>` qui recalcule l'affichage à chaque changement de
+l'un ou l'autre — spinner tant que `!ready`, "Aucun titre trouvé" seulement
+si `ready && liste.isEmpty()`. Une fois `true`, `isReady` ne redevient jamais
+`false` (la requête ne "désapprend" pas avoir répondu), donc pas de flicker
+après coup. Si un futur écran consomme directement `getMovies()`/
+`getSeries()`/`getChannels()` sans passer par le ViewModel/Activity existant,
+reprendre le même patron (`isXReady()` + spinner tant que non prêt) plutôt
+que de se fier à `liste.isEmpty()` seul pour décider d'afficher "vide".
+
 ## Titre "propre" à l'affichage (Movie.displayTitle)
 
 Demande explicite 28/08/2026 : "voir le vrai nom du film" — `util.

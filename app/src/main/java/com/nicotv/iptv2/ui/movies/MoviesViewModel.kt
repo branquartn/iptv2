@@ -26,6 +26,13 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
 
     private val allMovies = repository.getMovies().asLiveData()
 
+    // ⚠️ Distingue "pas encore chargé" de "vraiment vide" (corrigé 29/08/2026,
+    // signalé "la première fois que je vais dans Films il ne charge pas") —
+    // cf. PlaylistRepository.isMoviesReady pour le détail. Observé par
+    // MoviesActivity pour garder le spinner (et ne pas afficher "Aucun titre
+    // trouvé") tant que la vraie requête Room n'a jamais répondu.
+    val isReady = repository.isMoviesReady().asLiveData()
+
     // Réglage persistant (Réglages > Langue du contenu) — lu une fois à
     // l'ouverture de l'écran (nouveau ViewModel à chaque visite, cf.
     // CLAUDE.md), pas besoin d'être réactif en cours d'écran. Liste de codes

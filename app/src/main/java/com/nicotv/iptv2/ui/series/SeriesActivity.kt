@@ -97,13 +97,22 @@ class SeriesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
             if (actionId == EditorInfo.IME_ACTION_SEARCH) { hideKeyboard(); true } else false
         }
 
-        binding.progressLoading.visibility = View.VISIBLE
-        viewModel.filteredSeries.observe(this) { series ->
-            binding.progressLoading.visibility = View.GONE
+        // ⚠️ Cf. MoviesActivity, même correctif 29/08/2026 ("la première fois
+        // que je vais dans Films/Séries il ne charge pas") — le spinner reste
+        // affiché tant que isReady n'est pas true, pas juste tant que
+        // filteredSeries n'a rien émis (sa toute première valeur peut déjà
+        // être une liste vide arrivée avant la vraie requête Room).
+        val render = androidx.lifecycle.MediatorLiveData<Unit>()
+        render.addSource(viewModel.filteredSeries) { render.value = Unit }
+        render.addSource(viewModel.isReady) { render.value = Unit }
+        render.observe(this) {
+            val series = viewModel.filteredSeries.value ?: emptyList()
+            val ready = viewModel.isReady.value == true
+            binding.progressLoading.visibility = if (!ready) View.VISIBLE else View.GONE
             adapter.submitList(series)
             binding.tvCount.text = "${series.size}"
-            binding.tvEmpty.visibility = if (series.isEmpty()) View.VISIBLE else View.GONE
-            binding.rvPosters.visibility = if (series.isEmpty()) View.GONE else View.VISIBLE
+            binding.tvEmpty.visibility = if (ready && series.isEmpty()) View.VISIBLE else View.GONE
+            binding.rvPosters.visibility = if (!ready || series.isEmpty()) View.GONE else View.VISIBLE
         }
     }
 

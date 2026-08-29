@@ -31,9 +31,12 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -518,6 +521,24 @@ class PlaylistRepository(
     // valeur déjà prête, quasi instantané. Recalculé automatiquement si
     // movies/favorites/watch_history changent (Room réémet), pas seulement au
     // premier accès.
+    // ⚠️ Signalent la toute PREMIÈRE émission réelle de chaque combine (corrigé
+    // 29/08/2026, signalé "la première fois que je vais dans Films il ne
+    // charge pas") — `stateIn(..., emptyList())` fournit `emptyList()` comme
+    // valeur de départ SYNCHRONE avant même que la vraie requête Room (des
+    // dizaines de milliers de lignes) n'ait eu le temps de s'exécuter en
+    // arrière-plan : rien ne distinguait alors "catalogue vraiment vide" de
+    // "pas encore chargé", et les 3 écrans (Movies/Series/LiveActivity)
+    // affichaient immédiatement "Aucun titre trouvé" avant de se repeupler
+    // d'un coup une fois la vraie valeur arrivée — perçu comme "ça ne charge
+    // pas" plutôt que "ça charge encore". `onEach` s'exécute pour CHAQUE
+    // émission de l'amont (y compris la première, qu'elle soit vide ou non),
+    // contrairement à la valeur de départ de `stateIn` qui n'en fait jamais
+    // partie — signal fiable de "la vraie requête a répondu au moins une
+    // fois", peu importe le contenu.
+    private val _moviesReady = MutableStateFlow(false)
+    private val _seriesReady = MutableStateFlow(false)
+    private val _channelsReady = MutableStateFlow(false)
+
     private val moviesFlow: Flow<List<Movie>> by lazy {
         combine(db.movieDao().getAllMovies(), db.favoriteDao().getFavoritesByType(FavoriteEntity.Type.MOVIE), db.watchHistoryDao().getAllHistory()) { movies, favs, history ->
             val favIds = favs.map { it.itemId }.toSet()
@@ -526,26 +547,36 @@ class PlaylistRepository(
                 val h = historyByKey["m${m.id}"]
                 m.toDomain(isFavorite = m.id in favIds, watchProgress = h?.progressPercent ?: 0)
             }
-        }.stateIn(appScope, SharingStarted.Eagerly, emptyList())
+        }.onEach { _moviesReady.value = true }.stateIn(appScope, SharingStarted.Eagerly, emptyList())
     }
 
     private val seriesFlow: Flow<List<Movie>> by lazy {
         combine(db.seriesDao().getAllSeries(), db.favoriteDao().getFavoritesByType(FavoriteEntity.Type.SERIES)) { series, favs ->
             val favIds = favs.map { it.itemId }.toSet()
             series.map { it.toDomain(isFavorite = it.id in favIds) }
-        }.stateIn(appScope, SharingStarted.Eagerly, emptyList())
+        }.onEach { _seriesReady.value = true }.stateIn(appScope, SharingStarted.Eagerly, emptyList())
     }
 
     private val channelsFlow: Flow<List<Channel>> by lazy {
         combine(db.channelDao().getAllChannels(), db.favoriteDao().getFavoritesByType(FavoriteEntity.Type.CHANNEL)) { channels, favs ->
             val favIds = favs.map { it.itemId }.toSet()
             channels.map { it.toDomain(isFavorite = it.id in favIds) }
-        }.stateIn(appScope, SharingStarted.Eagerly, emptyList())
+        }.onEach { _channelsReady.value = true }.stateIn(appScope, SharingStarted.Eagerly, emptyList())
     }
 
     fun getMovies(): Flow<List<Movie>> = moviesFlow
     fun getSeries(): Flow<List<Movie>> = seriesFlow
     fun getChannels(): Flow<List<Channel>> = channelsFlow
+
+    /** Vrai dès que la première requête réelle (pas la valeur de départ de
+     * stateIn) a répondu — cf. commentaire sur _moviesReady/_seriesReady/
+     * _channelsReady plus haut. Accéder à ces StateFlow force le `by lazy`
+     * du Flow correspondant (même déclenchement que getMovies()/getSeries()/
+     * getChannels()), donc sans effet si l'écran appelant a déjà préchauffé
+     * via MainActivity.observeData(). */
+    fun isMoviesReady(): StateFlow<Boolean> { moviesFlow; return _moviesReady }
+    fun isSeriesReady(): StateFlow<Boolean> { seriesFlow; return _seriesReady }
+    fun isChannelsReady(): StateFlow<Boolean> { channelsFlow; return _channelsReady }
 
     /** Langues/bouquets réellement présents dans le catalogue chargé — pour
      * peupler dynamiquement le choix "Langue du contenu" (Réglages), pas de

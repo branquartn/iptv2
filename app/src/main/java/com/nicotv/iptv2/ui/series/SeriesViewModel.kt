@@ -25,6 +25,10 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
 
     private val allSeries = repository.getSeries().asLiveData()
 
+    // ⚠️ Distingue "pas encore chargé" de "vraiment vide" — cf.
+    // MoviesViewModel.isReady/PlaylistRepository.isSeriesReady, même correctif.
+    val isReady = repository.isSeriesReady().asLiveData()
+
     // Réglage persistant (Réglages > Langue du contenu) — cf. MoviesViewModel,
     // même principe (filtre par code, pas l'heuristique isFrenchLabel).
     // ⚠️ Pas un "exact match" (corrigé 28/08/2026, régression signalée par

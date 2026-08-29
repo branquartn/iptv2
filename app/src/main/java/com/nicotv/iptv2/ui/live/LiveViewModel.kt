@@ -28,6 +28,10 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
 
     private val allChannels = repository.getChannels().asLiveData()
 
+    // ⚠️ Distingue "pas encore chargé" de "vraiment vide" — cf.
+    // MoviesViewModel.isReady/PlaylistRepository.isChannelsReady, même correctif.
+    val isReady = repository.isChannelsReady().asLiveData()
+
     val searchQuery = MutableLiveData("")
     val selectedCategory = MutableLiveData<String?>(null)
     val favoritesOnly = MutableLiveData(false)

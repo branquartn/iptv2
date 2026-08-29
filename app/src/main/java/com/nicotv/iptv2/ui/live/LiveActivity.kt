@@ -74,12 +74,21 @@ class LiveActivity : BaseActivity() {
 
         viewModel.categories.observe(this) { cats -> categoryAdapter.submitList(cats) }
 
-        binding.progressLoading.visibility = View.VISIBLE
-        viewModel.filteredChannels.observe(this) { channels ->
-            binding.progressLoading.visibility = View.GONE
+        // ⚠️ Cf. MoviesActivity, même correctif 29/08/2026 ("la première fois
+        // que je vais dans Chaînes il ne charge pas") — le spinner reste
+        // affiché tant que isReady n'est pas true, pas juste tant que
+        // filteredChannels n'a rien émis (sa toute première valeur peut déjà
+        // être une liste vide arrivée avant la vraie requête Room).
+        val render = androidx.lifecycle.MediatorLiveData<Unit>()
+        render.addSource(viewModel.filteredChannels) { render.value = Unit }
+        render.addSource(viewModel.isReady) { render.value = Unit }
+        render.observe(this) {
+            val channels = viewModel.filteredChannels.value ?: emptyList()
+            val ready = viewModel.isReady.value == true
+            binding.progressLoading.visibility = if (!ready) View.VISIBLE else View.GONE
             channelAdapter.submitList(channels)
-            binding.tvEmpty.visibility = if (channels.isEmpty()) View.VISIBLE else View.GONE
-            binding.rvChannels.visibility = if (channels.isEmpty()) View.GONE else View.VISIBLE
+            binding.tvEmpty.visibility = if (ready && channels.isEmpty()) View.VISIBLE else View.GONE
+            binding.rvChannels.visibility = if (!ready || channels.isEmpty()) View.GONE else View.VISIBLE
             // Même astuce que l'écran Favoris (29/08/2026, demande explicite
             // "aussi avoir le tips des favoris dans les favoris des chaînes")
             // — vide à cause du filtre favoris "appui long" = pas découvrable

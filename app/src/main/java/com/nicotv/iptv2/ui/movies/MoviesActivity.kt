@@ -95,13 +95,29 @@ class MoviesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
             if (actionId == EditorInfo.IME_ACTION_SEARCH) { hideKeyboard(); true } else false
         }
 
-        binding.progressLoading.visibility = View.VISIBLE
-        viewModel.filteredMovies.observe(this) { movies ->
-            binding.progressLoading.visibility = View.GONE
+        // ⚠️ Rendu recalculé sur CHAQUE émission de filteredMovies OU isReady
+        // (corrigé 29/08/2026, signalé "la première fois que je vais dans
+        // Films il ne charge pas") — avant, le spinner se cachait dès la
+        // toute première émission de filteredMovies, qui peut être une liste
+        // vide (valeur de départ de moviesFlow, cf. PlaylistRepository)
+        // arrivée AVANT que la vraie requête Room (des dizaines de milliers
+        // de lignes) n'ait fini de s'exécuter en arrière-plan : "Aucun titre
+        // trouvé" s'affichait donc à tort le temps que le catalogue arrive,
+        // perçu comme "ça ne charge pas" plutôt que "ça charge encore".
+        // `MediatorLiveData` recombine les deux à chaque changement de l'un
+        // ou l'autre — `isReady` passe à `true` une seule fois (la requête ne
+        // "redevient" jamais non-répondue), donc pas de flicker après coup.
+        val render = androidx.lifecycle.MediatorLiveData<Unit>()
+        render.addSource(viewModel.filteredMovies) { render.value = Unit }
+        render.addSource(viewModel.isReady) { render.value = Unit }
+        render.observe(this) {
+            val movies = viewModel.filteredMovies.value ?: emptyList()
+            val ready = viewModel.isReady.value == true
+            binding.progressLoading.visibility = if (!ready) View.VISIBLE else View.GONE
             adapter.submitList(movies)
             binding.tvCount.text = "${movies.size}"
-            binding.tvEmpty.visibility = if (movies.isEmpty()) View.VISIBLE else View.GONE
-            binding.rvPosters.visibility = if (movies.isEmpty()) View.GONE else View.VISIBLE
+            binding.tvEmpty.visibility = if (ready && movies.isEmpty()) View.VISIBLE else View.GONE
+            binding.rvPosters.visibility = if (!ready || movies.isEmpty()) View.GONE else View.VISIBLE
         }
     }
 
