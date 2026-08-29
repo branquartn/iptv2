@@ -397,6 +397,42 @@ focus au bon endroit — le lui reprendre serait pire que de ne rien faire.
 **Films n'a volontairement pas ce comportement** (non demandé) : y ajouter le
 même appel suffirait, `positionOf` est déjà partagé dans l'adapter.
 
+## Chaînes manquantes : "VIP:" pris pour un code langue
+
+⚠️ **30/08/2026, signalé "pour les chaînes il m'en manque"** — diagnostiqué sur
+une capture IPTV Smarters de la catégorie `FR| FRANCE SPORT ᵛᴵᴾ ᴿᴬᵂ` : les
+chaînes s'y appellent **`VIP: BEIN SPORTS 1`**, `VIP: CANAL+ FOOT`,
+`VIP: BEIN SPORTS MAX…`.
+
+`extractLeadingLanguageCode` acceptait **n'importe quel** mot de 2 à 4 lettres
+suivi de `:` ou `|` comme code langue. `VIP:` était donc lu comme une langue,
+différente de "FR" → **toutes ces chaînes étaient filtrées et disparaissaient**
+dès qu'un filtre "Langue du contenu" était actif (soit toujours, le défaut
+étant FR). Des centaines de chaînes sur ce panel.
+
+**Correctif : liste blanche `LANGUAGE_CODES`** — un préfixe n'est reconnu comme
+langue que s'il figure dans une liste de vrais codes (ISO 639-1/2 + pays).
+`VIP`, `RAW`, `MAX`, `NEW`, `TOP`… ne matchent plus.
+
+⚠️ **Le SENS de l'erreur est choisi exprès** : un code absent de la liste est
+traité comme "pas de langue", donc l'élément est **gardé** (préfixe affiché
+tel quel). Au pire on montre une chaîne de trop ; **jamais on n'en perd**.
+C'est l'inverse d'une liste noire, qui laisserait passer tout marqueur oublié
+et continuerait à faire disparaître du contenu **en silence** — exactement le
+mode de panne qu'on vient de subir, invisible tant que l'utilisateur ne compare
+pas avec une autre application.
+
+⚠️ Ces codes sont **stockés en base au chargement** (`nameLanguageCode`,
+`languageCode`, `categoryLanguageCode`) : corriger la fonction ne suffit pas,
+il faut **recharger la playlist**. D'où Room **version 12**, qui force ce
+rechargement au lieu de laisser l'utilisateur avec des colonnes périmées et un
+bug d'apparence non corrigé.
+
+Piège plus général à retenir : les noms de ces panels mélangent librement
+langue (`FR|`), qualité (`ᴴᴰ`, `⁴ᴷ`, `RAW`), offre (`VIP:`) et décoration
+(`#### … ####`). Toute heuristique de préfixe doit être **fermée** (liste de
+valeurs connues) et jamais ouverte (motif générique).
+
 ## Ordre des AFFICHES = ordre du panel (pas alphabétique)
 
 ⚠️ **30/08/2026, demande explicite** : "dans le mur de films aussi, l'ordre des

@@ -12,13 +12,48 @@ package com.nicotv.iptv2.util
 private val LEADING_CODE_COLON_PIPE = Regex("""^\s*([A-Za-z]{2,4})\s*[:|]\s*""")
 private val LEADING_CODE_DASH = Regex("""^\s*([A-Za-z]{2,4})\s*-\s+""")
 
+/**
+ * ⚠️ LISTE BLANCHE OBLIGATOIRE (30/08/2026) — sans elle, la regex seule prend
+ * **n'importe quel** mot de 2 à 4 lettres suivi de `:` ou `|` pour un code
+ * langue. Bug vécu, signalé "pour les chaînes il m'en manque" : sur le panel
+ * réel, des centaines de chaînes s'appellent `VIP: BEIN SPORTS 1`,
+ * `VIP: CANAL+ FOOT`… — "VIP" était donc lu comme une langue, différente de
+ * "FR", et **toutes ces chaînes disparaissaient** du filtre "Langue du
+ * contenu". Même piège en puissance avec `RAW:`, `MAX:`, `NEW:`, `TOP:`…
+ *
+ * Le sens de l'erreur est choisi exprès : un code ABSENT de cette liste est
+ * traité comme "pas de langue", donc l'élément est **gardé** (et son préfixe
+ * reste affiché). Au pire on montre une chaîne de trop ; jamais on n'en perd —
+ * l'inverse d'une liste noire, qui laisserait passer tout marqueur oublié et
+ * continuerait à faire disparaître du contenu en silence.
+ *
+ * Ajouter un code ici seulement s'il désigne vraiment une langue/un pays.
+ */
+private val LANGUAGE_CODES = setOf(
+    // Codes 2 lettres (ISO 639-1 / pays) réellement croisés sur ces panels
+    "FR", "EN", "AR", "DE", "ES", "IT", "PT", "NL", "BE", "CH", "CA", "AF",
+    "TR", "PL", "RU", "RO", "GR", "SE", "NO", "DK", "FI", "IS", "HU", "CZ",
+    "SK", "BG", "HR", "RS", "SR", "AL", "MK", "UA", "IL", "IR", "IN", "PK",
+    "TH", "VN", "CN", "JP", "KR", "BR", "MX", "US", "UK", "GB", "LU", "MA",
+    "DZ", "TN", "EG", "QA", "AE", "SA", "KW", "EX", "LB", "SY", "JO", "YE",
+    // Codes 3 lettres (ISO 639-2 / pays)
+    "ENG", "FRA", "FRE", "GER", "DEU", "SPA", "ESP", "POR", "ITA", "NED",
+    "DUT", "TUR", "POL", "RUS", "ARA", "SWE", "NOR", "DAN", "FIN", "GRE",
+    "ROM", "HUN", "CZE", "SVK", "HRV", "SRP", "UKR", "HEB", "HIN", "THA",
+    "VIE", "CHI", "JPN", "KOR", "USA", "GBR", "BEL", "SUI", "CAN", "BRA",
+    "MEX", "ARG", "MAR", "ALG", "TUN", "EGY", "AFR", "SUO"
+)
+
 /** Code en tête ("FR", "AF"...) ou null si le texte n'en a pas — toujours en
  * MAJUSCULES (une chaîne "fr: tf1" donnerait "FR", jamais rencontré en
- * pratique mais plus sûr). */
+ * pratique mais plus sûr). Renvoie null si le préfixe trouvé n'est pas un vrai
+ * code langue (cf. [LANGUAGE_CODES] : "VIP:", "RAW:"...). */
 fun extractLeadingLanguageCode(text: String): String? {
-    LEADING_CODE_COLON_PIPE.find(text)?.let { return it.groupValues[1].uppercase() }
-    LEADING_CODE_DASH.find(text)?.let { return it.groupValues[1].uppercase() }
-    return null
+    val candidate = LEADING_CODE_COLON_PIPE.find(text)?.groupValues?.get(1)
+        ?: LEADING_CODE_DASH.find(text)?.groupValues?.get(1)
+        ?: return null
+    val code = candidate.uppercase()
+    return if (code in LANGUAGE_CODES) code else null
 }
 
 /** Retire le préfixe correspondant à [code] ("FR: TF1 HD" + "FR" → "TF1 HD")
