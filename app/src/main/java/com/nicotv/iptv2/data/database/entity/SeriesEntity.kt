@@ -15,7 +15,8 @@ import com.nicotv.iptv2.util.withoutLeadingLanguageCode
     // Cf. MovieEntity pour le raisonnement (audit perf 30/08/2026).
     indices = [
         Index(value = ["title"], unique = true),
-        Index(value = ["category", "title", "categoryOrder"]),
+        Index(value = ["category", "sortOrder", "categoryOrder"]),
+        Index(value = ["sortOrder"]),
         Index(value = ["languageCode"]),
         Index(value = ["updatedAt"])
     ]
@@ -43,7 +44,9 @@ data class SeriesEntity(
     @ColumnInfo(defaultValue = "") val languageCode: String = "",
     @ColumnInfo(defaultValue = "") val categoryStripped: String = "",
     /** Cf. MovieEntity.categoryOrder — ordre de la catégorie dans la source. */
-    @ColumnInfo(defaultValue = "0") val categoryOrder: Int = 0
+    @ColumnInfo(defaultValue = "0") val categoryOrder: Int = 0,
+    /** Cf. MovieEntity.sortOrder — rang de la série dans la source. */
+    @ColumnInfo(defaultValue = "0") val sortOrder: Int = 0
 ) {
     fun toDomain(isFavorite: Boolean = false) = Movie(
         id = id,

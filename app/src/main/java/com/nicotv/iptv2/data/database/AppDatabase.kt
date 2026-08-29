@@ -22,7 +22,7 @@ import com.nicotv.iptv2.data.database.entity.WatchHistoryEntity
 @Database(
     entities = [ChannelEntity::class, MovieEntity::class, SeriesEntity::class, EpisodeEntity::class,
                 FavoriteEntity::class, WatchHistoryEntity::class, PlaylistProfileEntity::class],
-    version = 10,
+    version = 11,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

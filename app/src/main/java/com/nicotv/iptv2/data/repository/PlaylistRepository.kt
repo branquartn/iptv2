@@ -286,7 +286,10 @@ class PlaylistRepository(
                     MovieEntity(
                         title = entry.name, streamUrl = entry.url, posterUrl = entry.logo, category = entry.groupTitle,
                         languageCode = MovieEntity.languageCodeFor(entry.groupTitle), categoryStripped = MovieEntity.categoryStrippedFor(entry.groupTitle),
-                        categoryOrder = orderOf(entry.groupTitle)
+                        categoryOrder = orderOf(entry.groupTitle),
+                        // Rang dans le fichier : movies.size vaut le nombre de
+                        // films déjà ajoutés, donc l'index du prochain.
+                        sortOrder = movies.size
                     )
                 )
                 M3uParser.Kind.EPISODE -> {
@@ -298,7 +301,8 @@ class PlaylistRepository(
                             MovieEntity(
                                 title = entry.name, streamUrl = entry.url, posterUrl = entry.logo, category = entry.groupTitle,
                                 languageCode = MovieEntity.languageCodeFor(entry.groupTitle), categoryStripped = MovieEntity.categoryStrippedFor(entry.groupTitle),
-                                categoryOrder = orderOf(entry.groupTitle)
+                                categoryOrder = orderOf(entry.groupTitle),
+                                sortOrder = movies.size
                             )
                         )
                     } else {
@@ -385,6 +389,9 @@ class PlaylistRepository(
         db.movieDao().insertAll(enrichedMovies)
 
         val allEpisodes = mutableListOf<EpisodeEntity>()
+        // Rang de la série dans le fichier — seriesEpisodes est une
+        // LinkedHashMap, donc l'itération suit l'ordre d'apparition.
+        var seriesSortOrder = 0
         for ((seriesTitle, items) in seriesEpisodes) {
             val category = items.first().first.groupTitle
             val logo = seriesLogos[seriesTitle].orEmpty()
@@ -400,7 +407,8 @@ class PlaylistRepository(
                     category = category,
                     languageCode = SeriesEntity.languageCodeFor(category),
                     categoryStripped = SeriesEntity.categoryStrippedFor(category),
-                    categoryOrder = categoryOrder[category] ?: 0
+                    categoryOrder = categoryOrder[category] ?: 0,
+                    sortOrder = seriesSortOrder++
                 )
             )
             items.forEach { (entry, parsed, _) ->
@@ -508,15 +516,18 @@ class PlaylistRepository(
         // seules entrées sans jaquette restait des milliers d'appels TMDb —
         // lent et lourd (CPU/réseau) pour un gain marginal. Pas de secours TMDb
         // possible ici de toute façon.
-        val movies = vodStreams.map {
-            val cat = vodCats[it.categoryId]?.name.orEmpty()
+        // ⚠️ mapIndexed : l'index dans get_vod_streams EST l'ordre voulu par le
+        // panel (nouveautés en tête) — c'est celui qu'affiche IPTV Smarters.
+        val movies = vodStreams.mapIndexed { index, stream ->
+            val cat = vodCats[stream.categoryId]?.name.orEmpty()
             MovieEntity(
-                title = it.name, streamUrl = client.vodStreamUrl(it.streamId, it.containerExtension),
-                posterUrl = it.icon, overview = it.plot, rating = it.rating,
+                title = stream.name, streamUrl = client.vodStreamUrl(stream.streamId, stream.containerExtension),
+                posterUrl = stream.icon, overview = stream.plot, rating = stream.rating,
                 category = cat,
-                xtreamStreamId = it.streamId,
+                xtreamStreamId = stream.streamId,
                 languageCode = MovieEntity.languageCodeFor(cat), categoryStripped = MovieEntity.categoryStrippedFor(cat),
-                categoryOrder = vodCatOrder[it.categoryId] ?: 0
+                categoryOrder = vodCatOrder[stream.categoryId] ?: 0,
+                sortOrder = index
             )
         }
 
@@ -524,7 +535,7 @@ class PlaylistRepository(
         db.channelDao().deleteAll(); db.movieDao().deleteAll(); db.seriesDao().deleteAll()
         db.channelDao().insertAll(channels)
         db.movieDao().insertAll(movies)
-        for (s in seriesList) {
+        for ((seriesIndex, s) in seriesList.withIndex()) {
             val cat = seriesCats[s.categoryId]?.name.orEmpty()
             db.seriesDao().insert(
                 SeriesEntity(
@@ -537,7 +548,8 @@ class PlaylistRepository(
                     xtreamSeriesId = s.seriesId,
                     languageCode = SeriesEntity.languageCodeFor(cat),
                     categoryStripped = SeriesEntity.categoryStrippedFor(cat),
-                    categoryOrder = seriesCatOrder[s.categoryId] ?: 0
+                    categoryOrder = seriesCatOrder[s.categoryId] ?: 0,
+                    sortOrder = seriesIndex
                 )
             )
         }

@@ -397,6 +397,35 @@ focus au bon endroit — le lui reprendre serait pire que de ne rien faire.
 **Films n'a volontairement pas ce comportement** (non demandé) : y ajouter le
 même appel suffirait, `positionOf` est déjà partagé dans l'adapter.
 
+## Ordre des AFFICHES = ordre du panel (pas alphabétique)
+
+⚠️ **30/08/2026, demande explicite** : "dans le mur de films aussi, l'ordre des
+jaquettes", capture d'IPTV Smarters à l'appui (catégorie `FR - FILM CAM` :
+Mutiny, Insidious, The End of Oak Street… — des sorties récentes, clairement
+PAS un ordre alphabétique).
+
+Même principe que pour les catégories, appliqué à l'entrée elle-même :
+colonne **`sortOrder`** sur `MovieEntity`/`SeriesEntity`, remplie au chargement
+— index dans `get_vod_streams`/`get_series` côté Xtream (le panel renvoie déjà
+ses entrées dans l'ordre voulu, nouveautés en tête), ordre d'apparition dans le
+fichier côté M3U. `getMoviesPage`/`getSeriesPage` trient désormais
+`ORDER BY sortOrder ASC, id ASC` au lieu de `title`.
+
+Index adaptés en conséquence : `(category, sortOrder, categoryOrder)` remplace
+`(category, title, categoryOrder)` — le tri chaud porte sur `sortOrder`, pas
+sur `title` — plus un index simple `(sortOrder)` pour le cas "Toutes" (pas de
+catégorie sélectionnée). Room **version 11**.
+
+⚠️ **Le tri alphabétique reste voulu ailleurs** : résultats de recherche
+(`searchByTitle`) et liste des favoris — l'utilisateur y cherche un titre
+précis, l'ordre du panel n'y a aucun sens.
+
+⚠️ **Ces ordres (catégories ET affiches) ne sont captés qu'au CHARGEMENT de la
+playlist.** Un catalogue chargé avant a `sortOrder`/`categoryOrder` à 0
+partout : tout est ex æquo et l'app retombe sur son critère secondaire
+(alphabétique/id). Si l'ordre semble "ne pas être pris en compte", la première
+question est donc : la playlist a-t-elle été rechargée depuis la mise à jour ?
+
 ## Doublons en pagination : l'ORDER BY doit être TOTAL
 
 ⚠️ **30/08/2026, signalé "dans les films j'ai des doublons maintenant"** —

@@ -39,7 +39,13 @@ interface SeriesDao {
           AND (:category IS NULL OR category = :category)
         -- Cf. MovieDao.getMoviesPage : `id` en dernier critère pour un ordre
         -- total, sans quoi la pagination peut dupliquer/perdre des lignes.
-        ORDER BY title ASC, id ASC
+        -- ⚠️ `sortOrder` et NON `title` (30/08/2026, demande explicite : "dans le
+        -- mur de films aussi, l'ordre des jaquettes") : le panel classe ses
+        -- entrées dans un ordre voulu (nouveautés en tête), celui qu'affiche
+        -- IPTV Smarters — le tri alphabétique le détruisait. `id` reste en
+        -- dernier critère pour un ordre TOTAL, sans quoi la pagination peut
+        -- dupliquer ou perdre des lignes (cf. doublons du 30/08/2026).
+        ORDER BY sortOrder ASC, id ASC
         LIMIT :limit OFFSET :offset
     """)
     suspend fun getSeriesPage(lang: String?, category: String?, limit: Int, offset: Int): List<SeriesEntity>

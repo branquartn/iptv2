@@ -16,19 +16,23 @@ import com.nicotv.iptv2.util.withoutLeadingLanguageCode
     // l'écran Films faisait un balayage complet de la table (~47 000 lignes sur
     // le panel de test) : filtrer par catégorie, lister les catégories
     // (GROUP BY), ou sortir les 12 dernières jaquettes du fond d'accueil.
-    // - ("category", "title", "categoryOrder") : couvre le cas le PLUS chaud —
-    //   une catégorie précise, triée par titre (l'écran par défaut). SQLite se
-    //   positionne directement sur la catégorie ET les lignes sortent déjà
-    //   triées, donc aucun tri à faire. `categoryOrder` en QUEUE d'index (il
-    //   n'entre dans aucun filtre) rend en prime la requête des catégories
-    //   `GROUP BY category ORDER BY MIN(categoryOrder)` entièrement
-    //   satisfaisable depuis l'index, sans lire une seule ligne de la table —
-    //   un index couvrant, plutôt qu'un 4e index à maintenir à chaque insert.
+    // - ("category", "sortOrder", "categoryOrder") : couvre le cas le PLUS
+    //   chaud — une catégorie précise, triée dans l'ordre du panel (l'écran par
+    //   défaut). SQLite se positionne directement sur la catégorie ET les
+    //   lignes sortent déjà triées, donc aucun tri à faire. `categoryOrder` en
+    //   QUEUE (il n'entre dans aucun filtre) rend en prime la requête des
+    //   catégories `GROUP BY category ORDER BY MIN(categoryOrder)` satisfaisable
+    //   depuis l'index seul — un index couvrant plutôt qu'un index de plus.
+    // - ("sortOrder") : même tri, sans catégorie sélectionnée ("Toutes").
     // - ("languageCode") : filtre "Langue du contenu".
     // - ("updatedAt") : ORDER BY updatedAt DESC LIMIT 12 du fond d'accueil.
+    // Chaque index coûte au CHARGEMENT de la playlist (47 000 insertions) : ne
+    // pas en ajouter sans vérifier qu'aucun existant ne peut couvrir le besoin
+    // en réordonnant ses colonnes.
     indices = [
         Index(value = ["title", "streamUrl"], unique = true),
-        Index(value = ["category", "title", "categoryOrder"]),
+        Index(value = ["category", "sortOrder", "categoryOrder"]),
+        Index(value = ["sortOrder"]),
         Index(value = ["languageCode"]),
         Index(value = ["updatedAt"])
     ]
@@ -96,7 +100,14 @@ data class MovieEntity(
     // group-title dans le fichier. 0 par défaut → un catalogue chargé avant
     // cette version a toutes ses catégories à égalité, d'où le tri
     // alphabétique conservé en second critère (cf. les DAO).
-    @ColumnInfo(defaultValue = "0") val categoryOrder: Int = 0
+    @ColumnInfo(defaultValue = "0") val categoryOrder: Int = 0,
+    // ⚠️ Rang du FILM lui-même dans la source (30/08/2026, demande explicite :
+    // "dans le mur de films aussi, l'ordre des jaquettes"). Même principe que
+    // categoryOrder, mais au niveau de l'entrée : le panel classe ses films
+    // dans un ordre voulu (nouveautés en tête, cf. capture IPTV Smarters
+    // fournie par l'utilisateur), que le tri alphabétique détruisait.
+    // Xtream : index dans get_vod_streams. M3U : ordre d'apparition.
+    @ColumnInfo(defaultValue = "0") val sortOrder: Int = 0
 ) {
     fun toDomain(
         isFavorite: Boolean = false,
