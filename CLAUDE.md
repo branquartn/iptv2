@@ -366,11 +366,17 @@ d'où la récidive. Équivalences à utiliser :
 | `submitList(list, commitCallback)` | 1.1.0 | `submitList(list)` + `post {}` |
 | `ConcatAdapter` | 1.2.0 | — |
 
-**Avant d'écrire du code RecyclerView, vérifier que l'API existe en 1.0.0** :
-l'IDE et la complétion proposent les versions récentes, et l'erreur n'apparaît
-qu'au build (que Claude ne lance jamais sur ce projet). Monter recyclerview
-explicitement réglerait la classe entière de problèmes, mais toucherait aussi
-leanback (`VerticalGridView` étend `RecyclerView`) — non testé, donc non fait.
+✅ **RÉSOLU À LA RACINE le 30/08/2026** : `androidx.recyclerview` est
+désormais **déclaré explicitement** en **1.4.0** dans `libs.versions.toml` (il
+n'arrivait que transitivement, en 1.0.0). Le tableau ci-dessus n'est donc plus
+une contrainte — il est conservé comme trace de la panne. Le code garde
+néanmoins les formes compatibles (`getItem`/`itemCount`, `adapterPosition`) :
+elles fonctionnent dans les deux versions, les remplacer n'apporterait rien.
+
+⚠️ **Leçon générale** : une dépendance jamais déclarée est une dépendance dont
+personne ne contrôle la version. Si une bibliothèque compte dans le code,
+elle doit figurer dans `libs.versions.toml`, même quand elle "arrive toute
+seule".
 
 ⚠️ **Focus D-pad posé sur la catégorie par défaut — Chaînes uniquement**
 (30/08/2026, demande explicite : "quand ça va dans Général FR je voudrais que
@@ -390,6 +396,38 @@ changement de catégorie ultérieur vient d'un clic utilisateur, qui a déjà le
 focus au bon endroit — le lui reprendre serait pire que de ne rien faire.
 **Films n'a volontairement pas ce comportement** (non demandé) : y ajouter le
 même appel suffirait, `positionOf` est déjà partagé dans l'adapter.
+
+## Dépendances : montée de version + retrait des dépendances mortes
+
+⚠️ **30/08/2026, demande "c'est possible de mettre les dernières API pour
+tout ?"** — versions vérifiées sur les dépôts réels (`maven-metadata.xml` de
+`dl.google.com` et Maven Central), pas devinées.
+
+**Montées** : core-ktx 1.13.1→1.19.0, appcompat 1.7.0→1.8.0, constraintlayout
+2.1.4→2.2.2, lifecycle 2.8.2→2.11.0, room 2.6.1→2.8.4, media3 1.3.1→1.11.0,
+coil 2.6.0→2.7.0, coroutines 1.8.1→1.11.0, splashscreen 1.0.1→1.2.0, leanback
+1.0.0→1.2.0, **+ recyclerview 1.4.0 déclaré explicitement**.
+
+**Retirées — vérifiées inutilisées** (grep sur `java/` ET `res/`) : Retrofit +
+converter-gson, Gson, DataStore, SwipeRefreshLayout, okhttp-logging, et les
+entrées jamais branchées du TOML (navigation, bouncycastle, media3-dash,
+media3-rtsp). Le réseau passe par **OkHttp brut + org.json** (choix documenté
+dans `XtreamModels`), la sauvegarde des profils par `org.json` — jamais Gson.
+Moins d'APK, moins de surface à maintenir.
+
+⚠️ **`leanback` est requis par les THÈMES**, pas par le code : `Theme.IPTV`
+hérite de `Theme.Leanback` (`res/values/themes.xml`), et le manifeste déclare
+`uses-feature android.software.leanback` + un `LeanbackLauncherAlias`. Un grep
+sur les seules sources Kotlin le fait passer pour mort — **ne pas le retirer
+sur cette base**. C'est aussi lui qui imposait recyclerview 1.0.0, d'où la
+déclaration explicite plutôt qu'une suppression.
+
+⚠️ **Non tenté volontairement** : OkHttp 5.x (majeure — `response.body`
+devient non-nullable, notre code utilise `body?.string()`) et Retrofit 3
+(exige OkHttp 5, et Retrofit n'est de toute façon plus là). Coil 3 également
+écarté : changement de package (`coil` → `coil3`) sur 10 fichiers. Ces trois
+migrations demandent un build vert pour être vérifiées ; à faire dans un lot
+séparé, pas mélangées à une montée de version large.
 
 ## Audit perf "expert" : index SQL + invalidations RecyclerView
 

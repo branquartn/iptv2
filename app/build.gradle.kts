@@ -10,8 +10,8 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 78
-val appVersionName = "1.0.77"
+val appVersionCode = 79
+val appVersionName = "1.0.78"
 // Changelog affiché dans le modal de mise à jour OTA.
 // ⚠️ OUBLIÉ PENDANT ~15 VERSIONS (29/08/2026, bug signalé par l'utilisateur :
 // "le texte de la maj n'est pas le bon") — appVersionCode/appVersionName ont
@@ -20,7 +20,7 @@ val appVersionName = "1.0.77"
 // modif du 28/08 alors qu'on en était à v1.0.50). Ce commentaire ne suffit
 // visiblement pas tout seul à s'en souvenir : à chaque bump de version,
 // updater CETTE ligne AVANT de commit, pas après coup.
-val appChangelog = "Index de base de données ajoutés (recherche de catégorie quasi instantanée) et défilement plus fluide à la télécommande. ⚠️ Recharge ta playlist après cette mise à jour."
+val appChangelog = "Bibliothèques mises à jour (lecteur vidéo, base de données, images) et dépendances inutilisées retirées."
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
@@ -104,8 +104,13 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.cardview)
     implementation(libs.androidx.constraintlayout)
-    implementation(libs.androidx.swiperefresh)
+    // ⚠️ leanback est requis par les THÈMES (Theme.IPTV hérite de Theme.Leanback,
+    // cf. res/values/themes.xml) même si aucune de ses classes n'est utilisée en
+    // Kotlin — ne pas le retirer en croyant à une dépendance morte.
     implementation(libs.androidx.leanback)
+    // ⚠️ Déclaré explicitement : sinon recyclerview arrive en 1.0.0 par leanback,
+    // ce qui a cassé le build deux fois (cf. CLAUDE.md).
+    implementation(libs.androidx.recyclerview)
     implementation(libs.androidx.splashscreen)
 
     // Media3 / ExoPlayer (HLS pour les flux live IPTV, en plus du MP4/TS direct)
@@ -122,12 +127,10 @@ dependencies {
     // Coroutines
     implementation(libs.coroutines.android)
 
-    // Network (Xtream Codes API + M3U par URL)
-    implementation(libs.retrofit)
-    implementation(libs.retrofit.gson)
+    // Réseau : OkHttp brut + org.json (Xtream Codes / M3U). Pas de Retrofit ni
+    // de Gson — retirés le 30/08/2026, ils n'étaient référencés nulle part
+    // (cf. XtreamModels : parsing org.json à la main, choix documenté).
     implementation(libs.okhttp)
-    implementation(libs.okhttp.logging)
-    implementation(libs.gson)
 
     // Images
     implementation(libs.coil)
@@ -136,9 +139,6 @@ dependencies {
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
-
-    // DataStore (config de la source playlist active)
-    implementation(libs.datastore.preferences)
 }
 
 tasks.register("publishReleaseToIptv2Update") {

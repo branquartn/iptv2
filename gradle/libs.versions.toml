@@ -2,56 +2,45 @@
 agp = "9.2.1"
 kotlin = "2.2.10"
 ksp = "2.2.10-2.0.2"
-coreKtx = "1.13.1"
-appcompat = "1.7.0"
+coreKtx = "1.19.0"
+appcompat = "1.8.0"
 cardview = "1.0.0"
-leanback = "1.0.0"
-media3 = "1.3.1"
-lifecycle = "2.8.2"
-coroutines = "1.8.1"
-retrofit = "2.11.0"
-okhttp = "4.12.0"
-coil = "2.6.0"
-room = "2.6.1"
-navigation = "2.7.7"
-datastore = "1.1.1"
-gson = "2.10.1"
-splashscreen = "1.0.1"
-constraintlayout = "2.1.4"
-swiperefresh = "1.1.0"
-bouncycastle = "1.84"
+leanback = "1.2.0"
+# ⚠️ Déclaré EXPLICITEMENT (30/08/2026) : recyclerview arrivait jusqu'ici en
+# 1.0.0, tiré transitivement par leanback — ce qui a cassé le build deux fois
+# (currentList, bindingAdapterPosition, absents en 1.0.0). Le déclarer ici fixe
+# la version réellement utilisée au lieu de la subir.
+recyclerview = "1.4.0"
+media3 = "1.11.0"
+lifecycle = "2.11.0"
+coroutines = "1.11.0"
+okhttp = "4.12.0"  # 5.x dispo mais majeure (nullabilité du body) — non tentée sans build vert
+coil = "2.7.0"
+room = "2.8.4"
+splashscreen = "1.2.0"
+constraintlayout = "2.2.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 androidx-cardview = { group = "androidx.cardview", name = "cardview", version.ref = "cardview" }
 androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
-androidx-swiperefresh = { group = "androidx.swiperefreshlayout", name = "swiperefreshlayout", version.ref = "swiperefresh" }
 androidx-leanback = { group = "androidx.leanback", name = "leanback", version.ref = "leanback" }
+androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "recyclerview" }
 androidx-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "splashscreen" }
 media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
 media3-exoplayer-hls = { group = "androidx.media3", name = "media3-exoplayer-hls", version.ref = "media3" }
-media3-exoplayer-dash = { group = "androidx.media3", name = "media3-exoplayer-dash", version.ref = "media3" }
-media3-exoplayer-rtsp = { group = "androidx.media3", name = "media3-exoplayer-rtsp", version.ref = "media3" }
 media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
 lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycle" }
 lifecycle-livedata-ktx = { group = "androidx.lifecycle", name = "lifecycle-livedata-ktx", version.ref = "lifecycle" }
 lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle" }
 lifecycle-process = { group = "androidx.lifecycle", name = "lifecycle-process", version.ref = "lifecycle" }
 coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
-retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
-retrofit-gson = { group = "com.squareup.retrofit2", name = "converter-gson", version.ref = "retrofit" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
-okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
-gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 coil = { group = "io.coil-kt", name = "coil", version.ref = "coil" }
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
-navigation-fragment-ktx = { group = "androidx.navigation", name = "navigation-fragment-ktx", version.ref = "navigation" }
-navigation-ui-ktx = { group = "androidx.navigation", name = "navigation-ui-ktx", version.ref = "navigation" }
-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
-bouncycastle = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
