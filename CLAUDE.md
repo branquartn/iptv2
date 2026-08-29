@@ -318,6 +318,39 @@ défaut significative) évitent un flash "aucun favori" pendant que le second
 flux n'a pas encore répondu. Si un 3ᵉ type de favori est ajouté un jour,
 reprendre ce même patron plutôt qu'un simple `isEmpty()` sur une seule liste.
 
+⚠️ **CRASH `too many SQL variables` (30/08/2026, introduit par le chargement
+d'une catégorie entière, corrigé le jour même)** — signalé "ça bug sur Films,
+ça s'ouvre et se referme direct et revient à l'accueil". Stack trace récupérée
+sur le Shield (`adb logcat -b crash`) : `SQLiteException: too many SQL
+variables ... SELECT * FROM watch_history WHERE historyKey IN (?,?,?...)`,
+depuis `PlaylistRepository.getMoviesPage` → `WatchHistoryDao.getPositions`.
+
+**Cause** : SQLite plafonne le nombre de paramètres liés d'une requête
+(`SQLITE_MAX_VARIABLE_NUMBER`, **999** sur les Android concernés). Tant que
+chaque lecture restait bornée (page de 60, recherche limitée à 200), le
+`IN (:keys)` de la jointure "reprise de lecture" passait. Le passage au
+chargement d'une **catégorie entière** (`NO_LIMIT`, v1.0.68) a fait exploser
+ce nombre — des milliers de clés d'un coup — et la requête est devenue
+impossible à compiler. Rendu systématique par la v1.0.69, qui ouvre
+justement Films sur une catégorie précise dès le lancement : crash immédiat,
+retour à l'accueil.
+
+**Correctif** : `PlaylistRepository.watchPositionsFor(keys)` découpe la liste
+en lots de `SQLITE_MAX_VARIABLES` (900, marge de sécurité) avant d'appeler le
+DAO, et **les 3 appels** concernés passent par lui (`getMoviesPage`,
+`searchMoviesByTitle`, `getEpisodeProgressMap`). **Ne jamais repasser un
+`getPositions(...)` brut sur une liste non bornée** — c'est exactement ce qui
+a cassé ici. Même vigilance pour toute future requête `WHERE x IN (:liste)`
+alimentée par le catalogue : `WatchHistoryDao.removeHistories` a la même
+forme (aujourd'hui inutilisée, donc sans risque — à découper aussi si elle
+est un jour appelée).
+
+⚠️ **Leçon de méthode** : ce bug n'était PAS détectable en relisant le code
+des écrans — la requête est correcte, c'est sa taille d'entrée qui a changé
+en amont. Sur ce projet où Claude ne compile jamais (cf. consigne de build),
+`adb logcat -b crash` sur le Shield reste le moyen le plus rapide d'obtenir
+la cause exacte plutôt que de deviner.
+
 ## Catégories : plus de renommage + catégorie ouverte par défaut
 
 ⚠️ **30/08/2026, demande explicite** : "je ne veux plus de renommage des

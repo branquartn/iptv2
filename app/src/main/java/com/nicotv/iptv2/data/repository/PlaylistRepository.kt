@@ -86,6 +86,12 @@ class PlaylistRepository(
         const val MOVIES_PAGE_SIZE = 60
         /** `LIMIT -1` = aucune limite en SQLite — cf. commentaire ci-dessus. */
         const val NO_LIMIT = -1
+        // ⚠️ SQLite plafonne le nombre de paramètres liés d'une requête
+        // (SQLITE_MAX_VARIABLE_NUMBER, 999 sur les Android concernés). Toute
+        // requête `WHERE x IN (:liste)` doit donc être découpée en lots sous
+        // ce seuil — cf. watchPositionsFor et le crash du 30/08/2026
+        // documenté dans CLAUDE.md. 900 = marge de sécurité.
+        private const val SQLITE_MAX_VARIABLES = 900
     }
 
     class LoadException(message: String, cause: Throwable? = null) : Exception(message, cause)
@@ -738,7 +744,7 @@ class PlaylistRepository(
      * ou terminé (l'entrée est supprimée à la fin, cf. saveWatchPosition). */
     suspend fun getEpisodeProgressMap(episodes: List<EpisodeEntity>): Map<Long, EpisodeProgress> = withContext(Dispatchers.IO) {
         val keys = episodes.map { "e:${it.fileKey}" }
-        val positions = db.watchHistoryDao().getPositions(keys).associateBy { it.historyKey }
+        val positions = watchPositionsFor(keys)
         episodes.mapNotNull { ep ->
             val h = positions["e:${ep.fileKey}"] ?: return@mapNotNull null
             ep.watchKey to EpisodeProgress(seen = false, percent = h.progressPercent, positionMs = h.positionMs, durationMs = h.durationMs)
@@ -824,7 +830,7 @@ class PlaylistRepository(
         // Reprise de lecture (barre de progression) : seulement pour les films
         // trouvés, pas tout l'historique — cf. getMovies() pour le même principe
         // appliqué au catalogue complet.
-        val historyByKey = db.watchHistoryDao().getPositions(entities.map { "m${it.id}" }).associateBy { it.historyKey }
+        val historyByKey = watchPositionsFor(entities.map { "m${it.id}" })
         entities.map { m -> m.toDomain(isFavorite = m.id in favIds, watchProgress = historyByKey["m${m.id}"]?.progressPercent ?: 0) }
     }
 
@@ -837,6 +843,23 @@ class PlaylistRepository(
     // sous-ensemble déjà réduit par SQL), mais filtré par langue/catégorie
     // au lieu d'un titre recherché.
 
+    /** Positions de reprise pour un lot de clés, **découpé** pour ne jamais
+     * dépasser [SQLITE_MAX_VARIABLES] paramètres liés dans le `IN (...)`.
+     *
+     * ⚠️ Crash vécu (30/08/2026, corrigé le jour même) : `SQLiteException:
+     * too many SQL variables`, l'écran Films s'ouvrait puis se refermait
+     * aussitôt. Introduit par le chargement d'une catégorie ENTIÈRE
+     * (NO_LIMIT, cf. plus haut) : jusque-là chaque appel restait sous les 999
+     * clés (page de 60, recherche bornée à 200), mais une catégorie complète
+     * en compte des milliers — la requête devenait impossible à compiler.
+     * Ne JAMAIS repasser un `getPositions(...)` brut sur une liste non bornée. */
+    private suspend fun watchPositionsFor(keys: List<String>): Map<String, WatchHistoryEntity> {
+        if (keys.isEmpty()) return emptyMap()
+        return keys.chunked(SQLITE_MAX_VARIABLES)
+            .flatMap { db.watchHistoryDao().getPositions(it) }
+            .associateBy { it.historyKey }
+    }
+
     /** Une page de films filtrés en SQL (langue + catégorie déjà "nettoyée",
      * cf. MovieDao.getMoviesPage/MovieEntity.categoryStripped) — [lang] =
      * contentLanguage (null = "Toutes"), [category] = valeur choisie dans la
@@ -845,7 +868,7 @@ class PlaylistRepository(
         val entities = db.movieDao().getMoviesPage(lang, category, limit, offset)
         if (entities.isEmpty()) return@withContext emptyList()
         val favIds = db.favoriteDao().getFavoriteIds(FavoriteEntity.Type.MOVIE).toSet()
-        val historyByKey = db.watchHistoryDao().getPositions(entities.map { "m${it.id}" }).associateBy { it.historyKey }
+        val historyByKey = watchPositionsFor(entities.map { "m${it.id}" })
         entities.map { m -> m.toDomain(isFavorite = m.id in favIds, watchProgress = historyByKey["m${m.id}"]?.progressPercent ?: 0) }
     }
 
