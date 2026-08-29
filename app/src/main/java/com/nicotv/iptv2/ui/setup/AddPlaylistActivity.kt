@@ -1,5 +1,6 @@
 package com.nicotv.iptv2.ui.setup
 
+import android.app.AlertDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -119,8 +120,24 @@ class AddPlaylistActivity : BaseActivity() {
         }
     }
 
+    // Rond de chargement au milieu de l'écran (29/08/2026, demande explicite
+    // "au milieu pas en bas... indique chargement en cours") — avant, un petit
+    // ProgressBar sans texte, tout en bas du formulaire, sous le clavier ou
+    // hors champ de vision le temps de scroller. Même style que le dialogue
+    // de mise à jour (UpdateManager.showUpdateProgress).
+    private var loadingDialog: AlertDialog? = null
+
     private fun setLoading(loading: Boolean) {
-        binding.progressLoading.visibility = if (loading) View.VISIBLE else View.GONE
+        if (loading) {
+            val view = layoutInflater.inflate(R.layout.dialog_loading, null)
+            loadingDialog = AlertDialog.Builder(this).setView(view).setCancelable(false).create().also {
+                it.show()
+                it.window?.setBackgroundDrawableResource(android.R.color.transparent)
+            }
+        } else {
+            loadingDialog?.dismiss()
+            loadingDialog = null
+        }
     }
 
     private fun showStatus(text: String) {

@@ -541,6 +541,17 @@ Ces 2 pages n'avaient jusqu'ici aucun logo. **Profils et l'accueil
 (MainActivity) non touchés** par cette demande — cf. leur section respective
 (Profils a son propre logo, ailleurs dans son layout, corrigé séparément).
 
+⚠️ **Rond de chargement au milieu, pas en bas** (29/08/2026, demande
+explicite : "au milieu pas en bas... indique chargement en cours") — le
+`ProgressBar` `progress_loading` était un petit rond sans texte, tout en bas
+du formulaire (après le bouton "Charger"/"Se connecter"), invisible sans
+scroller. Retiré des 2 layouts, remplacé par un `AlertDialog` centré
+(`dialog_loading.xml`, réutilisable — `ProgressBar` + texte
+`setup_loading_in_progress` "Chargement en cours…") — même style que
+`UpdateManager.showUpdateProgress` (fond `bg_dialog` sur la vue, fenêtre du
+dialogue en transparent). `setLoading()` construit/affiche ce dialogue à
+`true`, le `dismiss()` à `false` — `loadingDialog` gardé en champ pour ça.
+
 ⚠️ **`installSplashScreen()` obligatoire** : `SetupActivity` déclare
 `android:theme="@style/Theme.IPTV.Splash"` dans le manifeste (parent
 `Theme.SplashScreen`, chrome clair). Sans l'appel `installSplashScreen()` **avant
