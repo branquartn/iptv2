@@ -1,6 +1,6 @@
 {
-  "versionCode": 53,
-  "versionName": "1.0.52",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.52.apk",
-  "changelog": "Titre \"Profils\" masqué tant qu'aucun profil n'existe, logo ajouté sur les pages d'ajout de source, correction du texte de mise à jour."
+  "versionCode": 54,
+  "versionName": "1.0.53",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.53.apk",
+  "changelog": "Logo visible sur la page Profils (bug corrigé), logo déplacé dans la barre du haut des pages d'ajout de source."
 }
