@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Rond de chargement au milieu de l'écran, générique (29/08/2026, demande
      explicite : "au milieu pas en bas... indique chargement en cours").
-     Barre déterminée + pourcentage ajoutés le jour même (demande explicite
-     "avec un pourcentage ça serait bien") — cf. PlaylistRepository.loadProfile
-     (onProgress) pour la source des valeurs. Même style que
+     Cercle + pourcentage dedans, valeur affichée animée en temps réel
+     (29/08/2026, même jour, demande explicite : "ne correspond pas à la
+     réalité... je voudrais voir la progression dans un cercle avec le
+     pourcentage dedans qui avance de pourcentage en pourcentage... en temps
+     réel" — l'ancienne barre horizontale sautait directement d'un palier à
+     l'autre, cf. LoadingDialog pour le lissage). Même style que
      dialog_update_progress.xml (fond bg_dialog sur la vue elle-même, fenêtre
      du dialogue mise en transparent côté Kotlin). -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -17,33 +20,34 @@
     android:paddingTop="32dp"
     android:paddingBottom="32dp">
 
-    <TextView
-        android:id="@+id/tv_loading_percent"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="0%"
-        android:textColor="@color/accent"
-        android:textSize="28sp"
-        android:textStyle="bold" />
+    <FrameLayout
+        android:layout_width="120dp"
+        android:layout_height="120dp">
 
-    <ProgressBar
-        android:id="@+id/progress_bar"
-        style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:max="100"
-        android:progress="0"
-        android:progressTint="@color/accent" />
+        <com.nicotv.iptv2.ui.common.CircularProgressView
+            android:id="@+id/circular_progress"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <TextView
+            android:id="@+id/tv_loading_percent"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="0%"
+            android:textColor="@color/text_primary"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+    </FrameLayout>
 
     <TextView
         android:id="@+id/tv_loading_message"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="14dp"
+        android:layout_marginTop="18dp"
         android:gravity="center"
         android:text="@string/setup_loading_in_progress"
-        android:textColor="@color/text_primary"
+        android:textColor="@color/text_secondary"
         android:textSize="14sp" />
 
 </LinearLayout>

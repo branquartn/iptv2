@@ -635,6 +635,27 @@ coup, pas de compteur naturel). `LoadingDialog.onProgress()` fait le
 `enrichMovies` (`Dispatchers.IO`/`Default`), pas besoin d'y penser côté
 appelant.
 
+⚠️ **Cercle + valeur lissée, pas un miroir direct des paliers** (corrigé le
+jour même, demande explicite : "ne correspond pas à la réalité... 0 à 30 en
+2 secondes et après 60 elle met 5 minutes... un cercle avec le pourcentage
+dedans qui avance de pourcentage en pourcentage... en temps réel") —
+`dialog_loading.xml` remplacé par `CircularProgressView` (`ui/common/`, arc
+déterminé façon `RotatingBorderView` mais sans rotation) + `%` superposé au
+centre. `LoadingDialog` ne reflète plus `onProgress()` directement : un
+ticker interne (`Handler`, 150ms) fait (1) un **rattrapage visible** vers la
+dernière valeur réelle (jamais un saut instantané, pas de vraie sous-étape
+disponible), et (2) une **avance lente automatique** (~1%/2,5s, plafonnée à
+dernière valeur réelle +20, jamais au-delà de 96%) si aucun nouveau palier
+réel n'arrive depuis 1,5s — évite un chiffre figé pendant un palier long
+(ex. "récupération des films et séries" sur un gros panel Xtream) sans
+jamais prétendre être plus avancé que ce qui est su. Un vrai palier suivant
+relance normalement le rattrapage. Cette avance automatique est un
+compromis assumé : fluide un moment, puis honnête (plateau) si le palier
+réel dure plus longtemps que le plafond ne le permet — pas une fausse
+précision inventée de toutes pièces. Seul le chemin M3U (`enrichMovies`,
+vrai compteur `n/total`) donne une progression réellement fidèle de bout en
+bout ; le chemin Xtream reste par nature approximatif entre ses paliers.
+
 ⚠️ **`installSplashScreen()` obligatoire** : `SetupActivity` déclare
 `android:theme="@style/Theme.IPTV.Splash"` dans le manifeste (parent
 `Theme.SplashScreen`, chrome clair). Sans l'appel `installSplashScreen()` **avant
