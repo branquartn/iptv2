@@ -36,24 +36,20 @@ interface ChannelDao {
     // 2. le filtre "favoris uniquement" (:favOnly = 1) passe par une
     //    sous-requête sur la table favorites (pas de clé étrangère Room, cf.
     //    FavoriteEntity — on filtre toujours par itemType) ;
-    // 3. le tri "ordre TNT" (:frenchSort = 1, quand le contexte est français)
-    //    utilise la colonne précalculée tntRank ; sinon ordre de la playlist
-    //    (sortOrder, comme getAllChannels). Ce tri DOIT être en SQL : appliqué
-    //    page par page en Kotlin, l'ordre global serait incohérent.
+    // 3. le tri suit l'ordre du panel (sortOrder) — il DOIT être en SQL :
+    //    appliqué page par page en Kotlin, l'ordre global serait incohérent.
     // [limit] négatif = aucune limite (catégorie précise sélectionnée).
     @Query("""
         SELECT * FROM channels
         WHERE (:lang IS NULL OR nameLanguageCode = '' OR nameLanguageCode = :lang)
           AND (:category IS NULL OR category = :category)
           AND (:favOnly = 0 OR id IN (SELECT itemId FROM favorites WHERE itemType = :favType))
-        -- Cf. MovieDao.getMoviesPage : `id` en dernier critère. Ici c'est
-        -- d'autant plus nécessaire que tntRank vaut Int.MAX_VALUE pour TOUTES
-        -- les chaînes non reconnues et sortOrder 0 pour toutes celles d'Xtream
-        -- — soit d'énormes paquets d'ex æquo.
-        ORDER BY
-          CASE WHEN :frenchSort = 1 THEN tntRank ELSE sortOrder END ASC,
-          name ASC,
-          id ASC
+        -- ⚠️ Ordre du PANEL (30/08/2026, "garde l'ordre comme les films") :
+        -- `sortOrder` = index dans get_live_streams côté Xtream, ordre
+        -- d'apparition côté M3U. Remplace le tri "ordre TNT" (tntRank) du
+        -- 28/08. `id` en dernier pour un ordre TOTAL, sinon la pagination peut
+        -- dupliquer ou perdre des lignes (cf. doublons du 30/08).
+        ORDER BY sortOrder ASC, id ASC
         LIMIT :limit OFFSET :offset
     """)
     suspend fun getChannelsPage(
@@ -61,7 +57,6 @@ interface ChannelDao {
         category: String?,
         favOnly: Int,
         favType: String,
-        frenchSort: Int,
         limit: Int,
         offset: Int
     ): List<ChannelEntity>

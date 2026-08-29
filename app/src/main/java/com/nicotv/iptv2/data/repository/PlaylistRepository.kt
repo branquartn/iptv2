@@ -494,18 +494,23 @@ class PlaylistRepository(
             return@withContext loadM3u(fetchUrl(client.playlistM3uUrl()), onProgress)
         }
 
-        val channels = liveStreams.map {
-            val cat = liveCats[it.categoryId]?.name.orEmpty()
+        // ⚠️ `sortOrder` n'était PAS rempli côté Xtream jusqu'au 30/08/2026 (il ne
+        // l'était que pour le M3U) : toutes les chaînes valaient 0, donc l'ordre
+        // du panel était perdu. mapIndexed le corrige — même principe que les
+        // films (cf. vodStreams).
+        val channels = liveStreams.mapIndexed { index, stream ->
+            val cat = liveCats[stream.categoryId]?.name.orEmpty()
             ChannelEntity(
-                name = it.name, streamUrl = client.liveStreamUrl(it.streamId),
-                logoUrl = it.icon, category = cat,
-                xtreamStreamId = it.streamId,
-                nameLanguageCode = ChannelEntity.nameLanguageCodeFor(it.name),
-                nameStripped = ChannelEntity.nameStrippedFor(it.name),
+                name = stream.name, streamUrl = client.liveStreamUrl(stream.streamId),
+                logoUrl = stream.icon, category = cat,
+                sortOrder = index,
+                xtreamStreamId = stream.streamId,
+                nameLanguageCode = ChannelEntity.nameLanguageCodeFor(stream.name),
+                nameStripped = ChannelEntity.nameStrippedFor(stream.name),
                 categoryLanguageCode = ChannelEntity.categoryLanguageCodeFor(cat),
                 categoryStripped = ChannelEntity.categoryStrippedFor(cat),
-                tntRank = ChannelEntity.tntRankForName(it.name),
-                categoryOrder = liveCatOrder[it.categoryId] ?: 0
+                tntRank = ChannelEntity.tntRankForName(stream.name),
+                categoryOrder = liveCatOrder[stream.categoryId] ?: 0
             )
         }
 
@@ -1002,15 +1007,13 @@ class PlaylistRepository(
     // Cf. ChannelDao.getChannelsPage pour les 3 spécificités de cet écran
     // (filtre langue sur le NOM, filtre favoris en sous-requête, tri TNT en SQL).
 
-    /** [frenchSort] : contexte français (réglage langue = FR, ou catégorie
-     * sélectionnée reconnue française) → tri "ordre TNT" plutôt que l'ordre de
-     * la playlist. Décidé par LiveViewModel, qui seul connaît la catégorie
-     * sélectionnée et le réglage courant. */
+    /** Chaînes d'une page, dans l'ordre du panel (cf.
+     * ChannelDao.getChannelsPage). Noms affichés BRUTS depuis le 30/08/2026
+     * ("ne renomme pas les chaînes"). */
     suspend fun getChannelsPage(
         lang: String?,
         category: String?,
         favoritesOnly: Boolean,
-        frenchSort: Boolean,
         offset: Int,
         limit: Int = MOVIES_PAGE_SIZE
     ): List<Channel> = withContext(Dispatchers.IO) {
@@ -1019,15 +1022,12 @@ class PlaylistRepository(
             category = category,
             favOnly = if (favoritesOnly) 1 else 0,
             favType = FavoriteEntity.Type.CHANNEL,
-            frenchSort = if (frenchSort) 1 else 0,
             limit = limit,
             offset = offset
         )
         if (entities.isEmpty()) return@withContext emptyList()
         val favIds = db.favoriteDao().getFavoriteIds(FavoriteEntity.Type.CHANNEL).toSet()
-        // useStrippedName seulement si un filtre de langue est actif — cf.
-        // ChannelEntity.toDomain (le préfixe reste visible en mode "Toutes").
-        entities.map { it.toDomain(isFavorite = it.id in favIds, useStrippedName = lang != null) }
+        entities.map { it.toDomain(isFavorite = it.id in favIds) }
     }
 
     suspend fun getChannelsCategories(lang: String?): List<String> = withContext(Dispatchers.IO) {

@@ -7,16 +7,12 @@ import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.nicotv.iptv2.IptvApplication
-import com.nicotv.iptv2.data.ContentLanguagePrefs
 import com.nicotv.iptv2.data.database.entity.FavoriteEntity
 import com.nicotv.iptv2.data.repository.PlaylistRepository
 import com.nicotv.iptv2.domain.model.Channel
 import com.nicotv.iptv2.util.CHANNELS_PREFERRED_CATEGORIES
 import com.nicotv.iptv2.util.extractLeadingLanguageCode
-import com.nicotv.iptv2.util.isFrenchLabel
 import com.nicotv.iptv2.util.pickDefaultCategory
-import com.nicotv.iptv2.util.stripLeadingLanguageCode
-import com.nicotv.iptv2.util.tntRankFor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -36,8 +32,9 @@ import kotlinx.coroutines.withContext
  *    catégorie — et le préfixe est retiré du nom affiché (cf.
  *    ChannelEntity.toDomain) ;
  * 2. le filtre "favoris uniquement" (bouton de la barre du haut) ;
- * 3. le tri "ordre TNT" en contexte français, via la colonne précalculée
- *    `tntRank` (cf. util.tntRankFor).
+ * 3. le tri suit l'ordre du panel (`sortOrder`), comme les films — le tri
+ *    "ordre TNT" du 28/08 a été abandonné le 30/08 sur demande explicite
+ *    ("garde l'ordre comme les films").
  *
  * La sidebar catégories, elle, reste filtrée sur le préfixe de la CATÉGORIE
  * (`categoryLanguageCode`) — deux conventions distinctes, inchangé.
@@ -74,13 +71,6 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
     /** Cf. MoviesViewModel.pageLimitFor — pagination sur "Toutes" seulement. */
     private fun pageLimitFor(category: String?): Int =
         if (category == null) PlaylistRepository.MOVIES_PAGE_SIZE else PlaylistRepository.NO_LIMIT
-
-    /** Contexte français : réglage langue = FR, ou catégorie sélectionnée
-     * reconnue française (cf. isFrenchLabel) → tri "ordre TNT" (demande
-     * explicite 28/08/2026) plutôt que l'ordre de la playlist. Inchangé, mais
-     * désormais transmis à SQL au lieu d'être appliqué après coup en Kotlin. */
-    private fun frenchSortFor(category: String?): Boolean =
-        contentLanguage == ContentLanguagePrefs.FRENCH || category?.let { isFrenchLabel(it) } == true
 
     private var job: Job? = null
 
@@ -120,21 +110,22 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
                     // Catégorie BRUTE (30/08/2026 : plus de renommage,
                     // le préfixe "FR| " reste affiché).
                     cat?.let { c -> base = base.filter { it.category == c } }
+                    // ⚠️ Filtre de langue SANS renommage (30/08/2026, "ne
+                    // renomme pas les chaînes") : on exclut toujours un préfixe
+                    // explicite d'une AUTRE langue, mais le nom reste affiché
+                    // tel quel. Aucun tri appliqué non plus — l'ordre voulu est
+                    // celui du panel, et searchChannelsByName le respecte déjà.
                     if (contentLanguage != null) {
-                        base = base.mapNotNull { channel ->
+                        base = base.filter { channel ->
                             val code = extractLeadingLanguageCode(channel.name)
-                            when {
-                                code == null -> channel
-                                code == contentLanguage -> channel.copy(name = stripLeadingLanguageCode(channel.name, contentLanguage))
-                                else -> null
-                            }
+                            code == null || code == contentLanguage
                         }
                     }
-                    if (frenchSortFor(cat)) base.sortedWith(compareBy({ tntRankFor(it.name) }, { it.name })) else base
+                    base
                 } else {
                     repository.getChannelsPage(
                         lang = contentLanguage, category = cat, favoritesOnly = favOnly,
-                        frenchSort = frenchSortFor(cat), offset = 0, limit = pageLimitFor(cat)
+                        offset = 0, limit = pageLimitFor(cat)
                     )
                 }
             }
@@ -181,7 +172,7 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
             val page = withContext(Dispatchers.Default) {
                 repository.getChannelsPage(
                     lang = contentLanguage, category = cat, favoritesOnly = favoritesOnly.value == true,
-                    frenchSort = frenchSortFor(cat), offset = pagingOffset, limit = PlaylistRepository.MOVIES_PAGE_SIZE
+                    offset = pagingOffset, limit = PlaylistRepository.MOVIES_PAGE_SIZE
                 )
             }
             // Cf. MoviesViewModel.loadNextPage : page d'un filtre abandonné.

@@ -22,7 +22,8 @@ import com.nicotv.iptv2.util.withoutLeadingLanguageCode
     // queue rend la requête des catégories couvrante (cf. MovieEntity).
     indices = [
         Index(value = ["name", "streamUrl"], unique = true),
-        Index(value = ["category", "categoryOrder"]),
+        Index(value = ["category", "sortOrder", "categoryOrder"]),
+        Index(value = ["sortOrder"]),
         Index(value = ["nameLanguageCode"])
     ]
 )
@@ -46,21 +47,26 @@ data class ChannelEntity(
     @ColumnInfo(defaultValue = "") val nameStripped: String = "",
     @ColumnInfo(defaultValue = "") val categoryLanguageCode: String = "",
     @ColumnInfo(defaultValue = "") val categoryStripped: String = "",
-    // Rang dans la numérotation TNT française (cf. util.tntRankFor) — précalculé
-    // car le tri "ordre TNT" doit désormais se faire en SQL : trié page par page
-    // en Kotlin (comme avant la pagination), l'ordre global serait incohérent.
-    // Int.MAX_VALUE = chaîne non reconnue, reléguée en fin de liste.
+    // ⚠️ PLUS UTILISÉ POUR LE TRI depuis le 30/08/2026 : les chaînes suivent
+    // désormais l'ordre du panel (`sortOrder`), comme les films — demande
+    // explicite "garde l'ordre comme les films", qui annule le tri "ordre TNT"
+    // du 28/08. La colonne reste calculée et stockée à dessein : la supprimer
+    // imposerait une migration destructive (donc un rechargement complet de la
+    // playlist) alors que la garder ne coûte rien — et restaurer le tri TNT
+    // redeviendrait un simple changement d'ORDER BY.
     @ColumnInfo(defaultValue = "2147483647") val tntRank: Int = Int.MAX_VALUE,
     /** Cf. MovieEntity.categoryOrder — ordre de la catégorie dans la source. */
     @ColumnInfo(defaultValue = "0") val categoryOrder: Int = 0
 ) {
-    /** [useStrippedName] : vrai quand un filtre de langue est actif — le
-     * préfixe est alors retiré du nom affiché (demande explicite 28/08/2026,
-     * "enlève le FR|"). Faux quand le réglage vaut "Toutes" : aucun filtre, on
-     * affiche les noms bruts tels que la playlist les fournit. */
-    fun toDomain(isFavorite: Boolean = false, useStrippedName: Boolean = false) = Channel(
+    /** ⚠️ Le nom est affiché BRUT (30/08/2026, demande explicite : "ne renomme
+     * pas les chaînes") — le préfixe de langue reste visible, exactement comme
+     * pour les catégories. Annule la demande du 28/08 ("enlève le FR|").
+     * `nameStripped` reste calculé et stocké : le garder ne coûte rien et
+     * évite une migration destructive (donc un rechargement complet de la
+     * playlist) si l'affichage nettoyé était redemandé un jour. */
+    fun toDomain(isFavorite: Boolean = false) = Channel(
         id = id,
-        name = if (useStrippedName) nameStripped else name,
+        name = name,
         streamUrl = streamUrl,
         logoUrl = logoUrl,
         category = category,

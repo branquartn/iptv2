@@ -397,6 +397,42 @@ focus au bon endroit — le lui reprendre serait pire que de ne rien faire.
 **Films n'a volontairement pas ce comportement** (non demandé) : y ajouter le
 même appel suffirait, `positionOf` est déjà partagé dans l'adapter.
 
+## Chaînes : noms bruts + ordre du panel (annule deux règles du 28/08)
+
+⚠️ **30/08/2026, demande explicite** : "ne renomme pas les chaînes et garde
+l'ordre comme les films". Deux décisions du 28/08 sont donc **annulées** —
+les retrouver dans l'historique ne veut pas dire qu'elles sont encore valables :
+
+1. **Plus de nettoyage du nom** : le préfixe reste affiché (`FR| TF1 HD` reste
+   tel quel), exactement comme pour les catégories depuis le 30/08. Annule
+   "enlève le FR|" du 28/08. `ChannelEntity.toDomain` n'a plus de paramètre
+   `useStrippedName`. La colonne `nameStripped` **reste calculée et stockée**
+   à dessein : la supprimer imposerait une migration destructive (donc un
+   rechargement complet de la playlist) alors que la garder ne coûte rien, et
+   restaurer l'affichage nettoyé redeviendrait trivial.
+2. **Ordre du panel** (`sortOrder`) au lieu du tri "ordre TNT" — même règle que
+   les films. `tntRank` reste alimenté, pour la même raison que ci-dessus, mais
+   n'intervient plus dans aucun `ORDER BY` ; restaurer le tri TNT ne serait
+   qu'un changement d'`ORDER BY`.
+
+⚠️ **Bug trouvé au passage : `sortOrder` n'était JAMAIS rempli côté Xtream.**
+Il ne l'était que pour le M3U — toutes les chaînes d'un panel Xtream valaient
+0, donc l'ordre du fournisseur était perdu avant même d'être trié. Corrigé par
+`mapIndexed` sur `liveStreams`, comme pour les films. À vérifier si un jour un
+nouveau champ "ordre" est ajouté : **les deux chemins de chargement (M3U ET
+Xtream) doivent le remplir**, sinon le symptôme est silencieux.
+
+Le filtre "Langue du contenu" continue d'exclure un préfixe explicite d'une
+AUTRE langue, mais **sans renommer** : `code == null || code == contentLanguage`.
+
+**Affichage** (même demande) : le nom de la tuile passe en `10sp` sur
+**2 lignes** (`minLines=2` autant que `maxLines=2`), les noms bruts étant plus
+longs. `minLines` est important : sans lui, les tuiles à une ligne et à deux
+lignes auraient des hauteurs différentes dans la grille.
+
+Room **version 13** (index des chaînes revu pour le nouveau tri) → rechargement
+de la playlist.
+
 ## Chaînes manquantes : "VIP:" pris pour un code langue
 
 ⚠️ **30/08/2026, signalé "pour les chaînes il m'en manque"** — diagnostiqué sur
