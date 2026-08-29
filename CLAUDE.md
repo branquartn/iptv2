@@ -692,12 +692,16 @@ rognage `centerCrop` nécessaire quand ça tombe pile dessus). Les valeurs
 la taille retenue — pas de logique de centrage séparée à maintenir.
 
 - **Chaînes** (`card_live`) : `res/drawable-nodpi/hub_live_collage.jpg`,
-  collage Canal+/TF1/OCS/Netflix/Prime/beIN **fourni par l'utilisateur**
-  (trouvé dans `iptv2/update/`, PNG original ~2,4 Mo converti en JPEG
-  qualité 90 → ~400 Ko) — pas une image générée ou choisie par Claude.
-  **⚠️ Inclut de vraies marques déposées**, réserve sur le risque juridique
-  déjà actée avec l'utilisateur pour cette image précise (cf. historique de
-  la mosaïque de logos qui l'a précédée).
+  collage **fourni par l'utilisateur**, remplacé une fois depuis (29/08/2026,
+  toujours trouvé dans `iptv2/update/` — `chaines.jpg` cette fois, Canal+/TF1/
+  OCS/M6/MTV/beIN, ratio ~1264×843 déjà ~3:2, reconverti en JPEG qualité 90)
+  — pas une image générée ou choisie par Claude. **⚠️ Inclut de vraies
+  marques déposées**, réserve sur le risque juridique déjà actée avec
+  l'utilisateur pour ces images précises (cf. historique de la mosaïque de
+  logos qui les a précédées). Un fichier déposé dans `iptv2/update/` avec un
+  nom explicite (ex. `chaines.jpg`) est le canal établi par l'utilisateur
+  pour remettre une image de remplacement à Claude — vérifier ce dossier en
+  premier si une future demande "remplace la photo par celle dans update".
 - **Films** (`card_films`) : `res/drawable-nodpi/hub_films_collage.jpg`,
   couloir de cinéma avec affiches de films (image **générée** via
   `mcp__pollinations__generateImageUrl`, modèle `sana`, seed fixe pour
