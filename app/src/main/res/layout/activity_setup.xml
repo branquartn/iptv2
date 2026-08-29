@@ -62,7 +62,13 @@
                     android:visibility="invisible" />
             </FrameLayout>
 
+            <!-- Masqué tant qu'aucun profil n'existe (29/08/2026, demande
+                 explicite "au premier démarrage... pas voir le texte Profils")
+                 — rien à "Profils" au sens propre avant le tout premier
+                 enregistrement. Visibilité pilotée par SetupActivity, même
+                 condition que section_profiles (profils.isEmpty()). -->
             <TextView
+                android:id="@+id/tv_screen_title"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"

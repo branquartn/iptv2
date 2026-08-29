@@ -482,6 +482,18 @@ fois). Il n'y a **plus aucun accès à Réglages depuis Profils** : seul
 Ne pas réintroduire ce bouton sans redemander — ce point précis a changé
 3 fois dans la journée avant de revenir à zéro.
 
+⚠️ **Titre "Profils" masqué tant qu'aucun profil n'existe** (29/08/2026,
+demande explicite : "au premier démarrage... pas voir le texte Profils") —
+`tv_screen_title` (id ajouté à cette occasion) suit exactement la même
+condition que `section_profiles` (`profiles.isEmpty()`, même collecteur
+dans `SetupActivity.setupProfilesList()`) : rien à "Profils" au sens propre
+avant le tout premier enregistrement. La flèche retour, elle, garde sa
+propre condition indépendante (`EXTRA_FORCE_SHOW`) — les deux peuvent donc
+être masqués en même temps (premier démarrage) ou l'un sans l'autre.
+Wordmark de l'écran (plus bas dans le layout, mi-page) **non touché** par
+cette demande — resté à sa position d'origine, demande similaire faite
+entre-temps redirigée vers les pages Ajouter une source (voir plus bas).
+
 ⚠️ **Historique du raccourci auto-load (inversé en 1.0.20)** : une version
 antérieure sautait à l'accueil dès qu'un profil était actif, avec un défaut
 précis — l'écran de sélection devenait **définitivement inaccessible**, aucun
@@ -515,6 +527,14 @@ anciens `dialog_form_playlist.xml`/`dialog_form_xtream.xml` (supprimés),
 toujours dans un `ScrollView` : l'écran reste en `sensorLandscape` (~360dp
 de haut), le clavier ouvert sur le dernier champ fait sortir le bouton
 « Charger »/« Se connecter » de la zone visible sans ça.
+
+⚠️ **Logo centré ajouté en haut du contenu** (29/08/2026, demande explicite
+— d'abord évoquée pour l'écran Profils, redirigée ici après clarification)
+— `ic_nicotv_wordmark`, `wrap_content`+`adjustViewBounds` (hauteur fixe
+28dp, largeur proportionnelle), centré via le `gravity="center_horizontal"`
+du conteneur. Ces 2 pages n'avaient jusqu'ici aucun logo, contrairement à
+Profils/l'accueil. **Profils et l'accueil (MainActivity) non touchés** par
+cette demande — cf. leur section respective.
 
 ⚠️ **`installSplashScreen()` obligatoire** : `SetupActivity` déclare
 `android:theme="@style/Theme.IPTV.Splash"` dans le manifeste (parent

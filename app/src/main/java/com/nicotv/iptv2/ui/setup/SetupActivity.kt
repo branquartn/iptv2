@@ -134,6 +134,10 @@ class SetupActivity : BaseActivity() {
                 // vraiment vide à l'ouverture ou si le souci est ailleurs.
                 android.util.Log.i("SetupActivity", "Profils en base : ${profiles.size} (${profiles.joinToString { "${it.id}:${it.name}" }})")
                 binding.sectionProfiles.visibility = if (profiles.isEmpty()) View.GONE else View.VISIBLE
+                // Titre "Profils" masqué tant qu'aucun profil n'existe (29/08/2026,
+                // demande explicite) — rien à "Profils" au sens propre avant le tout
+                // premier enregistrement.
+                binding.tvScreenTitle.visibility = if (profiles.isEmpty()) View.GONE else View.VISIBLE
                 // activeProfileId n'est pas un champ de PlaylistProfileEntity : un
                 // changement de profil actif seul (sans changement de LISTE) ne
                 // serait pas détecté par le DiffUtil de l'adapter → notifyDataSetChanged

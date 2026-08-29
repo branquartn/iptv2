@@ -31,6 +31,15 @@
             android:paddingEnd="24dp"
             android:paddingTop="76dp">
 
+            <!-- Logo centré (29/08/2026, demande explicite). -->
+            <ImageView
+                android:layout_width="wrap_content"
+                android:layout_height="28dp"
+                android:layout_marginBottom="20dp"
+                android:adjustViewBounds="true"
+                android:src="@drawable/ic_nicotv_wordmark"
+                android:scaleType="fitCenter" />
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
