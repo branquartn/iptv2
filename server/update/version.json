@@ -1,6 +1,6 @@
 {
-  "versionCode": 83,
-  "versionName": "1.0.82",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.82.apk",
-  "changelog": "Films et séries affichés dans l'ordre du panel (nouveautés en tête) comme dans IPTV Smarters. ⚠️ Recharge ta playlist après cette mise à jour."
+  "versionCode": 85,
+  "versionName": "1.0.84",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.84.apk",
+  "changelog": "Chaînes : noms affichés tels quels (sur 2 lignes) et ordre du panel, comme les films. ⚠️ Recharge ta playlist après cette mise à jour."
 }
