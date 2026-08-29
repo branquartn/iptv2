@@ -53,9 +53,21 @@ class CategorySidebarAdapter(
      * tenant compte de l'entrée "Toutes" ajoutée en tête par [submitList]),
      * ou -1 si elle n'y est pas encore — la diff d'un `ListAdapter` étant
      * asynchrone, l'appelant doit gérer ce cas (cf.
-     * LiveActivity.focusCategoryWhenReady). null = "Toutes" → position 0. */
-    fun positionOf(category: String?): Int =
-        if (category == null) 0 else currentList.indexOf(category)
+     * LiveActivity.focusCategoryWhenReady). null = "Toutes" → position 0.
+     *
+     * ⚠️ Parcours via [getItem]/[getItemCount], PAS via `currentList` :
+     * cette propriété n'existe qu'à partir de recyclerview 1.1.0, or le projet
+     * tire recyclerview **1.0.0** transitivement depuis `androidx.leanback`
+     * 1.0.0 (cf. gradle/libs.versions.toml) — `currentList` ne compile pas
+     * ("Unresolved reference", constaté au build du 30/08/2026). Coût nul ici :
+     * la sidebar contient quelques dizaines d'entrées, pas un catalogue. */
+    fun positionOf(category: String?): Int {
+        if (category == null) return 0
+        for (i in 0 until itemCount) {
+            if (getItem(i) == category) return i
+        }
+        return -1
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
         val b = ItemCategorySidebarBinding.inflate(LayoutInflater.from(parent.context), parent, false)

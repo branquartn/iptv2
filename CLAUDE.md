@@ -351,6 +351,17 @@ en amont. Sur ce projet où Claude ne compile jamais (cf. consigne de build),
 `adb logcat -b crash` sur le Shield reste le moyen le plus rapide d'obtenir
 la cause exacte plutôt que de deviner.
 
+⚠️ **Piège recyclerview 1.0.0** (build cassé le 30/08/2026, `Unresolved
+reference 'currentList'`) : le projet ne déclare PAS `androidx.recyclerview`
+directement, il le tire **transitivement de `androidx.leanback` 1.0.0**, donc
+en **version 1.0.0**. `ListAdapter.currentList` n'existe qu'à partir de
+recyclerview **1.1.0** — d'où `CategorySidebarAdapter.positionOf()` qui
+parcourt `getItem()`/`itemCount` à la place. Avant d'utiliser une API
+RecyclerView "moderne" (`currentList`, `submitList(list, commitCallback)`,
+`ConcatAdapter`...), vérifier qu'elle existe en 1.0.0 — sinon ça compile chez
+personne. Monter la version de recyclerview est possible mais n'a pas été
+fait : ça toucherait aussi leanback, non testé ici.
+
 ⚠️ **Focus D-pad posé sur la catégorie par défaut — Chaînes uniquement**
 (30/08/2026, demande explicite : "quand ça va dans Général FR je voudrais que
 le curseur soit focus dessus") — `LiveActivity.focusCategoryWhenReady()`.
