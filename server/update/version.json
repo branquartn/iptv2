@@ -1,6 +1,6 @@
 {
-  "versionCode": 64,
-  "versionName": "1.0.63",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.63.apk",
-  "changelog": "Langue du contenu : défaut toujours FR sur une nouvelle installation, quelle que soit la langue de l'appareil."
+  "versionCode": 65,
+  "versionName": "1.0.64",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.64.apk",
+  "changelog": "Retour sur Chaînes/Films/Séries instantané (le délai de 150ms ne s'applique plus qu'à la recherche texte)."
 }
