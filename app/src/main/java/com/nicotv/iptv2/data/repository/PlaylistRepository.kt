@@ -23,6 +23,7 @@ import com.nicotv.iptv2.domain.model.EpisodeProgress
 import com.nicotv.iptv2.domain.model.Movie
 import com.nicotv.iptv2.domain.model.OpenTarget
 import com.nicotv.iptv2.domain.model.SimilarWork
+import com.nicotv.iptv2.util.cleanTitleForMatch
 import com.nicotv.iptv2.util.extractLeadingLanguageCode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -609,8 +610,8 @@ class PlaylistRepository(
     }
 
     private suspend fun toSimilarWork(work: com.nicotv.iptv2.data.tmdb.TmdbWork): SimilarWork {
-        val owned = if (work.isTv) db.seriesDao().findByTitle(work.title) != null
-                    else db.movieDao().findByTitle(work.title) != null
+        val owned = if (work.isTv) findSeriesByCleanTitle(work.title) != null
+                    else findMovieByCleanTitle(work.title) != null
         return SimilarWork(
             tmdbId = work.id, isTv = work.isTv, title = work.title, year = work.year,
             posterUrl = work.posterPath?.let { AppConfig.Tmdb.IMAGE_BASE_W500 + it }.orEmpty(),
@@ -624,11 +625,21 @@ class PlaylistRepository(
      * pour l'ajouter — contrairement à NicoTV, cf. domain.SimilarWork). */
     suspend fun resolveOpenTarget(work: SimilarWork): OpenTarget? = withContext(Dispatchers.IO) {
         if (work.isTv) {
-            db.seriesDao().findByTitle(work.title)?.let { OpenTarget.SeriesTarget(it.id, it.title, it.posterUrl) }
+            findSeriesByCleanTitle(work.title)?.let { OpenTarget.SeriesTarget(it.id, it.title, it.posterUrl) }
         } else {
-            db.movieDao().findByTitle(work.title)?.let { OpenTarget.MovieTarget(it.id) }
+            findMovieByCleanTitle(work.title)?.let { OpenTarget.MovieTarget(it.id) }
         }
     }
+
+    /** [title] est un titre TMDb nu (sans tags/année) — les candidats `LIKE`
+     * ramenés par le dao sont vérifiés ici par égalité après nettoyage complet
+     * de LEUR titre catalogue (tags+année), pas du titre TMDb qui n'en a pas.
+     * Cf. commentaire de MovieDao.findCandidatesByTitle pour le pourquoi. */
+    private suspend fun findMovieByCleanTitle(title: String) =
+        db.movieDao().findCandidatesByTitle(title).firstOrNull { it.title.cleanTitleForMatch().equals(title, ignoreCase = true) }
+
+    private suspend fun findSeriesByCleanTitle(title: String) =
+        db.seriesDao().findCandidatesByTitle(title).firstOrNull { it.title.cleanTitleForMatch().equals(title, ignoreCase = true) }
 
     suspend fun isSeriesFavorite(id: Long): Boolean = withContext(Dispatchers.IO) { db.favoriteDao().isFavorite(id, FavoriteEntity.Type.SERIES) }
 

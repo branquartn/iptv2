@@ -12,10 +12,21 @@ interface MovieDao {
     @Query("SELECT * FROM movies WHERE id = :id LIMIT 1")
     suspend fun getMovieById(id: Long): MovieEntity?
 
-    // "Déjà dans le catalogue ?" pour le badge ✓/+ des films similaires/filmographie
-    // acteur (pas de tmdbId stocké — nos films viennent d'un M3U/Xtream, pas de TMDb).
-    @Query("SELECT * FROM movies WHERE title = :title COLLATE NOCASE LIMIT 1")
-    suspend fun findByTitle(title: String): MovieEntity?
+    // "Déjà dans le catalogue ?" pour le badge ✓ des films similaires/filmographie
+    // acteur (pas de tmdbId stocké — nos films viennent d'un M3U/Xtream, pas de
+    // TMDb). ⚠️ Bug corrigé 29/08/2026 : une égalité exacte (`title = :title`)
+    // ne matchait quasiment jamais — le titre catalogue garde ses tags qualité/
+    // langue/codec et son année ("4K-EN - Avatar (2009)"), le titre TMDb est nu
+    // ("Avatar") : le ✓ n'apparaissait donc presque jamais. `LIKE` ramène des
+    // candidats (le titre catalogue CONTIENT le titre TMDb comme sous-chaîne),
+    // PlaylistRepository vérifie ensuite l'égalité après nettoyage complet
+    // (util.cleanTitleForMatch, tags+année) pour écarter les faux positifs
+    // qu'un simple LIKE laisserait passer (ex. cible "Up" ne doit pas matcher
+    // "Wake Up" après nettoyage). LIMIT généreux mais borné : un titre TMDb très
+    // court/générique ne doit pas ramener un nombre de lignes déraisonnable sur
+    // un gros catalogue.
+    @Query("SELECT * FROM movies WHERE title LIKE '%' || :title || '%' COLLATE NOCASE LIMIT 20")
+    suspend fun findCandidatesByTitle(title: String): List<MovieEntity>
 
     @Query("SELECT DISTINCT category FROM movies WHERE category != '' ORDER BY category ASC")
     fun getCategories(): Flow<List<String>>

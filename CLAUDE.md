@@ -426,6 +426,21 @@ Aucun backend : l'app interroge TMDb directement (clé dans `AppConfig.Tmdb`).
   convention NicoTV** — ne pas reporter ce retrait vers NicoTV, où le "+"
   reste fonctionnel et doit rester tel quel.
 
+  ⚠️ **Bug corrigé le jour même : le ✓ n'apparaissait quasiment jamais** —
+  `MovieDao/SeriesDao.findByTitle` comparait par **égalité exacte**
+  (`title = :title COLLATE NOCASE`) le titre TMDb nu ("Avatar") au titre
+  catalogue brut, qui garde ses tags qualité/langue/codec et son année
+  ("4K-EN - Avatar (2009)") — ça ne matchait presque jamais. Renommé
+  `findCandidatesByTitle` (`LIKE '%:title%'`, ramène les titres catalogue
+  qui CONTIENNENT le titre TMDb comme sous-chaîne, `LIMIT 20`), vérifié
+  ensuite dans `PlaylistRepository.findMovieByCleanTitle`/
+  `findSeriesByCleanTitle` par égalité **après nettoyage complet** du titre
+  catalogue (`util.cleanTitleForMatch`, tags+année — extrait de l'ancien
+  `TmdbClient.cleanTitle`, désormais un simple appel à cette fonction
+  partagée). Le `LIKE` seul aurait pu créer des faux positifs (ex. TMDb
+  "Up" matchant un catalogue "Wake Up") — c'est la vérification par titre
+  nettoyé, pas le `LIKE`, qui tranche.
+
 Tous les appels TMDb sont **best-effort** : `TmdbClient` avale les exceptions et
 renvoie `null`/liste vide, un échec réseau ne doit jamais bloquer un écran.
 

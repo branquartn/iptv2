@@ -1,7 +1,7 @@
 package com.nicotv.iptv2.data.tmdb
 
 import com.nicotv.iptv2.AppConfig
-import com.nicotv.iptv2.util.stripReleaseTags
+import com.nicotv.iptv2.util.cleanTitleForMatch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl
@@ -58,17 +58,10 @@ class TmdbClient(private val client: OkHttpClient) {
     // Noms de fichiers scene-release réels ("Movie.Title.2020.FRENCH.1080p.
     // BluRay.x264-GROUP") bien plus fréquents dans les M3U/Xtream qu'un titre
     // propre — sans ce nettoyage, la recherche TMDb ne trouve simplement rien.
-    // Tags qualité/langue/codec + tirets de groupe de release : cf.
-    // util.stripReleaseTags (partagé avec Movie/SeriesEntity.displayTitle,
-    // qui lui garde l'année). Ici on la retire aussi : "Avatar 2009" gêne
-    // moins la recherche TMDb que "Avatar (2009)" sur certains titres ambigus.
-    private val yearTag = Regex("""\(?\b(19|20)\d{2}\b\)?""")
-
-    private fun cleanTitle(title: String): String {
-        var t = title.stripReleaseTags()
-        t = t.replace(yearTag, " ")
-        return t.replace(Regex("""\s+"""), " ").trim()
-    }
+    // util.cleanTitleForMatch (tags qualité/langue/codec + année) — partagé
+    // avec PlaylistRepository, qui compare un titre catalogue à un titre TMDb
+    // pour le badge ✓ des films similaires/filmographie.
+    private fun cleanTitle(title: String): String = title.cleanTitleForMatch()
 
     private fun urlFor(path: String, params: Map<String, String> = emptyMap()): HttpUrl {
         val builder = "${AppConfig.Tmdb.BASE_URL}$path".toHttpUrl().newBuilder()

@@ -33,3 +33,19 @@ fun String.stripReleaseTags(): String {
     t = t.replace(Regex("""\s+"""), " ").trim()
     return t.replace(EDGE_DASHES, "").trim()
 }
+
+private val YEAR_TAG = Regex("""\(?\b(19|20)\d{2}\b\)?""")
+
+/** Titre nettoyé pour comparaison — comme [stripReleaseTags] mais retire aussi
+ * l'année ("Avatar (2009)" → "Avatar") : les titres TMDb n'ont pas d'année,
+ * comparer un titre catalogue à un titre TMDb doit ignorer tags ET année.
+ * Même logique que l'ancien `TmdbClient.cleanTitle` (recherche), extraite ici
+ * le 29/08/2026 pour être réutilisée par `PlaylistRepository` (résolution
+ * "déjà dans le catalogue" pour le badge ✓ des films similaires/filmographie
+ * — cf. son commentaire : comparer le titre brut de la playlist à celui,
+ * propre, de TMDb ratait presque tout match sans ce nettoyage). */
+fun String.cleanTitleForMatch(): String {
+    var t = this.stripReleaseTags()
+    t = t.replace(YEAR_TAG, " ")
+    return t.replace(Regex("""\s+"""), " ").trim()
+}

@@ -12,8 +12,10 @@ interface SeriesDao {
     @Query("SELECT * FROM series WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): SeriesEntity?
 
-    @Query("SELECT * FROM series WHERE title = :title COLLATE NOCASE LIMIT 1")
-    suspend fun findByTitle(title: String): SeriesEntity?
+    // Cf. MovieDao.findCandidatesByTitle : même correctif (29/08/2026), même
+    // raison (titre catalogue avec tags/année vs titre TMDb nu).
+    @Query("SELECT * FROM series WHERE title LIKE '%' || :title || '%' COLLATE NOCASE LIMIT 20")
+    suspend fun findCandidatesByTitle(title: String): List<SeriesEntity>
 
     @Query("SELECT DISTINCT category FROM series WHERE category != '' ORDER BY category ASC")
     fun getCategories(): Flow<List<String>>
