@@ -142,6 +142,13 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
         if (current.isNullOrEmpty()) return
         viewModelScope.launch {
             val favIds = repository.getFavoriteSeriesIds()
+            // ⚠️ Ne reconstruit la liste QUE si un état a réellement changé
+            // (audit perf 30/08/2026) : cette méthode tourne à CHAQUE retour
+            // depuis la fiche détail, et une catégorie chargée en entier peut
+            // compter des milliers d'entrées — les recopier toutes (puis tout
+            // réafficher) pour un aller-retour sans changement de favori était
+            // du gaspillage pur, en plus de perturber le focus D-pad.
+            if (current.none { (it.id in favIds) != it.isFavorite }) return@launch
             _series.value = current.map { it.copy(isFavorite = it.id in favIds) }
         }
     }

@@ -14,7 +14,17 @@ import com.nicotv.iptv2.util.withoutLeadingLanguageCode
  * légitimement partager un nom, ex. plusieurs qualités d'un même flux). */
 @Entity(
     tableName = "channels",
-    indices = [Index(value = ["name", "streamUrl"], unique = true)]
+    // Cf. MovieEntity (audit perf 30/08/2026). Ici l'ORDER BY dépend d'un
+    // CASE (tntRank ou sortOrder selon le contexte français), qu'aucun index ne
+    // peut couvrir — d'où un index sur la seule "category" : il sert au
+    // positionnement (WHERE) et au GROUP BY de la sidebar, le tri restant à la
+    // charge de SQLite sur un sous-ensemble déjà réduit. `categoryOrder` en
+    // queue rend la requête des catégories couvrante (cf. MovieEntity).
+    indices = [
+        Index(value = ["name", "streamUrl"], unique = true),
+        Index(value = ["category", "categoryOrder"]),
+        Index(value = ["nameLanguageCode"])
+    ]
 )
 data class ChannelEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

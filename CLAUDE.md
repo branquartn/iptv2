@@ -381,6 +381,65 @@ focus au bon endroit — le lui reprendre serait pire que de ne rien faire.
 **Films n'a volontairement pas ce comportement** (non demandé) : y ajouter le
 même appel suffirait, `positionOf` est déjà partagé dans l'adapter.
 
+## Audit perf "expert" : index SQL + invalidations RecyclerView
+
+⚠️ **30/08/2026, demande "regarde bien si tout est super bien optimisé comme un
+expert"** — quatre trouvailles réelles, toutes en dehors de ce qui avait été
+corrigé jusque-là (qui portait sur *quoi* on charge, pas sur *comment*).
+
+**1. AUCUN index SQL sur les colonnes filtrées** (le plus rentable). Les
+entités n'avaient que leurs index d'unicité (`title`+`streamUrl`, `name`+
+`streamUrl`, `title`). Or toutes les requêtes chaudes filtrent sur `category`,
+`languageCode`, `nameLanguageCode`, ou trient sur `updatedAt` : chacune
+**balayait les ~47 000 lignes**. Index ajoutés :
+- `movies`/`series` : `(category, title, categoryOrder)`, `(languageCode)`,
+  `(updatedAt)` ;
+- `channels` : `(category, categoryOrder)`, `(nameLanguageCode)` ;
+- `favorites` : `(itemType)` — la PK est `(itemId, itemType)`, or **toutes** les
+  requêtes filtrent par `itemType` seul, qui n'en est pas la colonne de tête :
+  l'index de la PK ne pouvait donc pas servir.
+
+⚠️ **`categoryOrder` est placé en QUEUE de l'index composite**, alors qu'il
+n'entre dans aucun filtre : c'est délibéré. `(category, title)` suffit au cas
+le plus chaud (une catégorie triée par titre = l'écran par défaut, positionnement
+direct + lignes déjà triées, aucun tri à faire), et l'ajout de `categoryOrder`
+rend en prime la requête de la sidebar
+(`GROUP BY category ORDER BY MIN(categoryOrder)`) **entièrement satisfaisable
+depuis l'index**, sans lire une ligne de table — un index couvrant plutôt qu'un
+4ᵉ index à maintenir à chaque insert. Chaque index coûte au CHARGEMENT de la
+playlist (47 000 insertions) : ne pas en ajouter un de plus sans vérifier
+qu'aucun index existant ne peut couvrir le besoin en changeant l'ordre de ses
+colonnes.
+
+⚠️ Room **version 10** → rechargement de playlist obligatoire.
+
+**2. `notifyDataSetChanged()` à l'ajout d'une page.** `PosterAdapter`/
+`ChannelGridAdapter` invalidaient TOUTE la liste à chaque page ajoutée par le
+scroll infini — sur Android TV ça peut déplacer ou perdre le focus D-pad
+précisément pendant qu'on défile. Remplacé par `notifyItemRangeInserted` quand
+la nouvelle liste **commence exactement par l'ancienne** (comparaison
+d'identité, l'ajout de page réutilise les mêmes instances). ⚠️ Ce n'est **pas**
+un retour à `DiffUtil`/`ListAdapter` (retiré délibérément, cf. section dédiée) :
+aucun diff n'est calculé, et tout autre changement retombe sur
+`notifyDataSetChanged`.
+
+**3. Re-soumission de la même liste.** Le rendu des 3 écrans est recalculé sur
+deux sources (`movies` + `isReady`), donc la liste identique était soumise deux
+fois → une invalidation complète pour rien. Garde `if (list === items) return`.
+
+**4. `refreshFavoriteStates()` reconstruisait tout à chaque retour de fiche.**
+Appelée dans `onResume`, elle recopiait l'intégralité de la liste affichée
+(potentiellement des milliers d'entrées pour une catégorie chargée en entier)
+même quand aucun favori n'avait bougé. Elle ne fait plus rien si aucun état ne
+diffère réellement.
+
+**Restes connus, assumés** : la recherche `LIKE '%…%'` ne peut profiter
+d'aucun index (SQLite n'indexe pas un préfixe joker) — d'où le `LIMIT 200` ;
+la pagination par `OFFSET` reste O(offset) sur un défilement très profond dans
+"Toutes" (désormais adossée à un index) ; `getAvailableContentLanguages`
+balaie noms + catégories, mais uniquement à l'ouverture du sélecteur de langue
+dans Réglages.
+
 ## Règle générale : aucun écran ne charge le catalogue entier
 
 ⚠️ **Aboutissement de toute la séquence perf des 29-30/08/2026** (question de

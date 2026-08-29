@@ -12,7 +12,26 @@ import com.nicotv.iptv2.util.withoutLeadingLanguageCode
  * met à jour la ligne existante au lieu d'en créer une doublonnée. */
 @Entity(
     tableName = "movies",
-    indices = [Index(value = ["title", "streamUrl"], unique = true)]
+    // ⚠️ Index ajoutés 30/08/2026 (audit perf). Sans eux, CHAQUE requête de
+    // l'écran Films faisait un balayage complet de la table (~47 000 lignes sur
+    // le panel de test) : filtrer par catégorie, lister les catégories
+    // (GROUP BY), ou sortir les 12 dernières jaquettes du fond d'accueil.
+    // - ("category", "title", "categoryOrder") : couvre le cas le PLUS chaud —
+    //   une catégorie précise, triée par titre (l'écran par défaut). SQLite se
+    //   positionne directement sur la catégorie ET les lignes sortent déjà
+    //   triées, donc aucun tri à faire. `categoryOrder` en QUEUE d'index (il
+    //   n'entre dans aucun filtre) rend en prime la requête des catégories
+    //   `GROUP BY category ORDER BY MIN(categoryOrder)` entièrement
+    //   satisfaisable depuis l'index, sans lire une seule ligne de la table —
+    //   un index couvrant, plutôt qu'un 4e index à maintenir à chaque insert.
+    // - ("languageCode") : filtre "Langue du contenu".
+    // - ("updatedAt") : ORDER BY updatedAt DESC LIMIT 12 du fond d'accueil.
+    indices = [
+        Index(value = ["title", "streamUrl"], unique = true),
+        Index(value = ["category", "title", "categoryOrder"]),
+        Index(value = ["languageCode"]),
+        Index(value = ["updatedAt"])
+    ]
 )
 data class MovieEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

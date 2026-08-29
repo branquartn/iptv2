@@ -29,9 +29,38 @@ class PosterAdapter(
 
     private var items: List<Movie> = emptyList()
 
+    /** ⚠️ Une page ajoutée en fin de liste (scroll infini, cf. CLAUDE.md) est
+     * signalée par `notifyItemRangeInserted`, PAS par `notifyDataSetChanged` :
+     * ce dernier invalide tout, ce qui sur Android TV peut déplacer ou perdre
+     * le focus D-pad en plein défilement — précisément au moment où la page
+     * suivante arrive. L'insertion ciblée ne touche que les nouvelles lignes.
+     *
+     * ⚠️ Ce n'est PAS un retour à `DiffUtil`/`ListAdapter`, retiré
+     * délibérément (cf. commentaire de classe) : on ne calcule aucun diff, on
+     * vérifie juste que la nouvelle liste commence exactement par l'ancienne
+     * (comparaison d'identité, pas d'égalité structurelle — l'ajout de page
+     * réutilise les mêmes instances). Tout autre changement (filtre, recherche,
+     * rafraîchissement des favoris qui recrée les objets) retombe sur
+     * `notifyDataSetChanged`, au coût constant qui était déjà le nôtre. */
     fun submitList(list: List<Movie>) {
+        // Même instance re-soumise (le rendu est recalculé sur plusieurs
+        // sources, cf. les Activity) : rien n'a changé, ne pas invalider.
+        if (list === items) return
+        val previous = items
         items = list
-        notifyDataSetChanged()
+        if (isAppendOf(previous, list)) {
+            notifyItemRangeInserted(previous.size, list.size - previous.size)
+        } else {
+            notifyDataSetChanged()
+        }
+    }
+
+    private fun isAppendOf(previous: List<Movie>, next: List<Movie>): Boolean {
+        if (previous.isEmpty() || next.size <= previous.size) return false
+        for (i in previous.indices) {
+            if (previous[i] !== next[i]) return false
+        }
+        return true
     }
 
     override fun getItemCount(): Int = items.size

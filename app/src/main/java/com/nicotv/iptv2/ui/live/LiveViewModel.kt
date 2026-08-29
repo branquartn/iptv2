@@ -202,6 +202,9 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
         if (current.isNullOrEmpty()) return
         viewModelScope.launch {
             val favIds = repository.getFavoriteChannelIds()
+            // Cf. MoviesViewModel.refreshFavoriteStates — rien à refaire si
+            // aucun favori n'a bougé.
+            if (current.none { (it.id in favIds) != it.isFavorite }) return@launch
             _channels.value = current.map { it.copy(isFavorite = it.id in favIds) }
         }
     }

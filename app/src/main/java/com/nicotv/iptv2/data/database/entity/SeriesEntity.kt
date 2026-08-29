@@ -12,7 +12,13 @@ import com.nicotv.iptv2.util.withoutLeadingLanguageCode
  * jour la ligne existante au lieu d'en créer une doublonnée. */
 @Entity(
     tableName = "series",
-    indices = [Index(value = ["title"], unique = true)]
+    // Cf. MovieEntity pour le raisonnement (audit perf 30/08/2026).
+    indices = [
+        Index(value = ["title"], unique = true),
+        Index(value = ["category", "title", "categoryOrder"]),
+        Index(value = ["languageCode"]),
+        Index(value = ["updatedAt"])
+    ]
 )
 data class SeriesEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

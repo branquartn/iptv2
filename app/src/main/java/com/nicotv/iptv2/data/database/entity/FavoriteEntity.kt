@@ -7,7 +7,15 @@ import androidx.room.Entity
  * PrimaryKey auto-générée, aucun risque de collision d'id entre elles ici
  * puisqu'on filtre toujours par type). Clé primaire composite (itemId, itemType) :
  * un même id de film et de série ne se marchent pas dessus. */
-@Entity(tableName = "favorites", primaryKeys = ["itemId", "itemType"])
+// ⚠️ Index sur itemType (30/08/2026) : la clé primaire est (itemId, itemType),
+// or toutes les requêtes filtrent par itemType SEUL — ce n'est pas la colonne
+// de tête de la PK, donc son index ne pouvait pas servir. Table petite, mais
+// elle est lue à chaque page de catalogue (jointure favoris).
+@Entity(
+    tableName = "favorites",
+    primaryKeys = ["itemId", "itemType"],
+    indices = [androidx.room.Index(value = ["itemType"])]
+)
 data class FavoriteEntity(
     val itemId: Long,
     val itemType: String, // MOVIE / SERIES / CHANNEL — cf. Type ci-dessous
