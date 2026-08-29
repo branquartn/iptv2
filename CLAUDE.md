@@ -628,10 +628,23 @@ changement de source.
 
 ⚠️ **Carte Films : rotation restreinte aux films FR** (28/08/2026, demande
 explicite) — le pool de jaquettes tournantes (`movieHubUrls`) est filtré par
-`extractLeadingLanguageCode(it.category) == "FR"` avant de prendre les 12 plus
-récents, même filtre exact que le réglage "Langue du contenu" (cf. section
+`extractLeadingLanguageCode(it.category)` avant de prendre les 12 plus
+récents, même filtre que le réglage "Langue du contenu" (cf. section
 Réglages) — pas l'ancienne heuristique `isFrenchLabel`. **Carte Séries non
 filtrée** (pas demandé) : continue de tourner sur tout le catalogue série.
+
+⚠️ **Bug corrigé 29/08/2026 : "l'image de fond ne change jamais"** — le
+filtre utilisait `== "FR"` en égalité stricte au lieu de la règle "aucun
+préfixe détecté = accepté" (`c == null || c == "FR"`, cf. `MoviesViewModel.
+applyLanguageFilter`, même piège déjà rencontré et corrigé là-bas pour la
+même raison : sur un panel où la plupart des catégories françaises n'ont
+justement aucun préfixe de langue, l'égalité stricte ne laissait passer
+qu'une poignée de films voire un seul — `movieHubUrls` de taille 1, la
+rotation (`loadRotatingHubImage`, `urls[(slot+offset) % urls.size]`) retombe
+alors toujours sur le même index. Si un futur filtre par langue est ajouté
+ailleurs dans l'app, reprendre `c == null || c == contentLanguage`
+systématiquement — ne jamais réintroduire une égalité stricte sur
+`extractLeadingLanguageCode`.
 
 ⚠️ **Carte Chaînes : mosaïque FIXE de logos FR, pas une rotation**
 (28/08/2026, encore un revirement le jour même — d'abord aucune image, puis

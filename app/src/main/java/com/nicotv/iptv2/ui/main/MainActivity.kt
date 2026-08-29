@@ -273,10 +273,21 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
             app.database.movieDao().getAllMovies()
                 .map { movies ->
                     // Films FR uniquement, les plus récents (demande explicite
-                    // 28/08/2026) — cf. util.LanguageCode, même filtre exact
-                    // que le réglage "Langue du contenu" côté MoviesViewModel.
+                    // 28/08/2026) — cf. util.LanguageCode.
+                    //
+                    // ⚠️ Bug corrigé 29/08/2026 : `== "FR"` strict excluait tout
+                    // film SANS préfixe de langue détecté dans sa catégorie — sur
+                    // un panel où la plupart des catégories françaises n'ont
+                    // justement aucun préfixe (cf. section Réglages/Langue du
+                    // contenu du CLAUDE.md, même piège déjà rencontré et corrigé
+                    // là-bas), ça ne laissait qu'une poignée de films, parfois un
+                    // seul -> le fond "tournait" toujours sur la même image.
+                    // Même règle que MoviesViewModel.applyLanguageFilter : aucun
+                    // préfixe détecté = accepté, exclut seulement un préfixe
+                    // explicite d'une AUTRE langue.
                     movies.filter {
-                        extractLeadingLanguageCode(it.category) == "FR" &&
+                        val c = extractLeadingLanguageCode(it.category)
+                        (c == null || c == "FR") &&
                             (it.backdropUrl.isNotBlank() || it.posterUrl.isNotBlank())
                     }
                         .sortedByDescending { it.updatedAt }
