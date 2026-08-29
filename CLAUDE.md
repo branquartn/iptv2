@@ -602,11 +602,28 @@ plutôt que redemander "pourquoi ça déborde".
 ⚠️ **Titre 16sp + logo à droite, alignés sur Ajouter une source** (corrigé
 29/08/2026, demande explicite "pareil que quand j'ajoute un Xtream
 Codes... même grosseur de police") — `settings_title` passé de `20sp` à
-`16sp` (seul ce point précis a été aligné ; la flèche retour garde ses
-48dp/24dp propres à cet écran, pas les 36dp/18dp d'`AddXtreamActivity` — pas
-demandé, `Live/Movies/Series/Detail` partagent cette même taille 48dp, la
-réduire ici casserait CETTE cohérence-là). `ic_nicotv_wordmark` ajouté après
-le titre (`wrap_content`+`adjustViewBounds`, hauteur 20dp).
+`16sp`. La flèche retour garde ses 48dp/24dp propres à cet écran, pas les
+36dp/18dp d'`AddXtreamActivity` — pas demandé, `Live/Movies/Series/Detail`
+partagent cette même taille 48dp, la réduire ici casserait CETTE
+cohérence-là. `ic_nicotv_wordmark` ajouté après le titre
+(`wrap_content`+`adjustViewBounds`, hauteur 20dp).
+
+⚠️ **Hauteur de bandeau alignée sur Xtream Codes (64dp fixe)** (corrigé le
+jour même, demande explicite : "la hauteur du bandeau... ne sont pas les
+mêmes... la hauteur idéale est celle de Xtream") — Réglages/Profils/Add*
+avaient chacun une hauteur `wrap_content` différente (padding + taille de
+flèche retour propres à chaque écran : 88dp/54dp/64dp). Les 3 bandeaux sont
+passés en `layout_height="64dp"` **fixe** (référence = celle d'Add-Xtream,
+`gravity="center_vertical"` déjà présent sur les 3 centre le contenu — flèche
+48dp sur Réglages, 36dp sur Profils/Add* — sans besoin d'ajuster le padding
+vertical au cas par cas). Padding vertical retiré de ces 3 `LinearLayout`
+d'en-tête (redondant avec la hauteur fixe + le centrage). Contenu compensé
+par un `paddingTop` uniforme de **72dp** sur les 4 écrans concernés
+(Réglages, Profils, `activity_add_playlist.xml`, `activity_add_xtream.xml`)
+— 64dp de bandeau + 8dp de respiration. Si un futur écran de ce groupe
+(gestion des profils/sources) ajoute encore un en-tête, reprendre ces
+mêmes valeurs (64dp fixe, `paddingTop` 72dp) plutôt que d'en inventer une
+nouvelle.
 
 - **Cache images (Coil)** : config explicite dans `IptvApplication`
   (`ImageLoaderFactory`) — 300 Mo disque, 25% de la RAM en mémoire. Par défaut

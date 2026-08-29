@@ -29,7 +29,7 @@
             android:orientation="vertical"
             android:paddingStart="40dp"
             android:paddingEnd="40dp"
-            android:paddingTop="96dp">
+            android:paddingTop="72dp">
 
                 <!-- ── Playlist ────────────────────────────────────────────── -->
                 <TextView
@@ -256,9 +256,15 @@
     <!-- Barre de titre fixe, ajoutée APRÈS le ScrollView : dessinée par-dessus
          (ordre de dessin = ordre des enfants), fond opaque propre (bg_nav) —
          le contenu qui défile ne peut jamais visuellement passer devant. -->
+    <!-- Hauteur fixe 64dp (29/08/2026, demande explicite : "la hauteur idéale
+         est celle de Xtream" — Réglages/Profils/Add* avaient 3 hauteurs
+         différentes, dépendantes du padding ET de la taille de flèche retour
+         propre à chaque écran). `gravity="center_vertical"` centre le
+         contenu (flèche 48dp ici, 36dp sur Profils/Add*) quelle que soit sa
+         taille — plus besoin d'ajuster le padding vertical pour compenser. -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="64dp"
         android:layout_gravity="top"
         android:gravity="center_vertical"
         android:orientation="horizontal"
@@ -266,8 +272,6 @@
         android:elevation="4dp"
         android:paddingStart="40dp"
         android:paddingEnd="40dp"
-        android:paddingTop="24dp"
-        android:paddingBottom="16dp"
         android:clipChildren="false"
         android:clipToPadding="false">
 

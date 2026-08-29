@@ -21,7 +21,7 @@
         android:gravity="center_horizontal"
         android:paddingStart="24dp"
         android:paddingEnd="24dp"
-        android:paddingTop="58dp"
+        android:paddingTop="72dp"
         android:paddingBottom="8dp"
         android:clipChildren="false"
         android:clipToPadding="false">
@@ -188,10 +188,12 @@
          retour visible seulement si on arrive via Réglages > "Changer de
          source" (EXTRA_FORCE_SHOW — au lancement normal, rien à quoi
          revenir). Pas d'accès Réglages ici (retiré 29/08/2026, demande
-         explicite) — seul MainActivity l'ouvre. -->
+         explicite) — seul MainActivity l'ouvre. Hauteur fixe 64dp, alignée
+         sur Xtream Codes (29/08/2026, demande explicite — 3 hauteurs
+         différentes sur Réglages/Profils/Add* avant ça). -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="64dp"
         android:layout_gravity="top"
         android:gravity="center_vertical"
         android:orientation="horizontal"
@@ -199,8 +201,6 @@
         android:elevation="4dp"
         android:paddingStart="24dp"
         android:paddingEnd="24dp"
-        android:paddingTop="10dp"
-        android:paddingBottom="8dp"
         android:clipChildren="false"
         android:clipToPadding="false">
 
