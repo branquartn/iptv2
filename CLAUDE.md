@@ -386,6 +386,44 @@ cache (`moviesFlow` chaud, cf. section dédiée) et le filtre déjà rapide
 n'est maintenant exécuté que si `searchQuery` n'est pas vide — ouverture
 d'écran/changement de catégorie filtrent immédiatement.
 
+⚠️ **Vrai coupable du freeze "ça recharge tout" (corrigé 29/08/2026, trouvé
+par instrumentation réelle — adb wireless sur le Shield de test, `uiautomator
+dump` pour localiser la tuile Films, `input tap`+`DPAD_CENTER` pour naviguer,
+`screencap` en rafale pour dater l'apparition des données, `logcat` pour le
+détail)** : ni le filtre des ViewModel (déjà corrigé plus tôt le même jour,
+cf. sections précédentes) ni le cache Room n'étaient en cause. Le vrai
+coupable était **`MainActivity.observeData()`** — les deux `lifecycleScope.
+launch { app.database.movieDao().getAllMovies().map { ... } ... }` (fond
+plein écran aléatoire, `maybeSetHomeBg`) : `lifecycleScope.launch` tourne sur
+`Dispatchers.Main.immediate` par défaut, et un `Flow.map` s'exécute dans le
+contexte du **collecteur** sans `flowOn` explicite — donc le filter+sort+map
+sur la **totalité** du catalogue films (~47 000 sur le panel de test, jusqu'à
+~136 000 constaté ailleurs) et séries tournait **entièrement sur le thread
+principal**, à chaque création de `MainActivity` (donc à chaque retour à
+l'accueil si l'activité a été détruite entre-temps — fréquent sur Android
+TV/Fire TV, mémoire limitée). Logcat du Shield de test a confirmé sans
+ambiguïté : `Choreographer: Skipped 179 frames! The application may be doing
+too much work on its main thread`, `Davey! duration=3012ms` (une seule frame
+a mis 3 secondes), et une rafale de GC pendant plusieurs secondes (heap
+grimpant à 253 Mo, millions d'objets alloués/libérés) pendant la fenêtre
+exacte où l'écran Films restait sur "Aucun titre trouvé". Le screencap en
+rafale a montré le compteur de films bloqué à 0 pendant plus de 20 secondes
+après un démarrage à froid — largement au-delà des "5 secondes" rapportées,
+le pire cas dépendant de la vitesse du device/de l'état du GC à ce moment.
+Fix : `.flowOn(Dispatchers.Default)` ajouté entre le `.map` et le `.collect`
+sur les deux Flow (`movieDao().getAllMovies()`/`seriesDao().getAllSeries()`)
+— seul le `.collect` (qui touche `binding.ivHomeBg`) reste sur Main, tout le
+calcul lourd passe en arrière-plan. Aucun autre endroit du code ne consomme
+directement `movieDao().getAllMovies()`/`seriesDao().getAllSeries()`/
+`channelDao().getAllChannels()` en dehors de `PlaylistRepository`
+(`moviesFlow`/`seriesFlow`/`channelsFlow`, déjà sur `appScope` =
+`Dispatchers.Default`, donc déjà sûrs) — vérifié par grep avant de conclure
+le correctif complet. **Si un futur écran ajoute un `Flow.map` sur une DAO
+qui renvoie potentiellement des dizaines de milliers de lignes, toujours
+vérifier qu'un `flowOn(Dispatchers.Default)` est présent avant le `collect`**
+— l'absence ne casse rien visuellement en dev sur un petit catalogue de test,
+elle ne se voit qu'à l'échelle d'un vrai panel Xtream volumineux.
+
 ## Titre "propre" à l'affichage (Movie.displayTitle)
 
 Demande explicite 28/08/2026 : "voir le vrai nom du film" — `util.

@@ -21,7 +21,9 @@ import com.nicotv.iptv2.ui.search.SearchActivity
 import com.nicotv.iptv2.ui.series.SeriesActivity
 import com.nicotv.iptv2.update.checkForAppUpdate
 import com.nicotv.iptv2.util.extractLeadingLanguageCode
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
@@ -183,6 +185,22 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         app.playlistRepository.getSeries()
         app.playlistRepository.getChannels()
 
+        // ⚠️ `.map` déporté en Dispatchers.Default via `flowOn` (corrigé
+        // 29/08/2026, signalé "je sors de Films et j'y retourne, 5 secondes
+        // avant que tout charge") — `lifecycleScope.launch` tourne sur
+        // Main.immediate par défaut, et un `Flow.map` s'exécute dans le
+        // contexte du COLLECTEUR sans `flowOn` explicite. Concrètement :
+        // filter+sort+map sur les ~47 000/136 000 films (et pareil pour les
+        // séries) tournait EN ENTIER sur le thread principal, à chaque
+        // création de MainActivity — confirmé par logcat sur le Shield de
+        // test (`Choreographer: Skipped 179 frames!`, `Davey duration=
+        // 3012ms`, rafale de GC pendant plusieurs secondes). Ce n'était donc
+        // pas le catalogue qui "rechargeait" à chaque retour sur Films, mais
+        // l'accueil qui gelait l'app en repassant tout le catalogue au crible
+        // pour le fond aléatoire — perçu comme un rechargement complet.
+        // `flowOn(Dispatchers.Default)` s'applique à tout ce qui est EN AMONT
+        // dans la chaîne (donc au `.map`), `collect` reste sur Main comme
+        // avant (nécessaire pour toucher `binding.ivHomeBg`).
         lifecycleScope.launch {
             app.database.movieDao().getAllMovies()
                 .map { movies ->
@@ -209,6 +227,7 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                         .map { it.backdropUrl.ifBlank { it.posterUrl } }
                         .distinct()
                 }
+                .flowOn(Dispatchers.Default)
                 .distinctUntilChanged()
                 .collect { movieUrls ->
                     movieHubUrls = movieUrls
@@ -224,6 +243,7 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                         .map { it.backdropUrl.ifBlank { it.posterUrl } }
                         .distinct()
                 }
+                .flowOn(Dispatchers.Default)
                 .distinctUntilChanged()
                 .collect { seriesUrls ->
                     seriesHubUrls = seriesUrls
