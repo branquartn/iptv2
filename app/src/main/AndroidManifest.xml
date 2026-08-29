@@ -54,6 +54,22 @@
             </intent-filter>
         </activity-alias>
 
+        <!-- Pages complètes "Charger votre playlist" / "Xtream Codes"
+             (29/08/2026, remplacent les anciens AlertDialog centrés). -->
+        <activity
+            android:name=".ui.setup.AddPlaylistActivity"
+            android:screenOrientation="sensorLandscape"
+            android:windowSoftInputMode="adjustPan"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.setup.AddXtreamActivity"
+            android:screenOrientation="sensorLandscape"
+            android:windowSoftInputMode="adjustPan"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize"
+            android:exported="false" />
+
         <activity
             android:name=".ui.main.MainActivity"
             android:screenOrientation="sensorLandscape"

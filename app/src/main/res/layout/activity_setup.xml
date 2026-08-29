@@ -23,8 +23,8 @@
         <!-- Barre d'en-tête, même structure que Réglages (activity_settings.xml) :
              flèche retour (visible seulement si on arrive via Réglages >
              "Changer de source", EXTRA_FORCE_SHOW — au lancement normal, rien
-             à quoi revenir) + titre "Profils" + accès Réglages, toujours
-             affiché ici pour pouvoir y aller directement depuis cet écran. -->
+             à quoi revenir) + titre "Profils". Pas d'accès Réglages ici
+             (retiré 29/08/2026, demande explicite) — seul MainActivity l'ouvre. -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -71,23 +71,6 @@
                 android:textSize="16sp"
                 android:textStyle="bold" />
 
-            <!-- Texte "Réglages", pas une icône roue crantée (29/08/2026,
-                 demande explicite) — même barre d'en-tête que ci-dessus,
-                 jamais recouvert par autre chose : rien d'autre sur cet
-                 écran n'est positionné à cette hauteur. -->
-            <TextView
-                android:id="@+id/btn_settings"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="12dp"
-                android:focusable="true"
-                android:clickable="true"
-                android:background="?android:attr/selectableItemBackgroundBorderless"
-                android:padding="4dp"
-                android:text="@string/settings_title"
-                android:textColor="@color/accent"
-                android:textSize="14sp"
-                android:textStyle="bold" />
         </LinearLayout>
 
         <!-- Profils sauvegardés — tout en haut de la fenêtre, avant même le

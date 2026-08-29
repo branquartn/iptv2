@@ -445,21 +445,17 @@ partout) pour que tout tienne dans ~360dp sans scroll. Une barre d'en-tête a
 été ajoutée, même structure que `activity_settings.xml` : flèche retour
 (`btn_back`, **visible seulement** si l'écran est ouvert via Réglages →
 « Changer de source », `EXTRA_FORCE_SHOW` — au lancement normal, aucun profil
-actif, il n'y a rien à quoi revenir) + titre `setup_screen_title` ("Profils")
-+ accès Réglages, **toujours visible** — cet écran n'avait jusqu'ici aucun
-moyen d'y aller directement, seul `MainActivity` l'ouvrait.
-Si une future modif de cet écran ajoute du contenu, revérifier sur un
-appareil bas de gamme/petit écran en `sensorLandscape` que ça tient toujours
-sans réintroduire de scroll.
+actif, il n'y a rien à quoi revenir) + titre `setup_screen_title` ("Profils"). Si une future modif de cet écran
+ajoute du contenu, revérifier sur un appareil bas de gamme/petit écran en
+`sensorLandscape` que ça tient toujours sans réintroduire de scroll.
 
-⚠️ **`btn_settings` en texte, pas en icône roue crantée** (29/08/2026,
-deuxième revirement le jour même — d'abord icône+anneau comme le reste des
-boutons ronds de l'app, rejetée aussitôt) : `TextView` "Réglages" (couleur
-`@color/accent`), simple agrandissement au focus (`SetupActivity.
-setupHeader`), pas de `RotatingBorderView` (anneau circulaire mal adapté à
-une forme de texte). Toujours dans la même barre d'en-tête que la flèche
-retour — rien d'autre sur cet écran ne partage cette ligne, pas de risque de
-chevauchement avec un autre texte.
+⚠️ **Accès Réglages depuis Profils : essayé puis abandonné** (29/08/2026,
+3 revirements le même jour — icône roue crantée, puis texte "Réglages" en
+couleur accent, puis **retiré entièrement**, demande explicite à chaque
+fois). Il n'y a **plus aucun accès à Réglages depuis Profils** : seul
+`MainActivity` (icône engrenage de l'accueil) l'ouvre, comme à l'origine.
+Ne pas réintroduire ce bouton sans redemander — ce point précis a changé
+3 fois dans la journée avant de revenir à zéro.
 
 ⚠️ **Historique du raccourci auto-load (inversé en 1.0.20)** : une version
 antérieure sautait à l'accueil dès qu'un profil était actif, avec un défaut
@@ -479,11 +475,21 @@ zéro attente réseau au lancement (le rafraîchissement si périmé reste gér�
 fond par `MainActivity.onStart` → `refreshActiveProfileIfStale`, cf. section
 Réglages ci-dessous).
 
-Les 2 formulaires s'ouvrent dans un **`AlertDialog` centré**
-(`dialog_form_playlist.xml` / `dialog_form_xtream.xml`) et non plus en dessous
-des cartes. Chacun est enveloppé dans un `ScrollView` : l'écran est en
-`sensorLandscape` (~360 dp de haut), le clavier ouvert sur le dernier champ
-faisait sortir le bouton « Charger »/« Se connecter » de la zone visible.
+⚠️ **Formulaires en pages complètes, plus en `AlertDialog`** (29/08/2026,
+demande explicite — 2ᵉ étape après un premier passage en dialogue centré) :
+`AddPlaylistActivity`/`AddXtreamActivity` (`ui/setup/`), lancées par les 2
+cartes (nouveau profil) ou le crayon d'un profil existant (édition — extras
+`EXTRA_EDIT_*`, pas de `Parcelable`, juste les champs primitifs nécessaires
+au pré-remplissage). Chacune a sa propre flèche retour (même structure de
+barre d'en-tête que Profils/Réglages) qui `finish()` sans rien enregistrer —
+« retour sur Profils » explicite demandé. Un chargement réussi navigue direct
+vers `MainActivity` (comme avant), une erreur affiche le statut **sur cette
+page** et la laisse ouverte pour corriger/réessayer (`SetupActivity` n'est
+plus impliqué une fois la page ouverte). Contenu des champs identique aux
+anciens `dialog_form_playlist.xml`/`dialog_form_xtream.xml` (supprimés),
+toujours dans un `ScrollView` : l'écran reste en `sensorLandscape` (~360dp
+de haut), le clavier ouvert sur le dernier champ fait sortir le bouton
+« Charger »/« Se connecter » de la zone visible sans ça.
 
 ⚠️ **`installSplashScreen()` obligatoire** : `SetupActivity` déclare
 `android:theme="@style/Theme.IPTV.Splash"` dans le manifeste (parent
@@ -646,56 +652,34 @@ ailleurs dans l'app, reprendre `c == null || c == contentLanguage`
 systématiquement — ne jamais réintroduire une égalité stricte sur
 `extractLeadingLanguageCode`.
 
-⚠️ **Carte Chaînes : mosaïque FIXE de logos FR, pas une rotation**
-(28/08/2026, encore un revirement le jour même — d'abord aucune image, puis
-un logo unique en rotation, puis cette mosaïque à 6 logos statique sur
-demande explicite : **ne pas re-proposer un autre traitement sans
-redemander**, ce choix a déjà changé deux fois dans la journée).
-`bindLiveMosaic()` charge une seule fois (`liveMosaicBound`, jamais retouché
-après) 6 logos dans une grille 3×2 (`iv_live_logo_1`..`6`, `fitCenter` +
-padding — pas `centerCrop`, un logo est souvent transparent). Aucune notion
-de "récent" possible (`ChannelEntity` n'a pas de `updatedAt`).
+⚠️ **Carte Chaînes : image collage unique, pas une mosaïque de logos**
+(29/08/2026, dénouement d'une longue série de revirements le même jour —
+d'abord aucune image, puis un logo unique en rotation, puis une mosaïque de
+6 logos statique par correspondance dynamique sur le catalogue (jamais
+fiable : Canal+/OCS/Prime quasi jamais présents comme "chaîne" Xtream avec
+logo), puis 6 logos embarqués en dur (`MosaicLogo`/`brandMosaicLogos`/
+`bindLiveMosaic`, avec repli `Local`/`Remote`, correspondance par mot entier
+`hasWord()`...) — **tout ce mécanisme a été retiré**, remplacé par une seule
+image fournie par l'utilisateur (collage Canal+/TF1/OCS/Netflix/Prime/beIN
+déjà composé). **Ne pas réintroduire un système de correspondance
+dynamique/logos séparés sans redemander** — ce choix a déjà changé 4 fois
+dans la journée avant de se stabiliser ici.
 
-⚠️ **6 marques précises, pas 6 logos FR quelconques** (29/08/2026, demande
-explicite) : `brandMosaicLogos()` remplace l'échantillon "premiers logos FR
-rencontrés" par une recherche ciblée, dans cet ordre fixe — Canal+, beIN
-Sport, TF1, OCS, Prime, Netflix. Recherche sur **tout** le catalogue (pas de
-filtre `extractLeadingLanguageCode == "FR"` : beIN/OCS/Netflix n'ont
-généralement pas ce préfixe), un mot-clé par marque sur `name.lowercase()`
-(`"tf1"` exclut explicitement les noms contenant `"serie"`/`"film"`, sinon
-"TF1 Séries Films" passerait avant la vraie chaîne TF1 si elle apparaît
-en premier dans le panel ; `"canal+"` couvre aussi `"canalplus"` écrit en
-toutes lettres, espaces retirés avant comparaison).
-
-⚠️ **Fallback en logo embarqué pour Canal+/OCS/Prime** (29/08/2026, demande
-explicite après constat : ces 3 marques n'apparaissent quasiment jamais comme
-"chaîne" avec logo sur un panel Xtream — ce sont des services VOD, pas des
-chaînes live, impossible d'en tirer quoi que ce soit du catalogue de
-l'utilisateur). `MosaicLogo` (sealed class, `Remote`/`Local`) distingue les
-deux origines ; `logoFor()` essaie d'abord le catalogue (`Remote`, fidèle à
-ce que l'utilisateur reçoit réellement), et ne retombe sur l'asset embarqué
-(`Local`, `R.drawable.logo_canalplus`/`logo_ocs`/`logo_prime`,
-`res/drawable-nodpi/`) que si rien n'est trouvé. beIN/TF1/Netflix restent
-`Remote`-only (pas d'asset de secours) — case vide si absents du panel.
-**⚠️ Assets = vraies marques déposées** (logos officiels récupérés sur
-Wikimedia/Wikipédia, choix délibéré et accepté explicitement par
-l'utilisateur malgré le risque juridique — cf. sa réponse à la question
-posée avant l'implémentation). Ne jamais ajouter d'autre logo de marque de
-cette façon sans reposer la même question — ce n'est pas un précédent
-généralisé à toute future demande de logo.
-
-⚠️ **Pas de "chip"/case derrière chaque logo** (retirée le jour même,
-demande explicite après l'avoir vue en usage réel) : `bg_mosaic_tile.xml`
-supprimé, logos nus directement sur `bg_hub_live`. **Correspondance par mot
-entier, pas `contains` brut** (même retour d'usage — logos OCS/Prime/Canal+
-signalés invisibles) : `hasWord()` (regex `\b...\b`) remplace le `contains`
-simple pour éviter qu'un `Remote` trouvé par erreur (ex. "ocs" matchait une
-chaîne "XXX DOCS HD") vole la case au repli `Local` avec un logo au final
-non pertinent/non chargeable. "Prime" exige en plus "video" ou "amazon" à
-proximité (sinon matchait n'importe quelle "Prime Time"/"Prime News"
-générique). Si une marque redevient "invisible" malgré son repli `Local`,
-vérifier en premier qu'aucune chaîne du panel de test n'accroche le mot-clé
-par erreur avant de soupçonner l'asset lui-même.
+`card_live` (`activity_main.xml`) : un simple `ImageView` plein cadre
+(`android:src="@drawable/hub_live_collage"`, `centerCrop`), plus aucune
+dépendance au catalogue Room ni logique Kotlin (`MainActivity` ne contient
+plus rien lié à cette carte à part `applyHubCardClipping`/le focus). Carte
+élargie **220dp → 280dp** (hauteur inchangée 188dp) pour coller au ratio 3:2
+de l'image (1536×1024) et limiter le rognage en `centerCrop` — Films/Séries
+restent à 220dp, seule Chaînes a changé (demande explicite "adapte le bouton
+à la photo"). **Pas de dégradé par-dessus** (`gradient_hub`, retiré) : le
+texte "Chaînes" reste lisible directement sur l'image (fond déjà sombre).
+Icône TV en haut à droite (`ic_live`) retirée aussi (demande explicite,
+même jour). Asset : `res/drawable-nodpi/hub_live_collage.jpg` (converti en
+JPEG qualité 90 depuis le PNG original ~2,4 Mo → ~400 Ko, image fournie par
+l'utilisateur — pas une image générée ou choisie par Claude, mêmes réserves
+sur le risque marque déposée que les tentatives précédentes puisqu'elle
+inclut les logos Canal+/TF1/OCS/Netflix/Prime/beIN).
 
 ⚠️ **Compteurs retirés des 3 cartes** (`tv_live_count`/`tv_films_count`/
 `tv_series_count`, 28/08/2026, demande explicite) — les vues XML **et** leurs

@@ -200,103 +200,23 @@
 
         <FrameLayout
             android:id="@+id/card_live"
-            android:layout_width="220dp"
+            android:layout_width="280dp"
             android:layout_height="188dp"
             android:layout_marginEnd="18dp"
-            android:background="@drawable/bg_hub_live"
             android:focusable="true"
             android:focusableInTouchMode="true">
 
-            <!-- Mosaïque FIXE de 6 marques précises (Canal+/beIN/TF1/OCS/Prime/
-                 Netflix, cf. MainActivity.brandMosaicLogos) — chargée une seule
-                 fois (bindLiveMosaic), jamais retouchée après. fitCenter, pas
-                 centerCrop : un logo est souvent transparent, pas une affiche
-                 plein cadre. Pas de "chip"/case derrière chaque logo (retirée
-                 29/08/2026, demande explicite) — logos nus sur le fond de
-                 carte (bg_hub_live). -->
-            <LinearLayout
+            <!-- Image collage fournie par l'utilisateur (29/08/2026, demande
+                 explicite — remplace la mosaïque de 6 logos séparés) : 3:2
+                 (1536×1024), carte élargie à 280dp (188×1.5) pour coller à ce
+                 ratio et limiter le rognage en centerCrop. Pas de dégradé
+                 dessus (demande explicite) : l'image a déjà son propre fond
+                 sombre, le texte "Chaînes" reste lisible tel quel. -->
+            <ImageView
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:orientation="vertical"
-                android:padding="10dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1"
-                    android:orientation="horizontal">
-
-                    <ImageView
-                        android:id="@+id/iv_live_logo_1"
-                        android:layout_width="0dp"
-                        android:layout_height="match_parent"
-                        android:layout_weight="1"
-                        android:padding="8dp"
-                        android:scaleType="fitCenter" />
-                    <ImageView
-                        android:id="@+id/iv_live_logo_2"
-                        android:layout_width="0dp"
-                        android:layout_height="match_parent"
-                        android:layout_weight="1"
-                        android:padding="8dp"
-                        android:scaleType="fitCenter" />
-                    <ImageView
-                        android:id="@+id/iv_live_logo_3"
-                        android:layout_width="0dp"
-                        android:layout_height="match_parent"
-                        android:layout_weight="1"
-                        android:padding="8dp"
-                        android:scaleType="fitCenter" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1"
-                    android:orientation="horizontal">
-
-                    <ImageView
-                        android:id="@+id/iv_live_logo_4"
-                        android:layout_width="0dp"
-                        android:layout_height="match_parent"
-                        android:layout_weight="1"
-                        android:padding="8dp"
-                        android:scaleType="fitCenter" />
-                    <ImageView
-                        android:id="@+id/iv_live_logo_5"
-                        android:layout_width="0dp"
-                        android:layout_height="match_parent"
-                        android:layout_weight="1"
-                        android:padding="8dp"
-                        android:scaleType="fitCenter" />
-                    <ImageView
-                        android:id="@+id/iv_live_logo_6"
-                        android:layout_width="0dp"
-                        android:layout_height="match_parent"
-                        android:layout_weight="1"
-                        android:padding="8dp"
-                        android:scaleType="fitCenter" />
-                </LinearLayout>
-            </LinearLayout>
-
-            <!-- Dégradé limité à une bande basse (avant : match_parent sur
-                 toute la carte, assombrissait aussi la rangée du haut sans
-                 raison — seul le texte "Chaînes" en bas a besoin de contraste). -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="64dp"
-                android:layout_gravity="bottom"
-                android:background="@drawable/gradient_hub" />
-
-            <ImageView
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:layout_gravity="top|end"
-                android:layout_marginTop="18dp"
-                android:layout_marginEnd="18dp"
-                android:alpha="0.85"
-                android:src="@drawable/ic_live"
-                app:tint="@android:color/white" />
+                android:scaleType="centerCrop"
+                android:src="@drawable/hub_live_collage" />
 
             <LinearLayout
                 android:layout_width="wrap_content"
