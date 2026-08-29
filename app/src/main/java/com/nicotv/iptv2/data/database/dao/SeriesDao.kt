@@ -81,8 +81,11 @@ interface SeriesDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(series: SeriesEntity): Long
 
+    /** Renvoie les id générés, dans l'ORDRE de la liste fournie — nécessaire
+     * côté M3U pour rattacher les épisodes à leur série sans insérer une par
+     * une (cf. PlaylistRepository.replaceCatalog). */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(series: List<SeriesEntity>)
+    suspend fun insertAll(series: List<SeriesEntity>): List<Long>
 
     @Query("DELETE FROM series")
     suspend fun deleteAll()

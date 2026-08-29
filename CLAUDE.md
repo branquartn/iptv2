@@ -397,6 +397,47 @@ focus au bon endroit — le lui reprendre serait pire que de ne rien faire.
 **Films n'a volontairement pas ce comportement** (non demandé) : y ajouter le
 même appel suffirait, `positionOf` est déjà partagé dans l'adapter.
 
+## Actualisation du catalogue : pourquoi un "diff" n'aiderait pas
+
+⚠️ **30/08/2026, question "est-ce que l'actualisation ne peut pas aller plus
+vite en comparant juste ce qui a changé ?"** — analyse faite avant de coder,
+parce que la réponse intuitive est fausse.
+
+Un chargement se décompose en trois postes :
+1. **Téléchargement** de `get_live_streams`/`get_vod_streams`/`get_series`
+   (des dizaines de Mo sur un panel de ~215 000 entrées) ;
+2. **Parsing JSON** de ces réponses ;
+3. **Écriture en base**.
+
+Un diff **ne peut pas** éviter 1 ni 2 : pour savoir ce qui a changé, il faut de
+toute façon télécharger et parser la liste complète — l'API Xtream n'expose
+aucune notion de version ou de date de modification du catalogue. Il ne
+économiserait que le poste 3, tout en AJOUTANT le coût de relire les ~215 000
+lignes existantes pour les comparer. Bilan probablement négatif.
+
+**Le vrai problème était ailleurs, dans le poste 3** : les séries étaient
+insérées **une par une** (`seriesDao().insert(...)` dans une boucle). Room
+ouvre une transaction par appel → ~31 000 transactions, chacune avec sa
+synchronisation disque. C'était de loin le poste le plus lourd du chargement,
+bien devant le réseau. Corrigé : construction de la liste en mémoire puis un
+seul `insertAll`.
+
+Second correctif : **tout le remplacement du catalogue est maintenant dans UNE
+transaction** (`db.withTransaction`), au lieu d'une par `deleteAll`/`insertAll`.
+Bénéfice secondaire mais réel : le remplacement devient **atomique** — une
+coupure en plein chargement ne peut plus laisser un catalogue à moitié rempli.
+
+⚠️ **Aucun appel réseau dans la transaction** : l'enrichissement TMDb
+(`enrichMovies`, `fetchSeriesArt`, chemin M3U) est fait AVANT. Une E/S réseau
+dans une transaction garderait le verrou d'écriture pendant tout le temps de
+l'appel.
+
+⚠️ Côté M3U, les épisodes ont besoin de l'id de leur série : `SeriesDao.insertAll`
+renvoie donc `List<Long>`, **dans l'ordre de la liste fournie**, ce qui permet
+de rattacher les épisodes sans insérer les séries une par une. Pas de risque de
+collision de titres : `seriesEpisodes` est une map **clée par titre**, donc les
+titres y sont uniques par construction.
+
 ## Chaînes : noms bruts + ordre du panel (annule deux règles du 28/08)
 
 ⚠️ **30/08/2026, demande explicite** : "ne renomme pas les chaînes et garde

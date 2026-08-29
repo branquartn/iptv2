@@ -5,6 +5,7 @@ import android.net.Uri
 import com.nicotv.iptv2.data.PlaylistSourcePrefs
 import com.nicotv.iptv2.data.ProfileBackupPrefs
 import com.nicotv.iptv2.data.SourceType
+import androidx.room.withTransaction
 import com.nicotv.iptv2.data.database.AppDatabase
 import com.nicotv.iptv2.data.database.entity.ChannelEntity
 import com.nicotv.iptv2.data.database.entity.EpisodeEntity
@@ -381,53 +382,72 @@ class PlaylistRepository(
         }
         val seriesArt = fetchSeriesArt(seriesLogos.filterValues { it.isBlank() }.keys)
 
-        db.channelDao().deleteAll()
-        db.movieDao().deleteAll()
-        db.seriesDao().deleteAll() // cascade → episodes déjà supprimés
-
-        db.channelDao().insertAll(channels)
-        db.movieDao().insertAll(enrichedMovies)
-
-        val allEpisodes = mutableListOf<EpisodeEntity>()
-        // Rang de la série dans le fichier — seriesEpisodes est une
-        // LinkedHashMap, donc l'itération suit l'ordre d'apparition.
-        var seriesSortOrder = 0
-        for ((seriesTitle, items) in seriesEpisodes) {
+        // Séries préparées EN MÉMOIRE puis insérées en un seul lot — cf. le
+        // commentaire de performance dans loadXtream : une insertion par série
+        // signifie une transaction (et une écriture disque) par série.
+        // `seriesEpisodes` est une LinkedHashMap : l'itération suit l'ordre
+        // d'apparition dans le fichier, qui devient donc `sortOrder`.
+        val seriesEntities = seriesEpisodes.entries.mapIndexed { index, (seriesTitle, items) ->
             val category = items.first().first.groupTitle
             val logo = seriesLogos[seriesTitle].orEmpty()
             val art = seriesArt[seriesTitle]
-            val seriesId = db.seriesDao().insert(
-                SeriesEntity(
-                    title = seriesTitle,
-                    posterUrl = logo.ifBlank { art?.posterUrl.orEmpty() },
-                    backdropUrl = art?.backdropUrl.orEmpty(),
-                    overview = art?.overview.orEmpty(),
-                    rating = art?.rating ?: 0f,
-                    releaseYear = art?.year.orEmpty(),
-                    category = category,
-                    languageCode = SeriesEntity.languageCodeFor(category),
-                    categoryStripped = SeriesEntity.categoryStrippedFor(category),
-                    categoryOrder = categoryOrder[category] ?: 0,
-                    sortOrder = seriesSortOrder++
-                )
+            SeriesEntity(
+                title = seriesTitle,
+                posterUrl = logo.ifBlank { art?.posterUrl.orEmpty() },
+                backdropUrl = art?.backdropUrl.orEmpty(),
+                overview = art?.overview.orEmpty(),
+                rating = art?.rating ?: 0f,
+                releaseYear = art?.year.orEmpty(),
+                category = category,
+                languageCode = SeriesEntity.languageCodeFor(category),
+                categoryStripped = SeriesEntity.categoryStrippedFor(category),
+                categoryOrder = categoryOrder[category] ?: 0,
+                sortOrder = index
             )
-            items.forEach { (entry, parsed, _) ->
-                val fileKey = "$seriesTitle/${parsed.season}x${parsed.episode}"
-                allEpisodes.add(
-                    EpisodeEntity(
-                        seriesId = seriesId,
-                        seasonNumber = parsed.season,
-                        seasonName = "Saison ${parsed.season}",
-                        episodeNumber = parsed.episode,
-                        episodeTitle = parsed.episodeTitle,
-                        streamUrl = entry.url,
-                        fileKey = fileKey,
-                        watchKey = EpisodeEntity.computeWatchKey(fileKey)
-                    )
-                )
-            }
         }
-        db.episodeDao().insertAll(allEpisodes)
+
+        // ⚠️ TOUT le remplacement dans UNE transaction (30/08/2026) : sans
+        // elle, chaque deleteAll/insertAll était sa propre transaction, donc
+        // autant de synchronisations disque. Bénéfice secondaire mais réel :
+        // le remplacement devient ATOMIQUE — une coupure en plein chargement
+        // ne peut plus laisser un catalogue à moitié rempli.
+        // ⚠️ Aucun appel réseau ici : TMDb (enrichMovies/fetchSeriesArt) est
+        // volontairement fait AVANT. Ne jamais faire d'E/S réseau dans une
+        // transaction, elle garderait le verrou d'écriture pendant tout ce
+        // temps.
+        db.withTransaction {
+            db.channelDao().deleteAll()
+            db.movieDao().deleteAll()
+            db.seriesDao().deleteAll() // cascade → episodes déjà supprimés
+
+            db.channelDao().insertAll(channels)
+            db.movieDao().insertAll(enrichedMovies)
+
+            // Les id reviennent dans l'ordre de la liste fournie : on peut donc
+            // rattacher les épisodes sans insérer les séries une par une.
+            val seriesIds = db.seriesDao().insertAll(seriesEntities)
+
+            val allEpisodes = mutableListOf<EpisodeEntity>()
+            seriesEpisodes.entries.forEachIndexed { index, (seriesTitle, items) ->
+                val seriesId = seriesIds[index]
+                items.forEach { (entry, parsed, _) ->
+                    val fileKey = "$seriesTitle/${parsed.season}x${parsed.episode}"
+                    allEpisodes.add(
+                        EpisodeEntity(
+                            seriesId = seriesId,
+                            seasonNumber = parsed.season,
+                            seasonName = "Saison ${parsed.season}",
+                            episodeNumber = parsed.episode,
+                            episodeTitle = parsed.episodeTitle,
+                            streamUrl = entry.url,
+                            fileKey = fileKey,
+                            watchKey = EpisodeEntity.computeWatchKey(fileKey)
+                        )
+                    )
+                }
+            }
+            db.episodeDao().insertAll(allEpisodes)
+        }
     }
 
     // ── Xtream Codes ─────────────────────────────────────────────────────────
@@ -537,26 +557,35 @@ class PlaylistRepository(
         }
 
         onProgress(90, "Enregistrement…")
-        db.channelDao().deleteAll(); db.movieDao().deleteAll(); db.seriesDao().deleteAll()
-        db.channelDao().insertAll(channels)
-        db.movieDao().insertAll(movies)
-        for ((seriesIndex, s) in seriesList.withIndex()) {
-            val cat = seriesCats[s.categoryId]?.name.orEmpty()
-            db.seriesDao().insert(
-                SeriesEntity(
-                    title = s.name,
-                    posterUrl = s.cover,
-                    overview = s.plot,
-                    rating = s.rating,
-                    genres = s.genre, releaseYear = s.releaseDate.take(4),
-                    category = cat,
-                    xtreamSeriesId = s.seriesId,
-                    languageCode = SeriesEntity.languageCodeFor(cat),
-                    categoryStripped = SeriesEntity.categoryStrippedFor(cat),
-                    categoryOrder = seriesCatOrder[s.categoryId] ?: 0,
-                    sortOrder = seriesIndex
-                )
+        // ⚠️ CORRECTIF PERF MAJEUR (30/08/2026) : les séries étaient insérées
+        // UNE PAR UNE dans une boucle (`seriesDao().insert(...)`). Room ouvre
+        // une transaction par appel, donc ~31 000 séries = ~31 000
+        // transactions, chacune avec sa synchronisation disque — le poste le
+        // plus lourd de tout le chargement, très loin devant le réseau. Un
+        // seul `insertAll` = une seule transaction.
+        val seriesEntities = seriesList.mapIndexed { seriesIndex, item ->
+            val cat = seriesCats[item.categoryId]?.name.orEmpty()
+            SeriesEntity(
+                title = item.name,
+                posterUrl = item.cover,
+                overview = item.plot,
+                rating = item.rating,
+                genres = item.genre, releaseYear = item.releaseDate.take(4),
+                category = cat,
+                xtreamSeriesId = item.seriesId,
+                languageCode = SeriesEntity.languageCodeFor(cat),
+                categoryStripped = SeriesEntity.categoryStrippedFor(cat),
+                categoryOrder = seriesCatOrder[item.categoryId] ?: 0,
+                sortOrder = seriesIndex
             )
+        }
+
+        // Une seule transaction pour tout le remplacement — cf. replaceCatalog.
+        db.withTransaction {
+            db.channelDao().deleteAll(); db.movieDao().deleteAll(); db.seriesDao().deleteAll()
+            db.channelDao().insertAll(channels)
+            db.movieDao().insertAll(movies)
+            db.seriesDao().insertAll(seriesEntities)
         }
         // Épisodes chargés à la demande (loadEpisodesForSeries) : des milliers de
         // séries impliqueraient sinon des milliers d'appels get_series_info au
