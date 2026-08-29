@@ -5,188 +5,265 @@
     android:layout_height="match_parent"
     android:background="@color/bg_dark">
 
-    <ScrollView
+    <!-- Pas de ScrollView : tout doit tenir dans la hauteur de l'écran
+         (~360dp en sensorLandscape, cf. CLAUDE.md) — dimensions et marges
+         volontairement resserrées par rapport aux autres écrans pour ça. -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true">
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:clipChildren="false"
+        android:clipToPadding="false">
+
+        <!-- Barre d'en-tête, même structure que Réglages (activity_settings.xml) :
+             flèche retour (visible seulement si on arrive via Réglages >
+             "Changer de source", EXTRA_FORCE_SHOW — au lancement normal, rien
+             à quoi revenir) + titre "Profils" + accès Réglages, toujours
+             affiché ici pour pouvoir y aller directement depuis cet écran. -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp"
+            android:orientation="horizontal"
+            android:clipChildren="false"
+            android:clipToPadding="false">
+
+            <FrameLayout
+                android:id="@+id/btn_back"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_marginEnd="12dp"
+                android:focusable="true"
+                android:clickable="true"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:defaultFocusHighlightEnabled="false"
+                android:visibility="gone">
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_pwa_back"
+                    app:tint="@color/text_primary" />
+
+                <com.nicotv.iptv2.ui.common.RotatingBorderView
+                    android:id="@+id/btn_back_ring"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    app:circular="true"
+                    app:borderColor="@android:color/white"
+                    android:visibility="invisible" />
+            </FrameLayout>
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/setup_screen_title"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <FrameLayout
+                android:id="@+id/btn_settings"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_marginStart="12dp"
+                android:focusable="true"
+                android:clickable="true"
+                android:clipChildren="false"
+                android:clipToPadding="false">
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_settings"
+                    app:tint="@color/text_primary" />
+
+                <com.nicotv.iptv2.ui.common.RotatingBorderView
+                    android:id="@+id/btn_settings_ring"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    app:circular="true"
+                    app:borderColor="@android:color/white"
+                    android:visibility="invisible" />
+            </FrameLayout>
+        </LinearLayout>
+
+        <!-- Profils sauvegardés — tout en haut de la fenêtre, avant même le
+             wordmark : c'est ce qu'on veut voir/reprendre en premier une
+             fois qu'on a un profil enregistré. -->
+        <LinearLayout
+            android:id="@+id/section_profiles"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxWidth="640dp"
+            android:orientation="vertical"
+            android:layout_marginBottom="10dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="6dp"
+                android:text="@string/setup_profiles_title"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rv_profiles"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false" />
+        </LinearLayout>
+
+        <ImageView
+            android:layout_width="0dp"
+            android:layout_height="24dp"
+            android:layout_marginBottom="10dp"
+            android:src="@drawable/ic_nicotv_wordmark"
+            android:scaleType="fitCenter" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:maxWidth="640dp"
             android:orientation="vertical"
-            android:gravity="center_horizontal"
-            android:padding="32dp"
             android:clipChildren="false"
             android:clipToPadding="false">
 
-            <!-- Profils sauvegardés — tout en haut de la fenêtre, avant même le
-                 wordmark : c'est ce qu'on veut voir/reprendre en premier une
-                 fois qu'on a un profil enregistré. -->
-            <LinearLayout
-                android:id="@+id/section_profiles"
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:maxWidth="640dp"
-                android:orientation="vertical"
-                android:layout_marginBottom="24dp"
-                android:visibility="gone">
+                android:layout_marginBottom="8dp"
+                android:text="@string/setup_add_title"
+                android:textColor="@color/text_primary"
+                android:textSize="14sp"
+                android:textStyle="bold" />
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="10dp"
-                    android:text="@string/setup_profiles_title"
-                    android:textColor="@color/text_primary"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/rv_profiles"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:nestedScrollingEnabled="false" />
-            </LinearLayout>
-
-            <ImageView
-                android:layout_width="0dp"
-                android:layout_height="36dp"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="24dp"
-                android:src="@drawable/ic_nicotv_wordmark"
-                android:scaleType="fitCenter" />
-
+            <!-- Choix du type de source (grille de cartes) -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:maxWidth="640dp"
-                android:orientation="vertical"
+                android:orientation="horizontal"
                 android:clipChildren="false"
                 android:clipToPadding="false">
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="14dp"
-                    android:text="@string/setup_add_title"
-                    android:textColor="@color/text_primary"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <!-- Choix du type de source (grille de cartes) -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
+                <FrameLayout
+                    android:id="@+id/card_type_playlist"
+                    android:layout_width="0dp"
+                    android:layout_height="84dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="10dp"
+                    android:background="@drawable/bg_card"
+                    android:focusable="true"
                     android:clipChildren="false"
                     android:clipToPadding="false">
 
-                    <FrameLayout
-                        android:id="@+id/card_type_playlist"
-                        android:layout_width="0dp"
-                        android:layout_height="120dp"
-                        android:layout_weight="1"
-                        android:layout_marginEnd="10dp"
-                        android:background="@drawable/bg_card"
-                        android:focusable="true"
-                        android:clipChildren="false"
-                        android:clipToPadding="false">
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:gravity="center"
+                        android:orientation="vertical">
 
-                        <LinearLayout
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:src="@drawable/ic_refresh"
+                            app:tint="@color/text_primary" />
+
+                        <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_gravity="center"
+                            android:layout_marginTop="6dp"
                             android:gravity="center"
-                            android:orientation="vertical">
+                            android:text="@string/setup_type_playlist"
+                            android:textColor="@color/text_primary"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
 
-                            <ImageView
-                                android:layout_width="28dp"
-                                android:layout_height="28dp"
-                                android:src="@drawable/ic_refresh"
-                                app:tint="@color/text_primary" />
+                    <com.nicotv.iptv2.ui.common.RotatingBorderView
+                        android:id="@+id/card_type_playlist_ring"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        app:cornerRadius="12dp"
+                        app:borderColor="@android:color/white"
+                        android:visibility="invisible" />
+                </FrameLayout>
 
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="10dp"
-                                android:gravity="center"
-                                android:text="@string/setup_type_playlist"
-                                android:textColor="@color/text_primary"
-                                android:textSize="12sp"
-                                android:textStyle="bold" />
-                        </LinearLayout>
+                <FrameLayout
+                    android:id="@+id/card_type_xtream"
+                    android:layout_width="0dp"
+                    android:layout_height="84dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_card"
+                    android:focusable="true"
+                    android:clipChildren="false"
+                    android:clipToPadding="false">
 
-                        <com.nicotv.iptv2.ui.common.RotatingBorderView
-                            android:id="@+id/card_type_playlist_ring"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            app:cornerRadius="12dp"
-                            app:borderColor="@android:color/white"
-                            android:visibility="invisible" />
-                    </FrameLayout>
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:gravity="center"
+                        android:orientation="vertical">
 
-                    <FrameLayout
-                        android:id="@+id/card_type_xtream"
-                        android:layout_width="0dp"
-                        android:layout_height="120dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/bg_card"
-                        android:focusable="true"
-                        android:clipChildren="false"
-                        android:clipToPadding="false">
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:src="@drawable/ic_settings"
+                            app:tint="@color/text_primary" />
 
-                        <LinearLayout
+                        <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_gravity="center"
+                            android:layout_marginTop="6dp"
                             android:gravity="center"
-                            android:orientation="vertical">
+                            android:text="@string/setup_type_xtream"
+                            android:textColor="@color/text_primary"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
 
-                            <ImageView
-                                android:layout_width="28dp"
-                                android:layout_height="28dp"
-                                android:src="@drawable/ic_settings"
-                                app:tint="@color/text_primary" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="10dp"
-                                android:gravity="center"
-                                android:text="@string/setup_type_xtream"
-                                android:textColor="@color/text_primary"
-                                android:textSize="12sp"
-                                android:textStyle="bold" />
-                        </LinearLayout>
-
-                        <com.nicotv.iptv2.ui.common.RotatingBorderView
-                            android:id="@+id/card_type_xtream_ring"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            app:cornerRadius="12dp"
-                            app:borderColor="@android:color/white"
-                            android:visibility="invisible" />
-                    </FrameLayout>
-                </LinearLayout>
-
-                <ProgressBar
-                    android:id="@+id/progress_loading"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:layout_marginTop="16dp"
-                    android:visibility="gone" />
-
-                <TextView
-                    android:id="@+id/tv_status"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:gravity="center"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="13sp"
-                    android:visibility="gone" />
-
+                    <com.nicotv.iptv2.ui.common.RotatingBorderView
+                        android:id="@+id/card_type_xtream_ring"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        app:cornerRadius="12dp"
+                        app:borderColor="@android:color/white"
+                        android:visibility="invisible" />
+                </FrameLayout>
             </LinearLayout>
+
+            <ProgressBar
+                android:id="@+id/progress_loading"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginTop="10dp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/tv_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:gravity="center"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:visibility="gone" />
+
         </LinearLayout>
-    </ScrollView>
+    </LinearLayout>
 </FrameLayout>

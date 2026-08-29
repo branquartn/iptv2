@@ -1,23 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="108dp"
+    android:layout_width="86dp"
     android:layout_height="wrap_content"
-    android:layout_marginEnd="16dp"
+    android:layout_marginEnd="12dp"
     android:orientation="vertical"
     android:gravity="center_horizontal"
     android:focusable="true"
     android:clipChildren="false"
     android:clipToPadding="false"
-    android:paddingTop="4dp">
+    android:paddingTop="2dp">
 
     <!-- Avatar : cercle coloré par profil (ProfileAdapter.AVATAR_COLORS) +
          icône du type de source. Anneau accent statique si profil actif,
          anneau blanc tournant (RotatingBorderView) au focus — les deux
          peuvent cohabiter. Badge ✓ en coin si actif. -->
     <FrameLayout
-        android:layout_width="84dp"
-        android:layout_height="84dp"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
         android:clipChildren="false"
         android:clipToPadding="false">
 
@@ -30,23 +30,23 @@
 
         <FrameLayout
             android:id="@+id/avatar_circle"
-            android:layout_width="72dp"
-            android:layout_height="72dp"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
             android:layout_gravity="center"
             android:background="@drawable/bg_avatar_circle">
 
             <ImageView
                 android:id="@+id/iv_type_icon"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
                 android:layout_gravity="center"
                 app:tint="@android:color/white" />
         </FrameLayout>
 
         <FrameLayout
             android:id="@+id/badge_active"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
             android:layout_gravity="bottom|end"
             android:background="@drawable/bg_badge_active"
             android:visibility="gone">
@@ -57,7 +57,7 @@
                 android:layout_gravity="center"
                 android:text="✓"
                 android:textColor="@android:color/white"
-                android:textSize="13sp"
+                android:textSize="10sp"
                 android:textStyle="bold" />
         </FrameLayout>
 
@@ -74,10 +74,10 @@
         android:id="@+id/tv_name"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="5dp"
         android:gravity="center"
         android:textColor="@color/text_primary"
-        android:textSize="14sp"
+        android:textSize="13sp"
         android:textStyle="bold"
         android:ellipsize="end"
         android:maxLines="1" />
@@ -87,30 +87,30 @@
         android:id="@+id/tv_meta"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
+        android:layout_marginTop="1dp"
         android:gravity="center"
-        android:textSize="11sp"
+        android:textSize="10sp"
         android:ellipsize="end"
         android:maxLines="1" />
 
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="3dp"
         android:orientation="horizontal"
         android:gravity="center">
 
         <FrameLayout
             android:id="@+id/btn_edit"
-            android:layout_width="34dp"
-            android:layout_height="34dp"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
             android:focusable="true"
             android:clickable="true"
             android:background="?android:attr/selectableItemBackgroundBorderless">
 
             <ImageView
-                android:layout_width="16dp"
-                android:layout_height="16dp"
+                android:layout_width="14dp"
+                android:layout_height="14dp"
                 android:layout_gravity="center"
                 android:src="@drawable/ic_pwa_edit"
                 app:tint="@color/text_secondary" />
@@ -118,16 +118,16 @@
 
         <FrameLayout
             android:id="@+id/btn_delete"
-            android:layout_width="34dp"
-            android:layout_height="34dp"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
             android:layout_marginStart="2dp"
             android:focusable="true"
             android:clickable="true"
             android:background="?android:attr/selectableItemBackgroundBorderless">
 
             <ImageView
-                android:layout_width="16dp"
-                android:layout_height="16dp"
+                android:layout_width="14dp"
+                android:layout_height="14dp"
                 android:layout_gravity="center"
                 android:src="@drawable/ic_clear"
                 app:tint="@color/text_secondary" />

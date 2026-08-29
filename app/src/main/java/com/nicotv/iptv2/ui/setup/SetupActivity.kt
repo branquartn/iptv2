@@ -72,9 +72,25 @@ class SetupActivity : BaseActivity() {
         binding = ActivitySetupBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        setupHeader()
         setupProfilesList()
         setupTypeCards()
         maybeAutoLoadLastProfile()
+    }
+
+    /** Flèche retour visible seulement si on arrive via Réglages > "Changer de
+     * source" (EXTRA_FORCE_SHOW) — au lancement normal (aucun profil actif),
+     * il n'y a rien à quoi revenir. L'accès Réglages, lui, reste toujours
+     * affiché : cet écran n'avait jusqu'ici aucun moyen d'y aller directement. */
+    private fun setupHeader() {
+        binding.btnBack.visibility = if (intent.getBooleanExtra(EXTRA_FORCE_SHOW, false)) View.VISIBLE else View.GONE
+        binding.btnBack.setOnClickListener { finish() }
+        applyRing(binding.btnBack, binding.btnBackRing, 1.2f)
+
+        binding.btnSettings.setOnClickListener {
+            startActivity(Intent(this, com.nicotv.iptv2.ui.settings.SettingsActivity::class.java))
+        }
+        applyRing(binding.btnSettings, binding.btnSettingsRing, 1.2f)
     }
 
     /** Saut automatique et rapide vers l'accueil si un profil actif valide

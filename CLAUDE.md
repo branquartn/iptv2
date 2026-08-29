@@ -428,6 +428,23 @@ recharger, crayon = modifier, croix = supprimer — cf. `ProfileAdapter`/
 fichier local, un seul formulaire, un seul bouton qui priorise le fichier
 choisi) et « Xtream Codes ».
 
+⚠️ **Barre d'en-tête + mise en page sans scroll (1.0.37, demande explicite)** :
+`activity_setup.xml` avait un `ScrollView` — sur un écran bas
+(`sensorLandscape` ~360dp), profils + wordmark + cartes dépassaient largement
+la hauteur visible, l'utilisateur devait scroller. Le `ScrollView` a été
+retiré et toutes les dimensions/marges resserrées (avatars `item_profile.xml`
+84dp→60dp, cartes 120dp→84dp, wordmark 36dp→24dp, paddings/marges réduits
+partout) pour que tout tienne dans ~360dp sans scroll. Une barre d'en-tête a
+été ajoutée, même structure que `activity_settings.xml` : flèche retour
+(`btn_back`, **visible seulement** si l'écran est ouvert via Réglages →
+« Changer de source », `EXTRA_FORCE_SHOW` — au lancement normal, aucun profil
+actif, il n'y a rien à quoi revenir) + titre `setup_screen_title` ("Profils")
++ accès Réglages (`btn_settings`, **toujours visible** — cet écran n'avait
+jusqu'ici aucun moyen d'y aller directement, seul `MainActivity` l'ouvrait).
+Si une future modif de cet écran ajoute du contenu, revérifier sur un
+appareil bas de gamme/petit écran en `sensorLandscape` que ça tient toujours
+sans réintroduire de scroll.
+
 ⚠️ **Historique du raccourci auto-load (inversé en 1.0.20)** : une version
 antérieure sautait à l'accueil dès qu'un profil était actif, avec un défaut
 précis — l'écran de sélection devenait **définitivement inaccessible**, aucun
