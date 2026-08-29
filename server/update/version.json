@@ -1,6 +1,6 @@
 {
-  "versionCode": 73,
-  "versionName": "1.0.72",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.72.apk",
-  "changelog": "Chaînes : le curseur se place directement sur la catégorie ouverte par défaut (GENERAL FR)."
+  "versionCode": 81,
+  "versionName": "1.0.80",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.80.apk",
+  "changelog": "Bibliothèques et SDK à jour. Android 6.0 minimum désormais requis (Android 5.x n'est plus supporté)."
 }
