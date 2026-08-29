@@ -64,7 +64,20 @@ data class MovieEntity(
     //   l'ancien displayCategory convergent vers categoryStripped une fois le
     //   filtre langue appliqué).
     @ColumnInfo(defaultValue = "") val languageCode: String = "",
-    @ColumnInfo(defaultValue = "") val categoryStripped: String = ""
+    @ColumnInfo(defaultValue = "") val categoryStripped: String = "",
+    // ⚠️ Rang de la catégorie DANS LA SOURCE (30/08/2026, demande explicite :
+    // "peut-être trier par id au lieu que par ordre alphabétique ? sinon
+    // récupère les catégories dans la playlist téléchargée"). C'est l'ordre
+    // voulu par le fournisseur — celui qu'on voit dans les autres applis IPTV,
+    // nouveautés en tête — et il remplace le tri alphabétique ET la liste
+    // d'ordre codée en dur qui l'avait précédé (supprimée : impossible à tenir
+    // à jour, et fausse dès qu'un panel renomme une catégorie).
+    // Xtream : index de la catégorie dans get_vod_categories (le panel les
+    // renvoie déjà dans son ordre). M3U : ordre de PREMIÈRE APPARITION du
+    // group-title dans le fichier. 0 par défaut → un catalogue chargé avant
+    // cette version a toutes ses catégories à égalité, d'où le tri
+    // alphabétique conservé en second critère (cf. les DAO).
+    @ColumnInfo(defaultValue = "0") val categoryOrder: Int = 0
 ) {
     fun toDomain(
         isFavorite: Boolean = false,

@@ -35,7 +35,9 @@ data class SeriesEntity(
     // runtime : permettent de filtrer langue/catégorie en SQL (SeriesDao.
     // getSeriesPage) sans mapper tout le catalogue en mémoire.
     @ColumnInfo(defaultValue = "") val languageCode: String = "",
-    @ColumnInfo(defaultValue = "") val categoryStripped: String = ""
+    @ColumnInfo(defaultValue = "") val categoryStripped: String = "",
+    /** Cf. MovieEntity.categoryOrder — ordre de la catégorie dans la source. */
+    @ColumnInfo(defaultValue = "0") val categoryOrder: Int = 0
 ) {
     fun toDomain(isFavorite: Boolean = false) = Movie(
         id = id,

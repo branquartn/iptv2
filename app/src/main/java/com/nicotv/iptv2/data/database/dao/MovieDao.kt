@@ -79,8 +79,10 @@ interface MovieDao {
      * changement de schéma, donc aucun rechargement de catalogue imposé) mais
      * n'est plus utilisée pour l'affichage ni le filtrage. */
     @Query("""
-        SELECT DISTINCT category FROM movies
+        SELECT category FROM movies
         WHERE category != '' AND (:lang IS NULL OR languageCode = '' OR languageCode = :lang)
+        GROUP BY category
+        ORDER BY MIN(categoryOrder) ASC, category ASC
     """)
     suspend fun getDistinctCategoriesForLanguage(lang: String?): List<String>
 

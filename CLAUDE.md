@@ -381,6 +381,57 @@ focus au bon endroit — le lui reprendre serait pire que de ne rien faire.
 **Films n'a volontairement pas ce comportement** (non demandé) : y ajouter le
 même appel suffirait, `positionOf` est déjà partagé dans l'adapter.
 
+## Ordre des catégories = celui de la playlist + défilement rapide D-pad
+
+⚠️ **30/08/2026, demande explicite** : "peut-être trier par id au lieu que par
+ordre alphabétique ? sinon récupère les catégories dans la playlist
+téléchargée" — et "si j'appuie 2 fois rapidement sur flèche du haut ou bas je
+veux scroller plusieurs catégories d'un seul coup".
+
+**1. L'ordre vient désormais de la SOURCE** (colonne `categoryOrder` sur
+`MovieEntity`/`SeriesEntity`/`ChannelEntity`, remplie au chargement) :
+- **Xtream** : index de la catégorie dans `get_vod_categories` /
+  `get_live_categories` / `get_series_categories` — le panel les renvoie déjà
+  dans son ordre. D'où le fait de garder les **listes** en plus des `Map`
+  (`vodCatList`/`vodCatOrder`...) dans `loadXtream`.
+- **M3U** : ordre de **première apparition** du `group-title` dans le fichier
+  (`LinkedHashMap` + `getOrPut`, cf. `loadM3u/orderOf`).
+
+Le tri se fait en SQL (`GROUP BY category ORDER BY MIN(categoryOrder), category`)
+— `MIN` parce qu'une catégorie couvre plusieurs lignes, et `category` en second
+critère pour départager un catalogue chargé AVANT cette version (tous les rangs
+à 0 → retour au comportement alphabétique, pas de liste en désordre).
+
+⚠️ **Ceci remplace DEUX tris précédents**, tous deux supprimés : le tri
+alphabétique "France d'abord" (`isFrenchLabel`) sur les 3 sidebars, ET la liste
+d'ordre codée en dur (`MOVIES_CATEGORY_ORDER`) qui n'aura vécu que quelques
+heures le même jour. **Ne pas réintroduire de liste en dur** : elle
+redeviendrait fausse au premier renommage côté panel. `isFrenchLabel` reste
+utilisé par `LiveViewModel.frenchSortFor` (tri TNT), rien d'autre.
+
+⚠️ **Room version 9** — nouvelle colonne, donc `fallbackToDestructiveMigration`
+vide le catalogue : **rechargement de la playlist obligatoire** après cette
+mise à jour. Inévitable ici : l'ordre n'existe QUE dans la source, il ne peut
+être capté qu'au moment d'un chargement.
+
+**2. Défilement accéléré de la sidebar** (`ui/common/CategoryFastScroll`,
+branché sur les 3 écrans via `dispatchKeyEvent`) : deux appuis HAUT/BAS à moins
+de 300 ms d'intervalle déclenchent une rafale — chaque appui suivant saute 5
+lignes au lieu d'une. Dès qu'on ralentit ou qu'on change de direction, retour
+au pas à pas (la navigation fine reste possible).
+- ⚠️ **Pas** basé sur `KeyEvent.repeatCount` (touche maintenue) : la demande
+  portait sur des appuis répétés, et beaucoup de télécommandes Android TV
+  n'émettent jamais de répétition matérielle. D'où la mesure explicite du délai
+  entre deux `ACTION_DOWN`.
+- ⚠️ L'évènement doit être **consommé** (`return true` dans `dispatchKeyEvent`)
+  quand un saut a lieu, sinon le focus bougerait deux fois (le saut + le
+  déplacement normal d'une ligne).
+- ⚠️ Comme pour `focusCategoryWhenReady`, la ligne visée peut être hors écran
+  et donc n'avoir aucun `ViewHolder` : `scrollToPositionWithOffset` puis
+  `requestFocus` au `post` suivant.
+- En bout de liste, l'évènement n'est PAS consommé : sinon la télécommande
+  paraîtrait bloquée en haut/bas.
+
 ## Ordre des catégories Films + fin du travail full-catalogue sur l'accueil
 
 ⚠️ **30/08/2026, demande explicite** : "pour les films ça charge encore tous

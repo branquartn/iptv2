@@ -43,10 +43,15 @@ interface SeriesDao {
     suspend fun getSeriesPage(lang: String?, category: String?, limit: Int, offset: Int): List<SeriesEntity>
 
     /** Cf. MovieDao.getDistinctCategoriesForLanguage — catégories brutes,
-     * préfixe langue conservé (30/08/2026). */
+     * préfixe langue conservé (30/08/2026), triées dans l'ORDRE DE LA SOURCE
+     * (cf. categoryOrder) — `GROUP BY` + `MIN(categoryOrder)` car une catégorie
+     * couvre plusieurs lignes ; `category` en second critère départage un
+     * catalogue chargé avant cette version (tous les rangs à 0). */
     @Query("""
-        SELECT DISTINCT category FROM series
+        SELECT category FROM series
         WHERE category != '' AND (:lang IS NULL OR languageCode = '' OR languageCode = :lang)
+        GROUP BY category
+        ORDER BY MIN(categoryOrder) ASC, category ASC
     """)
     suspend fun getDistinctCategoriesForLanguage(lang: String?): List<String>
 

@@ -10,12 +10,9 @@ import com.nicotv.iptv2.IptvApplication
 import com.nicotv.iptv2.data.database.entity.FavoriteEntity
 import com.nicotv.iptv2.data.repository.PlaylistRepository
 import com.nicotv.iptv2.domain.model.Movie
-import com.nicotv.iptv2.util.MOVIES_CATEGORY_ORDER
 import com.nicotv.iptv2.util.MOVIES_PREFERRED_CATEGORIES
 import com.nicotv.iptv2.util.extractLeadingLanguageCode
-import com.nicotv.iptv2.util.isFrenchLabel
 import com.nicotv.iptv2.util.pickDefaultCategory
-import com.nicotv.iptv2.util.sortCategoriesByPreferredOrder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -157,14 +154,14 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
             // bon. En cas d'échec on repart sur "Toutes" (aucune catégorie).
             val result = try {
                 withContext(Dispatchers.Default) {
-                    // Ordre voulu (nouveautés → genres → ... ), cf.
-                    // util.MOVIES_CATEGORY_ORDER ; les catégories non listées
-                    // gardent l'ancien classement (françaises d'abord, puis
-                    // alphabétique).
-                    sortCategoriesByPreferredOrder(
-                        repository.getMoviesCategories(contentLanguage).filter { it.isNotBlank() },
-                        MOVIES_CATEGORY_ORDER
-                    ) { isFrenchLabel(it) }
+                    // ⚠️ AUCUN tri ici (30/08/2026) : les catégories arrivent
+                    // déjà dans l'ordre de la PLAYLIST (cf.
+                    // MovieDao.getDistinctCategoriesForLanguage +
+                    // MovieEntity.categoryOrder). Remplace à la fois l'ancien
+                    // tri alphabétique/France-d'abord et la liste d'ordre codée
+                    // en dur qui lui avait succédé — c'est l'ordre voulu par le
+                    // fournisseur, donc celui des autres applis IPTV.
+                    repository.getMoviesCategories(contentLanguage).filter { it.isNotBlank() }
                 }
             } catch (e: Exception) {
                 emptyList()

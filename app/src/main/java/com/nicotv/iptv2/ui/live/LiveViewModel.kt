@@ -148,10 +148,8 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
             // awaitingDefaultCategory bloque tout chargement tant qu'il est vrai.
             val result = try {
                 withContext(Dispatchers.Default) {
-                    repository.getChannelsCategories(contentLanguage)
-                        .filter { it.isNotBlank() }
-                        // Catégories France en premier (demande explicite) — cf. isFrenchLabel.
-                        .sortedWith(compareByDescending<String> { isFrenchLabel(it) }.thenBy { it })
+                    // Ordre de la playlist — cf. MoviesViewModel.loadCategories.
+                    repository.getChannelsCategories(contentLanguage).filter { it.isNotBlank() }
                 }
             } catch (e: Exception) {
                 emptyList()

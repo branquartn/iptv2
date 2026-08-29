@@ -26,6 +26,11 @@ class LiveActivity : BaseActivity() {
     private lateinit var channelAdapter: ChannelGridAdapter
     private lateinit var categoryAdapter: CategorySidebarAdapter
 
+    /** Défilement accéléré de la sidebar à la télécommande — cf.
+     * ui.common.CategoryFastScroll (2 appuis rapides = saut de plusieurs
+     * catégories). Initialisé une fois rv_categories câblé. */
+    private var categoryFastScroll: com.nicotv.iptv2.ui.common.CategoryFastScroll? = null
+
     /** Cf. focusCategoryWhenReady — le focus initial n'est posé qu'une fois. */
     private var initialCategoryFocusDone = false
 
@@ -69,6 +74,7 @@ class LiveActivity : BaseActivity() {
 
         categoryAdapter = CategorySidebarAdapter(getString(R.string.category_all)) { category -> viewModel.selectedCategory.value = category }
         binding.rvCategories.layoutManager = LinearLayoutManager(this)
+        categoryFastScroll = com.nicotv.iptv2.ui.common.CategoryFastScroll(binding.rvCategories)
         binding.rvCategories.adapter = categoryAdapter
 
         binding.btnFavoritesFilter.setOnClickListener {
@@ -187,6 +193,14 @@ class LiveActivity : BaseActivity() {
         val sidebarDp = 210
         val tileWidthDp = 130
         return ((screenWidthDp - sidebarDp) / tileWidthDp).coerceIn(3, 8)
+    }
+
+
+    // Cf. CategoryFastScroll : intercepté AVANT le traitement normal du focus,
+    // sinon la vue bougerait d'une ligne en plus du saut.
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        if (categoryFastScroll?.handleKeyEvent(event) == true) return true
+        return super.dispatchKeyEvent(event)
     }
 
     private fun hideKeyboard() {

@@ -11,7 +11,6 @@ import com.nicotv.iptv2.data.database.entity.FavoriteEntity
 import com.nicotv.iptv2.data.repository.PlaylistRepository
 import com.nicotv.iptv2.domain.model.Movie
 import com.nicotv.iptv2.util.extractLeadingLanguageCode
-import com.nicotv.iptv2.util.isFrenchLabel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -113,10 +112,8 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
     private fun loadCategories() {
         viewModelScope.launch {
             val result = withContext(Dispatchers.Default) {
-                repository.getSeriesCategories(contentLanguage)
-                    .filter { it.isNotBlank() }
-                    // Catégories France en premier (demande explicite) — cf. isFrenchLabel.
-                    .sortedWith(compareByDescending<String> { isFrenchLabel(it) }.thenBy { it })
+                // Ordre de la playlist — cf. MoviesViewModel.loadCategories.
+                repository.getSeriesCategories(contentLanguage).filter { it.isNotBlank() }
             }
             _categories.value = result
         }

@@ -40,7 +40,9 @@ data class ChannelEntity(
     // car le tri "ordre TNT" doit désormais se faire en SQL : trié page par page
     // en Kotlin (comme avant la pagination), l'ordre global serait incohérent.
     // Int.MAX_VALUE = chaîne non reconnue, reléguée en fin de liste.
-    @ColumnInfo(defaultValue = "2147483647") val tntRank: Int = Int.MAX_VALUE
+    @ColumnInfo(defaultValue = "2147483647") val tntRank: Int = Int.MAX_VALUE,
+    /** Cf. MovieEntity.categoryOrder — ordre de la catégorie dans la source. */
+    @ColumnInfo(defaultValue = "0") val categoryOrder: Int = 0
 ) {
     /** [useStrippedName] : vrai quand un filtre de langue est actif — le
      * préfixe est alors retiré du nom affiché (demande explicite 28/08/2026,

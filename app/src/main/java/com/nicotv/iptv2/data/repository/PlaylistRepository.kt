@@ -262,12 +262,20 @@ class PlaylistRepository(
         // Titre de série → (entrée d'épisode + saison/n°/titre parsés)
         val seriesEpisodes = LinkedHashMap<String, MutableList<Triple<M3uEntry, M3uParser.ParsedEpisode, Int>>>()
 
+        // ⚠️ Ordre des catégories tel que la PLAYLIST les présente (30/08/2026,
+        // cf. MovieEntity.categoryOrder) : rang de première apparition du
+        // group-title dans le fichier. `getOrPut` sur une LinkedHashMap suffit
+        // — l'insertion garde l'ordre de parcours, donc le rang est croissant.
+        val categoryOrder = LinkedHashMap<String, Int>()
+        fun orderOf(groupTitle: String): Int = categoryOrder.getOrPut(groupTitle) { categoryOrder.size }
+
         var order = 0
         for (entry in entries) {
             when (M3uParser.classify(entry)) {
                 M3uParser.Kind.LIVE -> channels.add(
                     ChannelEntity(
                         name = entry.name, streamUrl = entry.url, logoUrl = entry.logo, category = entry.groupTitle, sortOrder = order++,
+                        categoryOrder = orderOf(entry.groupTitle),
                         nameLanguageCode = ChannelEntity.nameLanguageCodeFor(entry.name),
                         nameStripped = ChannelEntity.nameStrippedFor(entry.name),
                         categoryLanguageCode = ChannelEntity.categoryLanguageCodeFor(entry.groupTitle),
@@ -278,7 +286,8 @@ class PlaylistRepository(
                 M3uParser.Kind.MOVIE -> movies.add(
                     MovieEntity(
                         title = entry.name, streamUrl = entry.url, posterUrl = entry.logo, category = entry.groupTitle,
-                        languageCode = MovieEntity.languageCodeFor(entry.groupTitle), categoryStripped = MovieEntity.categoryStrippedFor(entry.groupTitle)
+                        languageCode = MovieEntity.languageCodeFor(entry.groupTitle), categoryStripped = MovieEntity.categoryStrippedFor(entry.groupTitle),
+                        categoryOrder = orderOf(entry.groupTitle)
                     )
                 )
                 M3uParser.Kind.EPISODE -> {
@@ -289,7 +298,8 @@ class PlaylistRepository(
                         movies.add(
                             MovieEntity(
                                 title = entry.name, streamUrl = entry.url, posterUrl = entry.logo, category = entry.groupTitle,
-                                languageCode = MovieEntity.languageCodeFor(entry.groupTitle), categoryStripped = MovieEntity.categoryStrippedFor(entry.groupTitle)
+                                languageCode = MovieEntity.languageCodeFor(entry.groupTitle), categoryStripped = MovieEntity.categoryStrippedFor(entry.groupTitle),
+                                categoryOrder = orderOf(entry.groupTitle)
                             )
                         )
                     } else {
@@ -299,7 +309,7 @@ class PlaylistRepository(
             }
         }
 
-        replaceCatalog(channels, movies, seriesEpisodes, onProgress)
+        replaceCatalog(channels, movies, seriesEpisodes, categoryOrder, onProgress)
         channels.size + movies.size + seriesEpisodes.size
     }
 
@@ -356,6 +366,8 @@ class PlaylistRepository(
         channels: List<ChannelEntity>,
         movies: List<MovieEntity>,
         seriesEpisodes: Map<String, List<Triple<M3uEntry, M3uParser.ParsedEpisode, Int>>>,
+        // Rang de chaque group-title dans le fichier — cf. loadM3u/orderOf.
+        categoryOrder: Map<String, Int>,
         onProgress: (percent: Int, message: String) -> Unit = { _, _ -> }
     ) = withContext(Dispatchers.IO) {
         val enrichedMovies = enrichMovies(movies, onProgress)
@@ -388,7 +400,8 @@ class PlaylistRepository(
                     releaseYear = art?.year.orEmpty(),
                     category = category,
                     languageCode = SeriesEntity.languageCodeFor(category),
-                    categoryStripped = SeriesEntity.categoryStrippedFor(category)
+                    categoryStripped = SeriesEntity.categoryStrippedFor(category),
+                    categoryOrder = categoryOrder[category] ?: 0
                 )
             )
             items.forEach { (entry, parsed, _) ->
@@ -442,10 +455,22 @@ class PlaylistRepository(
         client.login()
 
         onProgress(30, "Récupération des chaînes…")
-        val liveCats = client.getLiveCategories().associateBy { it.id }
+        // ⚠️ On garde les LISTES autant que les Map : le panel renvoie ses
+        // catégories dans SON ordre (celui affiché par les autres applis IPTV,
+        // nouveautés en tête), et c'est cet ordre qu'on veut reproduire dans la
+        // sidebar — cf. MovieEntity.categoryOrder. `associateBy` produit une
+        // LinkedHashMap, mais on préfère un index explicite : plus lisible, et
+        // insensible à un futur changement de type de collection.
+        val liveCatList = client.getLiveCategories()
+        val liveCats = liveCatList.associateBy { it.id }
+        val liveCatOrder = liveCatList.withIndex().associate { (i, c) -> c.id to i }
         val liveStreams = client.getLiveStreams()
-        val vodCats = client.getVodCategories().associateBy { it.id }
-        val seriesCats = client.getSeriesCategories().associateBy { it.id }
+        val vodCatList = client.getVodCategories()
+        val vodCats = vodCatList.associateBy { it.id }
+        val vodCatOrder = vodCatList.withIndex().associate { (i, c) -> c.id to i }
+        val seriesCatList = client.getSeriesCategories()
+        val seriesCats = seriesCatList.associateBy { it.id }
+        val seriesCatOrder = seriesCatList.withIndex().associate { (i, c) -> c.id to i }
         onProgress(60, "Récupération des films et séries…")
         val vodStreams = client.getVodStreams().ifEmpty { fetchVodStreamsByCategory(client, vodCats.keys) }
         val seriesList = client.getSeriesList().ifEmpty { fetchSeriesByCategory(client, seriesCats.keys) }
@@ -472,7 +497,8 @@ class PlaylistRepository(
                 nameStripped = ChannelEntity.nameStrippedFor(it.name),
                 categoryLanguageCode = ChannelEntity.categoryLanguageCodeFor(cat),
                 categoryStripped = ChannelEntity.categoryStrippedFor(cat),
-                tntRank = ChannelEntity.tntRankForName(it.name)
+                tntRank = ChannelEntity.tntRankForName(it.name),
+                categoryOrder = liveCatOrder[it.categoryId] ?: 0
             )
         }
 
@@ -490,7 +516,8 @@ class PlaylistRepository(
                 posterUrl = it.icon, overview = it.plot, rating = it.rating,
                 category = cat,
                 xtreamStreamId = it.streamId,
-                languageCode = MovieEntity.languageCodeFor(cat), categoryStripped = MovieEntity.categoryStrippedFor(cat)
+                languageCode = MovieEntity.languageCodeFor(cat), categoryStripped = MovieEntity.categoryStrippedFor(cat),
+                categoryOrder = vodCatOrder[it.categoryId] ?: 0
             )
         }
 
@@ -510,7 +537,8 @@ class PlaylistRepository(
                     category = cat,
                     xtreamSeriesId = s.seriesId,
                     languageCode = SeriesEntity.languageCodeFor(cat),
-                    categoryStripped = SeriesEntity.categoryStrippedFor(cat)
+                    categoryStripped = SeriesEntity.categoryStrippedFor(cat),
+                    categoryOrder = seriesCatOrder[s.categoryId] ?: 0
                 )
             )
         }

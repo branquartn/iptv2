@@ -62,12 +62,17 @@ interface ChannelDao {
     ): List<ChannelEntity>
 
     /** Cf. MovieDao.getDistinctCategoriesForLanguage — catégories brutes,
-     * préfixe langue conservé (30/08/2026). Filtré sur le préfixe de la
+     * préfixe langue conservé (30/08/2026), triées dans l'ORDRE DE LA SOURCE
+     * (cf. categoryOrder) — `GROUP BY` + `MIN(categoryOrder)` car une catégorie
+     * couvre plusieurs lignes ; `category` en second critère départage un
+     * catalogue chargé avant cette version (tous les rangs à 0). Filtré sur le préfixe de la
      * CATÉGORIE (categoryLanguageCode), pas celui du nom : la sidebar liste
      * des catégories, cf. ChannelEntity. */
     @Query("""
-        SELECT DISTINCT category FROM channels
+        SELECT category FROM channels
         WHERE category != '' AND (:lang IS NULL OR categoryLanguageCode = '' OR categoryLanguageCode = :lang)
+        GROUP BY category
+        ORDER BY MIN(categoryOrder) ASC, category ASC
     """)
     suspend fun getDistinctCategoriesForLanguage(lang: String?): List<String>
 
