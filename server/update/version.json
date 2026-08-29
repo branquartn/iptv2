@@ -1,6 +1,6 @@
 {
-  "versionCode": 44,
-  "versionName": "1.0.43",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.43.apk",
+  "versionCode": 45,
+  "versionName": "1.0.44",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.44.apk",
   "changelog": "Chaînes : suppression du bouton FR en haut d'écran (redondant avec Réglages > Langue du contenu)."
 }
