@@ -10,8 +10,8 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 80
-val appVersionName = "1.0.79"
+val appVersionCode = 81
+val appVersionName = "1.0.80"
 // Changelog affiché dans le modal de mise à jour OTA.
 // ⚠️ OUBLIÉ PENDANT ~15 VERSIONS (29/08/2026, bug signalé par l'utilisateur :
 // "le texte de la maj n'est pas le bon") — appVersionCode/appVersionName ont
@@ -20,7 +20,7 @@ val appVersionName = "1.0.79"
 // modif du 28/08 alors qu'on en était à v1.0.50). Ce commentaire ne suffit
 // visiblement pas tout seul à s'en souvenir : à chaque bump de version,
 // updater CETTE ligne AVANT de commit, pas après coup.
-val appChangelog = "Compilation avec le SDK Android 37 (le plus récent) ; comportement d'exécution inchangé."
+val appChangelog = "Bibliothèques et SDK à jour. Android 6.0 minimum désormais requis (Android 5.x n'est plus supporté)."
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
@@ -50,7 +50,16 @@ android {
 
     defaultConfig {
         applicationId = "com.nicotv.iptv2"
-        minSdk = 21
+        // ⚠️ Monté de 21 à 23 le 30/08/2026 (décision utilisateur explicite) :
+        // appcompat 1.8.0, core-ktx 1.19.0 et media3 1.11.0 exigent tous
+        // minSdk 23 — rester en 21 aurait obligé à annuler l'essentiel de la
+        // montée de version. Conséquence assumée : Android 5.0/5.1 (API 21-22)
+        // n'est plus supporté, soit les Fire TV Stick 1re/2e génération et les
+        // boxes Android TV de 2014-2016 (~0,2% du parc en 2026).
+        // Symptôme si on retente 21 : "Manifest merger failed : uses-sdk:
+        // minSdkVersion 21 cannot be smaller than version 23 declared in
+        // library [androidx.appcompat:appcompat-resources]".
+        minSdk = 23
         targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersionName

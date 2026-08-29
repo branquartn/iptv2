@@ -397,6 +397,35 @@ focus au bon endroit — le lui reprendre serait pire que de ne rien faire.
 **Films n'a volontairement pas ce comportement** (non demandé) : y ajouter le
 même appel suffirait, `positionOf` est déjà partagé dans l'adapter.
 
+## minSdk 23 (Android 6.0) — Android 5.x abandonné
+
+⚠️ **30/08/2026, décision utilisateur explicite**, prise après un build cassé :
+`Manifest merger failed : uses-sdk:minSdkVersion 21 cannot be smaller than
+version 23 declared in library [androidx.appcompat:appcompat-resources:1.8.0]`.
+
+Ce n'était pas un cas isolé : **appcompat 1.8.0, core-ktx 1.19.0 ET media3
+1.11.0 exigent tous minSdk 23** (vérifié dans les `AndroidManifest.xml` des
+AAR du cache Gradle). Rester en 21 aurait donc obligé à annuler l'essentiel de
+la montée de version, pas juste une bibliothèque.
+
+**Conséquence assumée** : Android 5.0/5.1 (API 21-22) n'est plus supporté —
+Fire TV Stick 1re/2e génération, boxes Android TV de 2014-2016, soit ~0,2% du
+parc en 2026. Choix validé explicitement par l'utilisateur, à ne pas revenir
+dessus sans lui redemander.
+
+Aucun code à adapter : les seuls tests de version du projet portent sur API 26
+(`Build.VERSION_CODES.O`, dans `UpdateManager` et `PlayerActivity`), inchangés.
+
+⚠️ **Méthode utile pour ce genre de panne** : le merger de manifeste ne signale
+que **la première** bibliothèque fautive. Avant de corriger et relancer, lister
+toutes les exigences d'un coup :
+```
+find ~/.gradle/caches -path "*/transformed/*/AndroidManifest.xml" \
+  -exec grep -l 'minSdkVersion' {} \; | ...
+```
+(vérifier `android:minSdkVersion` dans chaque AAR transformé) — ça évite la
+série de builds ratés un par un.
+
 ## SDK Android : compileSdk 37, targetSdk 36 (désynchronisation volontaire)
 
 ⚠️ **30/08/2026, question "et même les API pour le Play Store, c'est les
