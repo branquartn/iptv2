@@ -80,6 +80,16 @@ class LiveActivity : BaseActivity() {
             channelAdapter.submitList(channels)
             binding.tvEmpty.visibility = if (channels.isEmpty()) View.VISIBLE else View.GONE
             binding.rvChannels.visibility = if (channels.isEmpty()) View.GONE else View.VISIBLE
+            // Même astuce que l'écran Favoris (29/08/2026, demande explicite
+            // "aussi avoir le tips des favoris dans les favoris des chaînes")
+            // — vide à cause du filtre favoris "appui long" = pas découvrable
+            // seul, vs. vide à cause d'une recherche/catégorie = message
+            // générique.
+            binding.tvEmpty.text = if (viewModel.favoritesOnly.value == true) {
+                getString(R.string.favorites_channels_tip)
+            } else {
+                getString(R.string.live_empty_title)
+            }
         }
     }
 

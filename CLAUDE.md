@@ -298,6 +298,19 @@ découvrable de lui-même. `tv_channels_tip`/`favorites_channels_tip`
 remplacent la mosaïque tant que `getFavoriteChannels()` est vide,
 visibilités mutuellement exclusives.
 
+⚠️ **Même astuce réutilisée sur l'écran Chaînes (`LiveActivity`)** (même jour,
+demande explicite : "aussi avoir le tips des favoris dans les favoris des
+chaînes") — le filtre "favoris uniquement" de cet écran (`btnFavoritesFilter`)
+n'avait qu'un message générique ("Aucune chaîne trouvée",
+`live_empty_title`) quand il ne restait rien après filtrage, sans distinguer
+"aucun résultat pour cette recherche/catégorie" de "aucune chaîne en favori
+du tout". `tv_empty.text` bascule maintenant sur `favorites_channels_tip`
+(même string que l'écran Favoris) si `favoritesOnly.value == true`, sinon
+`live_empty_title` — recalculé à chaque émission de `filteredChannels`
+(inclut les toggles du filtre, `LiveViewModel` n'a pas de
+`distinctUntilChanged` donc chaque bascule republie même si la liste
+filtrée reste vide des deux côtés).
+
 ⚠️ **"Vide" global attend les DEUX flux** (favoris films/séries et chaînes
 répondent indépendamment, l'un peut émettre avant l'autre) —
 `movieFavoritesLoaded`/`channelFavoritesLoaded` (booléens, pas de valeur par
@@ -598,12 +611,15 @@ demande explicite : "au milieu pas en bas... indique chargement en cours",
 puis "avec un pourcentage ça serait bien" le jour même) — le `ProgressBar`
 `progress_loading` était un petit rond sans texte, tout en bas du formulaire
 (après le bouton "Charger"/"Se connecter"), invisible sans scroller. Retiré
-des 3 écrans concernés (`AddPlaylistActivity`/`AddXtreamActivity`/
+des 4 écrans concernés (`AddPlaylistActivity`/`AddXtreamActivity`/
 `SetupActivity` — ce dernier avait le même souci pour le tap sur une
-carte), remplacé par `ui/common/LoadingDialog` (classe réutilisable — construit
-et affiche un `AlertDialog` centré sur `dialog_loading.xml` : `ProgressBar`
-déterminé + `%` + message d'étape, même style que
-`UpdateManager.showUpdateProgress`). `setLoading()` sur les 3 écrans
+carte — puis `SettingsActivity.refreshCatalog()` le jour même, demande
+explicite "quand j'actualise le catalogue je veux aussi un pourcentage" :
+remplace le petit spinner discret de la barre du haut, tout aussi peu
+visible), remplacé par `ui/common/LoadingDialog` (classe réutilisable —
+construit et affiche un `AlertDialog` centré sur `dialog_loading.xml` :
+`ProgressBar` déterminé + `%` + message d'étape, même style que
+`UpdateManager.showUpdateProgress`). `setLoading()` sur les 4 écrans
 construit/affiche `LoadingDialog` à `true`, `dismiss()` à `false`.
 
 `PlaylistRepository.loadProfile(profileId, onProgress)` pousse les valeurs —

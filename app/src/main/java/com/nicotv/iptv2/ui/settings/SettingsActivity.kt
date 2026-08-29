@@ -12,6 +12,7 @@ import com.nicotv.iptv2.R
 import com.nicotv.iptv2.data.ImageCacheUtil
 import com.nicotv.iptv2.databinding.ActivitySettingsBinding
 import com.nicotv.iptv2.ui.common.BaseActivity
+import com.nicotv.iptv2.ui.common.LoadingDialog
 import com.nicotv.iptv2.ui.setup.SetupActivity
 import kotlinx.coroutines.launch
 
@@ -154,7 +155,9 @@ class SettingsActivity : BaseActivity() {
                 Toast.makeText(this@SettingsActivity, R.string.settings_no_active_profile, Toast.LENGTH_SHORT).show()
                 return@launch
             }
-            val result = app.playlistRepository.loadProfile(profile.id)
+            val result = app.playlistRepository.loadProfile(profile.id) { pct, msg ->
+                loadingDialog?.onProgress(pct, msg)
+            }
             setLoading(false)
             updateLastUpdateLabel()
             result.onSuccess {
@@ -165,8 +168,19 @@ class SettingsActivity : BaseActivity() {
         }
     }
 
+    // Rond de chargement au milieu de l'écran, avec pourcentage (29/08/2026,
+    // demande explicite "quand j'actualise le catalogue je veux aussi un
+    // pourcentage") — remplace le petit spinner discret dans la barre du
+    // haut, même LoadingDialog que Profils/Ajouter une source.
+    private var loadingDialog: LoadingDialog? = null
+
     private fun setLoading(loading: Boolean) {
-        binding.progressLoading.visibility = if (loading) View.VISIBLE else View.GONE
         binding.btnRefreshCatalog.isEnabled = !loading
+        if (loading) {
+            loadingDialog = LoadingDialog(this).also { it.show() }
+        } else {
+            loadingDialog?.dismiss()
+            loadingDialog = null
+        }
     }
 }

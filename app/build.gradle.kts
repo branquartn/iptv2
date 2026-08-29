@@ -10,8 +10,8 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 59
-val appVersionName = "1.0.58"
+val appVersionCode = 60
+val appVersionName = "1.0.59"
 // Changelog affiché dans le modal de mise à jour OTA.
 // ⚠️ OUBLIÉ PENDANT ~15 VERSIONS (29/08/2026, bug signalé par l'utilisateur :
 // "le texte de la maj n'est pas le bon") — appVersionCode/appVersionName ont
@@ -20,7 +20,7 @@ val appVersionName = "1.0.58"
 // modif du 28/08 alors qu'on en était à v1.0.50). Ce commentaire ne suffit
 // visiblement pas tout seul à s'en souvenir : à chaque bump de version,
 // updater CETTE ligne AVANT de commit, pas après coup.
-val appChangelog = "Les chaînes en favori apparaissent maintenant dans Favoris, avec une astuce pour expliquer comment en ajouter."
+val appChangelog = "Astuce favoris chaînes aussi sur l'écran Chaînes, pourcentage ajouté à l'actualisation du catalogue."
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
