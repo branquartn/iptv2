@@ -31,12 +31,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -78,10 +75,17 @@ class PlaylistRepository(
         // sans bloquer l'écran. Le tap sur un profil (SetupActivity) reste lui
         // toujours un rechargement réseau explicite, jamais servi depuis Room.
         private const val CATALOG_MAX_AGE_MS = 24 * 60 * 60 * 1000L
-        // Taille de page pour l'écran Films (cf. getMoviesPage) — assez pour
-        // remplir l'écran + une marge de scroll sans viser l'exhaustivité
-        // immédiate (tout l'intérêt de la pagination).
+        // Taille de page des écrans Films/Séries/Chaînes — assez pour remplir
+        // l'écran + une marge de scroll sans viser l'exhaustivité immédiate
+        // (tout l'intérêt de la pagination).
+        // ⚠️ N'est utilisée QUE pour "Toutes" (30/08/2026, demande explicite) :
+        // dès qu'une catégorie précise est sélectionnée, la page est chargée en
+        // ENTIER (NO_LIMIT) — une catégorie donnée est toujours bien plus petite
+        // que le catalogue complet, et l'utilisateur veut alors tout voir d'un
+        // coup (compteur juste, scroll complet immédiat).
         const val MOVIES_PAGE_SIZE = 60
+        /** `LIMIT -1` = aucune limite en SQLite — cf. commentaire ci-dessus. */
+        const val NO_LIMIT = -1
     }
 
     class LoadException(message: String, cause: Throwable? = null) : Exception(message, cause)
@@ -254,7 +258,14 @@ class PlaylistRepository(
         for (entry in entries) {
             when (M3uParser.classify(entry)) {
                 M3uParser.Kind.LIVE -> channels.add(
-                    ChannelEntity(name = entry.name, streamUrl = entry.url, logoUrl = entry.logo, category = entry.groupTitle, sortOrder = order++)
+                    ChannelEntity(
+                        name = entry.name, streamUrl = entry.url, logoUrl = entry.logo, category = entry.groupTitle, sortOrder = order++,
+                        nameLanguageCode = ChannelEntity.nameLanguageCodeFor(entry.name),
+                        nameStripped = ChannelEntity.nameStrippedFor(entry.name),
+                        categoryLanguageCode = ChannelEntity.categoryLanguageCodeFor(entry.groupTitle),
+                        categoryStripped = ChannelEntity.categoryStrippedFor(entry.groupTitle),
+                        tntRank = ChannelEntity.tntRankForName(entry.name)
+                    )
                 )
                 M3uParser.Kind.MOVIE -> movies.add(
                     MovieEntity(
@@ -367,7 +378,9 @@ class PlaylistRepository(
                     overview = art?.overview.orEmpty(),
                     rating = art?.rating ?: 0f,
                     releaseYear = art?.year.orEmpty(),
-                    category = category
+                    category = category,
+                    languageCode = SeriesEntity.languageCodeFor(category),
+                    categoryStripped = SeriesEntity.categoryStrippedFor(category)
                 )
             )
             items.forEach { (entry, parsed, _) ->
@@ -442,10 +455,16 @@ class PlaylistRepository(
         }
 
         val channels = liveStreams.map {
+            val cat = liveCats[it.categoryId]?.name.orEmpty()
             ChannelEntity(
                 name = it.name, streamUrl = client.liveStreamUrl(it.streamId),
-                logoUrl = it.icon, category = liveCats[it.categoryId]?.name.orEmpty(),
-                xtreamStreamId = it.streamId
+                logoUrl = it.icon, category = cat,
+                xtreamStreamId = it.streamId,
+                nameLanguageCode = ChannelEntity.nameLanguageCodeFor(it.name),
+                nameStripped = ChannelEntity.nameStrippedFor(it.name),
+                categoryLanguageCode = ChannelEntity.categoryLanguageCodeFor(cat),
+                categoryStripped = ChannelEntity.categoryStrippedFor(cat),
+                tntRank = ChannelEntity.tntRankForName(it.name)
             )
         }
 
@@ -472,6 +491,7 @@ class PlaylistRepository(
         db.channelDao().insertAll(channels)
         db.movieDao().insertAll(movies)
         for (s in seriesList) {
+            val cat = seriesCats[s.categoryId]?.name.orEmpty()
             db.seriesDao().insert(
                 SeriesEntity(
                     title = s.name,
@@ -479,8 +499,10 @@ class PlaylistRepository(
                     overview = s.plot,
                     rating = s.rating,
                     genres = s.genre, releaseYear = s.releaseDate.take(4),
-                    category = seriesCats[s.categoryId]?.name.orEmpty(),
-                    xtreamSeriesId = s.seriesId
+                    category = cat,
+                    xtreamSeriesId = s.seriesId,
+                    languageCode = SeriesEntity.languageCodeFor(cat),
+                    categoryStripped = SeriesEntity.categoryStrippedFor(cat)
                 )
             )
         }
@@ -535,24 +557,11 @@ class PlaylistRepository(
     // valeur déjà prête, quasi instantané. Recalculé automatiquement si
     // movies/favorites/watch_history changent (Room réémet), pas seulement au
     // premier accès.
-    // ⚠️ Signalent la toute PREMIÈRE émission réelle de chaque combine (corrigé
-    // 29/08/2026, signalé "la première fois que je vais dans Films il ne
-    // charge pas") — `stateIn(..., emptyList())` fournit `emptyList()` comme
-    // valeur de départ SYNCHRONE avant même que la vraie requête Room (des
-    // dizaines de milliers de lignes) n'ait eu le temps de s'exécuter en
-    // arrière-plan : rien ne distinguait alors "catalogue vraiment vide" de
-    // "pas encore chargé", et les 3 écrans (Movies/Series/LiveActivity)
-    // affichaient immédiatement "Aucun titre trouvé" avant de se repeupler
-    // d'un coup une fois la vraie valeur arrivée — perçu comme "ça ne charge
-    // pas" plutôt que "ça charge encore". `onEach` s'exécute pour CHAQUE
-    // émission de l'amont (y compris la première, qu'elle soit vide ou non),
-    // contrairement à la valeur de départ de `stateIn` qui n'en fait jamais
-    // partie — signal fiable de "la vraie requête a répondu au moins une
-    // fois", peu importe le contenu.
-    private val _moviesReady = MutableStateFlow(false)
-    private val _seriesReady = MutableStateFlow(false)
-    private val _channelsReady = MutableStateFlow(false)
-
+    // ⚠️ Ces 3 Flow ne sont PLUS utilisés par les écrans Films/Séries/Chaînes
+    // depuis le passage à la pagination (29-30/08/2026, cf. CLAUDE.md) — ces
+    // écrans interrogent désormais getMoviesPage/getSeriesPage/getChannelsPage.
+    // Ils restent la source de Favoris, Reprise, Recherche globale et du fond
+    // aléatoire de l'accueil, qui ont besoin du catalogue complet.
     private val moviesFlow: Flow<List<Movie>> by lazy {
         combine(db.movieDao().getAllMovies(), db.favoriteDao().getFavoritesByType(FavoriteEntity.Type.MOVIE), db.watchHistoryDao().getAllHistory()) { movies, favs, history ->
             val favIds = favs.map { it.itemId }.toSet()
@@ -561,36 +570,26 @@ class PlaylistRepository(
                 val h = historyByKey["m${m.id}"]
                 m.toDomain(isFavorite = m.id in favIds, watchProgress = h?.progressPercent ?: 0)
             }
-        }.onEach { _moviesReady.value = true }.stateIn(appScope, SharingStarted.Eagerly, emptyList())
+        }.stateIn(appScope, SharingStarted.Eagerly, emptyList())
     }
 
     private val seriesFlow: Flow<List<Movie>> by lazy {
         combine(db.seriesDao().getAllSeries(), db.favoriteDao().getFavoritesByType(FavoriteEntity.Type.SERIES)) { series, favs ->
             val favIds = favs.map { it.itemId }.toSet()
             series.map { it.toDomain(isFavorite = it.id in favIds) }
-        }.onEach { _seriesReady.value = true }.stateIn(appScope, SharingStarted.Eagerly, emptyList())
+        }.stateIn(appScope, SharingStarted.Eagerly, emptyList())
     }
 
     private val channelsFlow: Flow<List<Channel>> by lazy {
         combine(db.channelDao().getAllChannels(), db.favoriteDao().getFavoritesByType(FavoriteEntity.Type.CHANNEL)) { channels, favs ->
             val favIds = favs.map { it.itemId }.toSet()
             channels.map { it.toDomain(isFavorite = it.id in favIds) }
-        }.onEach { _channelsReady.value = true }.stateIn(appScope, SharingStarted.Eagerly, emptyList())
+        }.stateIn(appScope, SharingStarted.Eagerly, emptyList())
     }
 
     fun getMovies(): Flow<List<Movie>> = moviesFlow
     fun getSeries(): Flow<List<Movie>> = seriesFlow
     fun getChannels(): Flow<List<Channel>> = channelsFlow
-
-    /** Vrai dès que la première requête réelle (pas la valeur de départ de
-     * stateIn) a répondu — cf. commentaire sur _moviesReady/_seriesReady/
-     * _channelsReady plus haut. Accéder à ces StateFlow force le `by lazy`
-     * du Flow correspondant (même déclenchement que getMovies()/getSeries()/
-     * getChannels()), donc sans effet si l'écran appelant a déjà préchauffé
-     * via MainActivity.observeData(). */
-    fun isMoviesReady(): StateFlow<Boolean> { moviesFlow; return _moviesReady }
-    fun isSeriesReady(): StateFlow<Boolean> { seriesFlow; return _seriesReady }
-    fun isChannelsReady(): StateFlow<Boolean> { channelsFlow; return _channelsReady }
 
     /** Langues/bouquets réellement présents dans le catalogue chargé — pour
      * peupler dynamiquement le choix "Langue du contenu" (Réglages), pas de
@@ -867,6 +866,64 @@ class PlaylistRepository(
      * rafraîchissement est bon marché même appelé à chaque retour sur l'écran. */
     suspend fun getFavoriteMovieIds(): Set<Long> = withContext(Dispatchers.IO) {
         db.favoriteDao().getFavoriteIds(FavoriteEntity.Type.MOVIE).toSet()
+    }
+
+    // ── Pagination écran Séries ─────────────────────────────────────────────
+    // Cf. section Films juste au-dessus : même principe, mêmes conventions.
+
+    suspend fun getSeriesPage(lang: String?, category: String?, offset: Int, limit: Int = MOVIES_PAGE_SIZE): List<Movie> = withContext(Dispatchers.IO) {
+        val entities = db.seriesDao().getSeriesPage(lang, category, limit, offset)
+        if (entities.isEmpty()) return@withContext emptyList()
+        val favIds = db.favoriteDao().getFavoriteIds(FavoriteEntity.Type.SERIES).toSet()
+        entities.map { it.toDomain(isFavorite = it.id in favIds) }
+    }
+
+    suspend fun getSeriesCategories(lang: String?): List<String> = withContext(Dispatchers.IO) {
+        db.seriesDao().getDistinctCategoriesForLanguage(lang)
+    }
+
+    suspend fun getFavoriteSeriesIds(): Set<Long> = withContext(Dispatchers.IO) {
+        db.favoriteDao().getFavoriteIds(FavoriteEntity.Type.SERIES).toSet()
+    }
+
+    // ── Pagination écran Chaînes ────────────────────────────────────────────
+    // Cf. ChannelDao.getChannelsPage pour les 3 spécificités de cet écran
+    // (filtre langue sur le NOM, filtre favoris en sous-requête, tri TNT en SQL).
+
+    /** [frenchSort] : contexte français (réglage langue = FR, ou catégorie
+     * sélectionnée reconnue française) → tri "ordre TNT" plutôt que l'ordre de
+     * la playlist. Décidé par LiveViewModel, qui seul connaît la catégorie
+     * sélectionnée et le réglage courant. */
+    suspend fun getChannelsPage(
+        lang: String?,
+        category: String?,
+        favoritesOnly: Boolean,
+        frenchSort: Boolean,
+        offset: Int,
+        limit: Int = MOVIES_PAGE_SIZE
+    ): List<Channel> = withContext(Dispatchers.IO) {
+        val entities = db.channelDao().getChannelsPage(
+            lang = lang,
+            category = category,
+            favOnly = if (favoritesOnly) 1 else 0,
+            favType = FavoriteEntity.Type.CHANNEL,
+            frenchSort = if (frenchSort) 1 else 0,
+            limit = limit,
+            offset = offset
+        )
+        if (entities.isEmpty()) return@withContext emptyList()
+        val favIds = db.favoriteDao().getFavoriteIds(FavoriteEntity.Type.CHANNEL).toSet()
+        // useStrippedName seulement si un filtre de langue est actif — cf.
+        // ChannelEntity.toDomain (le préfixe reste visible en mode "Toutes").
+        entities.map { it.toDomain(isFavorite = it.id in favIds, useStrippedName = lang != null) }
+    }
+
+    suspend fun getChannelsCategories(lang: String?): List<String> = withContext(Dispatchers.IO) {
+        db.channelDao().getDistinctCategoriesForLanguage(lang)
+    }
+
+    suspend fun getFavoriteChannelIds(): Set<Long> = withContext(Dispatchers.IO) {
+        db.favoriteDao().getFavoriteIds(FavoriteEntity.Type.CHANNEL).toSet()
     }
 
     /** Cf. searchMoviesByTitle. */

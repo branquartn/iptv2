@@ -39,13 +39,25 @@ class SeriesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
             })
         })
 
+        val gridLayoutManager = GridLayoutManager(this@SeriesActivity, computeSpanCount())
         binding.rvPosters.apply {
-            layoutManager = GridLayoutManager(this@SeriesActivity, computeSpanCount())
+            layoutManager = gridLayoutManager
             adapter = this@SeriesActivity.adapter
             setHasFixedSize(false)
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 override fun onScrollStateChanged(rv: RecyclerView, newState: Int) {
                     if (newState == RecyclerView.SCROLL_STATE_DRAGGING) hideKeyboard()
+                }
+                override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
+                    // ⚠️ Pagination (30/08/2026) — cf. MoviesActivity, même
+                    // déclenchement (moins de 2 rangées avant la fin), no-op
+                    // côté ViewModel si recherche/catégorie/dernière page.
+                    if (dy <= 0) return
+                    val total = gridLayoutManager.itemCount
+                    val lastVisible = gridLayoutManager.findLastVisibleItemPosition()
+                    if (total > 0 && lastVisible >= total - gridLayoutManager.spanCount * 2) {
+                        viewModel.loadNextPage()
+                    }
                 }
             })
             setOnTouchListener { v, _ -> v.performClick(); hideKeyboard(); false }
@@ -99,14 +111,14 @@ class SeriesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
 
         // ⚠️ Cf. MoviesActivity, même correctif 29/08/2026 ("la première fois
         // que je vais dans Films/Séries il ne charge pas") — le spinner reste
-        // affiché tant que isReady n'est pas true, pas juste tant que
-        // filteredSeries n'a rien émis (sa toute première valeur peut déjà
-        // être une liste vide arrivée avant la vraie requête Room).
+        // affiché tant que isReady n'est pas true, pas juste tant que la liste
+        // a émis quelque chose (sa toute première valeur peut être vide alors
+        // que la première page n'est pas encore arrivée).
         val render = androidx.lifecycle.MediatorLiveData<Unit>()
-        render.addSource(viewModel.filteredSeries) { render.value = Unit }
+        render.addSource(viewModel.series) { render.value = Unit }
         render.addSource(viewModel.isReady) { render.value = Unit }
         render.observe(this) {
-            val series = viewModel.filteredSeries.value ?: emptyList()
+            val series = viewModel.series.value ?: emptyList()
             val ready = viewModel.isReady.value == true
             binding.progressLoading.visibility = if (!ready) View.VISIBLE else View.GONE
             adapter.submitList(series)
@@ -114,6 +126,14 @@ class SeriesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
             binding.tvEmpty.visibility = if (ready && series.isEmpty()) View.VISIBLE else View.GONE
             binding.rvPosters.visibility = if (!ready || series.isEmpty()) View.GONE else View.VISIBLE
         }
+    }
+
+    // ⚠️ Cf. MoviesActivity.onResume — la pagination n'est plus réactive à la
+    // table favoris, un favori togglé depuis la fiche série ne se répercute
+    // plus tout seul sur la grille déjà chargée.
+    override fun onResume() {
+        super.onResume()
+        viewModel.refreshFavoriteStates()
     }
 
     private fun hideKeyboard() {

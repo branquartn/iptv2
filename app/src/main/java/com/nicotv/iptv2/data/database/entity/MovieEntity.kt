@@ -5,8 +5,8 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.nicotv.iptv2.domain.model.Movie
-import com.nicotv.iptv2.util.extractLeadingLanguageCode
-import com.nicotv.iptv2.util.stripLeadingLanguageCode
+import com.nicotv.iptv2.util.leadingLanguageCodeOrEmpty
+import com.nicotv.iptv2.util.withoutLeadingLanguageCode
 
 /** Un film VOD. Index unique (title, streamUrl) : un rechargement de la playlist
  * met à jour la ligne existante au lieu d'en créer une doublonnée. */
@@ -93,12 +93,10 @@ data class MovieEntity(
         /** cf. commentaire sur languageCode/categoryStripped plus haut —
          * centralisé ici pour que les chemins M3U et Xtream (PlaylistRepository)
          * restent cohérents. Appelé une fois par film au chargement, jamais au
-         * runtime. */
-        fun languageCodeFor(category: String): String = extractLeadingLanguageCode(category) ?: ""
+         * runtime. Délègue aux helpers partagés (util.LanguageCode), communs aux
+         * 3 entités catalogue depuis le 29/08/2026. */
+        fun languageCodeFor(category: String): String = leadingLanguageCodeOrEmpty(category)
 
-        fun categoryStrippedFor(category: String): String {
-            val code = extractLeadingLanguageCode(category) ?: return category
-            return stripLeadingLanguageCode(category, code)
-        }
+        fun categoryStrippedFor(category: String): String = withoutLeadingLanguageCode(category)
     }
 }

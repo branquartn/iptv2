@@ -318,6 +318,69 @@ défaut significative) évitent un flash "aucun favori" pendant que le second
 flux n'a pas encore répondu. Si un 3ᵉ type de favori est ajouté un jour,
 reprendre ce même patron plutôt qu'un simple `isEmpty()` sur une seule liste.
 
+## Pagination — extension à Séries/Chaînes + chargement complet par catégorie
+
+⚠️ **30/08/2026, demande explicite** : "quand ça charge les films ça se limite
+à 60 pour Toutes, mais pour chaque catégorie tu peux tout charger, et faire
+pareil pour série et live". Deux changements, tous les deux appliqués aux 3
+écrans :
+
+1. **Pagination uniquement sur "Toutes"** — dès qu'une catégorie précise est
+   sélectionnée, elle est chargée **en entier** d'un coup
+   (`PlaylistRepository.NO_LIMIT` = `LIMIT -1`, comportement SQLite standard
+   pour "aucune limite" ; `pageLimitFor(category)` dans les 3 ViewModel).
+   Rationnel : une catégorie donnée est toujours bien plus petite que le
+   catalogue complet, et l'utilisateur veut alors le compteur juste et le
+   scroll complet immédiatement. `endReached` est donc mis à `true` d'emblée
+   quand une catégorie est active — `loadNextPage()` devient un no-op, il n'y
+   a plus rien à paginer.
+2. **Séries et Chaînes reprennent le patron de Films** (colonnes précalculées
+   + DAO paginé + scroll infini + `onResume` → `refreshFavoriteStates()`),
+   ce que la première itération avait volontairement laissé de côté.
+
+Room **version 8** (`fallbackToDestructiveMigration` — catalogue à recharger
+une fois de plus après cette mise à jour).
+
+**Colonnes précalculées ajoutées** (au chargement de la playlist uniquement,
+jamais au runtime — helpers partagés `util.leadingLanguageCodeOrEmpty`/
+`withoutLeadingLanguageCode`, avec l'invariant "code vide ⇒ version nettoyée
+== version brute" sur lequel repose tout le filtrage SQL) :
+
+- `SeriesEntity` : `languageCode`, `categoryStripped` (identique à
+  `MovieEntity`).
+- `ChannelEntity` : **deux paires**, parce que l'écran Chaînes filtre la
+  langue sur le **NOM** de la chaîne ("FR: TF1") mais construit sa sidebar sur
+  le préfixe de la **CATÉGORIE** ("FR| Sport") — deux conventions distinctes
+  déjà traitées séparément avant la pagination, cf. `util.LanguageCode`. D'où
+  `nameLanguageCode`/`nameStripped` + `categoryLanguageCode`/
+  `categoryStripped`. Plus `tntRank` (cf. ci-dessous).
+
+⚠️ **Le tri "ordre TNT" a dû passer en SQL** (`ChannelDao.getChannelsPage`,
+`ORDER BY CASE WHEN :frenchSort = 1 THEN tntRank ELSE sortOrder END`) : un tri
+appliqué **page par page** en Kotlin, comme avant, donnerait un ordre **global
+incohérent** (chaque page triée dans son coin, TF1 pouvant apparaître en page
+3 après des chaînes inconnues de la page 1). D'où la colonne `tntRank`
+précalculée et `util.TntOrder.kt` (`TNT_ORDER` + `tntRankFor`, extraits de
+`LiveViewModel`) : une seule source de vérité, partagée entre le chargement
+(colonne) et le chemin **recherche**, qui reste trié en Kotlin puisqu'il n'est
+pas paginé (résultat déjà borné à 200 lignes côté SQL).
+
+⚠️ **Filtre "favoris uniquement" aussi passé en SQL** (même raison) —
+sous-requête `id IN (SELECT itemId FROM favorites WHERE itemType = :favType)`,
+pas de clé étrangère Room (cf. `FavoriteEntity`, on filtre toujours par type).
+Conséquence à ne pas oublier : quand ce filtre est actif, retirer un favori
+doit faire **disparaître** la tuile, pas seulement changer son étoile — d'où
+`LiveViewModel.refreshFavoriteStates()` qui, dans ce cas précis, relance un
+chargement complet au lieu d'une simple mise à jour d'état en mémoire.
+
+**Code mort supprimé au passage** : `PlaylistRepository.isMoviesReady()`/
+`isSeriesReady()`/`isChannelsReady()` (+ les `_xReady`/`onEach` associés,
+correctif du 29/08 sur le "spinner honnête") — les 3 ViewModel ont désormais
+leur propre `_isReady`, piloté par le chargement de leur première page. Les
+Flow `moviesFlow`/`seriesFlow`/`channelsFlow` eux **restent** : ils ne servent
+plus les 3 écrans catalogue, mais toujours Favoris, Reprise, Recherche globale
+et le fond aléatoire de l'accueil.
+
 ## Pagination écran Films (MoviesViewModel)
 
 ⚠️ **Réécriture 29/08/2026, après plusieurs correctifs insuffisants seuls**
@@ -395,12 +458,9 @@ le catalogue Films en mémoire avant affichage.
   `viewModel.refreshFavoriteStates()` (relit juste les ids favoris — table
   toujours petite, jamais 47 000 lignes — et met à jour les films déjà en
   mémoire) : le cœur du retour depuis la fiche détail.
-- **Portée volontairement limitée à Films** (pas Séries/Chaînes) — le
-  signalement portait spécifiquement sur Films ; refaire les trois d'un coup
-  sans pouvoir builder/tester triplait le risque pour un gain non demandé
-  ailleurs. Si Séries/Chaînes deviennent douloureux sur un très gros
-  catalogue, reprendre exactement ce principe (colonnes `languageCode`/
-  `categoryStripped` + DAO paginé) plutôt qu'improviser autre chose.
+- ~~**Portée volontairement limitée à Films**~~ — **étendu à Séries/Chaînes
+  le 30/08/2026** sur demande explicite, cf. la section juste au-dessus
+  ("Pagination — extension à Séries/Chaînes").
 - `PlaylistRepository.getMovies()`/`moviesFlow` (catalogue complet, chaud)
   **reste utilisé tel quel** par Favoris/Reprise/Recherche globale/l'accueil
   (fond aléatoire) — ces écrans ont besoin du catalogue complet et ne sont

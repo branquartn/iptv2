@@ -29,3 +29,23 @@ fun stripLeadingLanguageCode(text: String, code: String): String {
     val pattern = Regex("""^\s*${Regex.escape(code)}\s*[:|\-]\s*""", RegexOption.IGNORE_CASE)
     return text.replaceFirst(pattern, "").trim()
 }
+
+/** Variantes "colonne Room" des deux fonctions ci-dessus — utilisées pour
+ * précalculer le code langue / le libellé nettoyé AU CHARGEMENT de la playlist
+ * (cf. MovieEntity/SeriesEntity/ChannelEntity), plutôt que de les recalculer en
+ * Kotlin sur chaque ligne à chaque ouverture d'écran (cf. CLAUDE.md, section
+ * "Pagination"). Une colonne Room ne pouvant pas être `null` sans complexifier
+ * les requêtes, l'absence de code est représentée par la chaîne vide.
+ *
+ * ⚠️ Invariant sur lequel repose tout le filtrage SQL : quand
+ * [leadingLanguageCodeOrEmpty] renvoie "" (aucun préfixe détecté),
+ * [withoutLeadingLanguageCode] renvoie le texte INCHANGÉ — donc, une fois le
+ * filtre langue appliqué (code vide OU code == langue choisie), la version
+ * "nettoyée" est toujours la bonne valeur à afficher/comparer, sans avoir à
+ * refaire le test au runtime. */
+fun leadingLanguageCodeOrEmpty(text: String): String = extractLeadingLanguageCode(text) ?: ""
+
+fun withoutLeadingLanguageCode(text: String): String {
+    val code = extractLeadingLanguageCode(text) ?: return text
+    return stripLeadingLanguageCode(text, code)
+}

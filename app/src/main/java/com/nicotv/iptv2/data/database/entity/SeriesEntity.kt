@@ -1,9 +1,12 @@
 package com.nicotv.iptv2.data.database.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.nicotv.iptv2.domain.model.Movie
+import com.nicotv.iptv2.util.leadingLanguageCodeOrEmpty
+import com.nicotv.iptv2.util.withoutLeadingLanguageCode
 
 /** Une série. Index unique sur title : un rechargement de la playlist met à
  * jour la ligne existante au lieu d'en créer une doublonnée. */
@@ -25,7 +28,14 @@ data class SeriesEntity(
     // depuis un M3U (regroupement par titre, cf. M3uParser). Sert à retrouver les
     // épisodes via get_series_info lors de l'ouverture de la fiche.
     val xtreamSeriesId: String = "",
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    // ⚠️ Ajoutés 29/08/2026 (pagination écran Séries) — cf. MovieEntity, mêmes
+    // colonnes, même rôle et même invariant (code vide ⇒ categoryStripped ==
+    // category). Calculés une fois au chargement de la playlist, jamais au
+    // runtime : permettent de filtrer langue/catégorie en SQL (SeriesDao.
+    // getSeriesPage) sans mapper tout le catalogue en mémoire.
+    @ColumnInfo(defaultValue = "") val languageCode: String = "",
+    @ColumnInfo(defaultValue = "") val categoryStripped: String = ""
 ) {
     fun toDomain(isFavorite: Boolean = false) = Movie(
         id = id,
@@ -41,4 +51,11 @@ data class SeriesEntity(
         isFavorite = isFavorite,
         type = Movie.Type.SERIES
     )
+
+    companion object {
+        /** Cf. MovieEntity.languageCodeFor — mêmes helpers partagés. */
+        fun languageCodeFor(category: String): String = leadingLanguageCodeOrEmpty(category)
+
+        fun categoryStrippedFor(category: String): String = withoutLeadingLanguageCode(category)
+    }
 }

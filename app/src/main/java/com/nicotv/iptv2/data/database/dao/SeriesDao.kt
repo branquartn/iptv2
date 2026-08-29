@@ -28,6 +28,27 @@ interface SeriesDao {
     @Query("SELECT * FROM series WHERE title LIKE '%' || :query || '%' COLLATE NOCASE ORDER BY title ASC LIMIT :limit")
     suspend fun searchByTitle(query: String, limit: Int = 200): List<SeriesEntity>
 
+    // ⚠️ Pagination (30/08/2026) — cf. MovieDao.getMoviesPage, même principe,
+    // mêmes colonnes précalculées (languageCode/categoryStripped) et même
+    // convention : `:lang IS NULL` = aucun filtre de langue, `:category IS
+    // NULL` = "Toutes", [limit] négatif = aucune limite (catégorie précise
+    // sélectionnée, chargée en entier).
+    @Query("""
+        SELECT * FROM series
+        WHERE (:lang IS NULL OR languageCode = '' OR languageCode = :lang)
+          AND (:category IS NULL OR categoryStripped = :category)
+        ORDER BY title ASC
+        LIMIT :limit OFFSET :offset
+    """)
+    suspend fun getSeriesPage(lang: String?, category: String?, limit: Int, offset: Int): List<SeriesEntity>
+
+    /** Cf. MovieDao.getDistinctCategoriesForLanguage. */
+    @Query("""
+        SELECT DISTINCT categoryStripped FROM series
+        WHERE categoryStripped != '' AND (:lang IS NULL OR languageCode = '' OR languageCode = :lang)
+    """)
+    suspend fun getDistinctCategoriesForLanguage(lang: String?): List<String>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(series: SeriesEntity): Long
 

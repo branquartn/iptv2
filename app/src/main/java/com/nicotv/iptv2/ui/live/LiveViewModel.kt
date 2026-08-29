@@ -5,181 +5,196 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.asLiveData
+import androidx.lifecycle.viewModelScope
 import com.nicotv.iptv2.IptvApplication
 import com.nicotv.iptv2.data.ContentLanguagePrefs
 import com.nicotv.iptv2.data.database.entity.FavoriteEntity
+import com.nicotv.iptv2.data.repository.PlaylistRepository
 import com.nicotv.iptv2.domain.model.Channel
 import com.nicotv.iptv2.util.extractLeadingLanguageCode
-import com.nicotv.iptv2.util.foldAccents
 import com.nicotv.iptv2.util.isFrenchLabel
 import com.nicotv.iptv2.util.stripLeadingLanguageCode
+import com.nicotv.iptv2.util.tntRankFor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import androidx.lifecycle.viewModelScope
 
+/**
+ * ⚠️ Réécrit en pagination le 30/08/2026 — même patron que
+ * [com.nicotv.iptv2.ui.movies.MoviesViewModel] (lire son en-tête pour le
+ * pourquoi), étendu à cet écran sur demande explicite ("faire pareil pour
+ * série et live").
+ *
+ * Trois spécificités de l'écran Chaînes, toutes déplacées en SQL (cf.
+ * ChannelDao.getChannelsPage) parce qu'un filtrage/tri fait page par page en
+ * Kotlin donnerait un résultat global incohérent :
+ * 1. le filtre de langue porte sur le NOM de la chaîne ("FR: TF1"), pas sur la
+ *    catégorie — et le préfixe est retiré du nom affiché (cf.
+ *    ChannelEntity.toDomain) ;
+ * 2. le filtre "favoris uniquement" (bouton de la barre du haut) ;
+ * 3. le tri "ordre TNT" en contexte français, via la colonne précalculée
+ *    `tntRank` (cf. util.tntRankFor).
+ *
+ * La sidebar catégories, elle, reste filtrée sur le préfixe de la CATÉGORIE
+ * (`categoryLanguageCode`) — deux conventions distinctes, inchangé.
+ */
 class LiveViewModel(application: Application) : AndroidViewModel(application) {
 
     private val app = application as IptvApplication
     private val repository = app.playlistRepository
-
-    private val allChannels = repository.getChannels().asLiveData()
-
-    // ⚠️ Distingue "pas encore chargé" de "vraiment vide" — cf.
-    // MoviesViewModel.isReady/PlaylistRepository.isChannelsReady, même correctif.
-    val isReady = repository.isChannelsReady().asLiveData()
+    // Réglage persistant (Réglages > Langue du contenu) — n'importe quel code
+    // découvert dans le catalogue (pas seulement "FR", cf. SettingsActivity).
+    // Lu une seule fois à la création du ViewModel, comme avant.
+    private val contentLanguage = app.contentLanguagePrefs.getLanguage()
 
     val searchQuery = MutableLiveData("")
     val selectedCategory = MutableLiveData<String?>(null)
     val favoritesOnly = MutableLiveData(false)
 
-    // Réglage persistant (Réglages > Langue du contenu) — n'importe quel code
-    // découvert dans le catalogue (pas seulement "FR", cf. SettingsActivity).
-    // Filtre sur le préfixe du nom de chaîne ("FR: TF1" → code "FR") et le
-    // retire de l'affichage une fois filtré — demande explicite 28/08/2026 :
-    // "si fr selected... voir que celle qui commence par FR|... enlève le
-    // FR|" (délimiteur réel constaté : ":", pas "|", cf. util.LanguageCode).
-    // ⚠️ Ni "exact match obligatoire" (corrigé le jour même, régression
-    // signalée par l'utilisateur : "beIN Sport" disparu) — la plupart des
-    // chaînes françaises de ce panel n'ont AUCUN préfixe (pas de norme, seuls
-    // certains bouquets étrangers sont explicitement marqués "CA:"/"AL:"...).
-    // Exiger le préfixe "FR" pour garder une chaîne excluait donc tout le
-    // catalogue non marqué. Règle retenue : garder si aucun préfixe détecté
-    // OU préfixe == contentLanguage ; exclure seulement un préfixe explicite
-    // d'une AUTRE langue. Même principe côté catégories un peu plus bas et
-    // dans Movies/SeriesViewModel.applyLanguageFilter.
-    private val contentLanguage = app.contentLanguagePrefs.getLanguage()
+    private val _categories = MutableLiveData<List<String>>(emptyList())
+    val categories: LiveData<List<String>> = _categories
 
-    val categories: LiveData<List<String>> = MediatorLiveData<List<String>>().apply {
-        // ⚠️ Calcul déporté en Dispatchers.Default (corrigé 29/08/2026) — cf.
-        // MoviesViewModel.categories, même freeze main thread constaté sur
-        // l'écran Chaînes (jusqu'à ~47 000 chaînes).
-        addSource(allChannels) { list ->
-            viewModelScope.launch {
-                val result = withContext(Dispatchers.Default) {
-                    // Catégories France en premier (demande explicite) — cf. isFrenchLabel.
-                    // N'exclut que les catégories dont le PROPRE préfixe désigne
-                    // explicitement une AUTRE langue (demande explicite 28/08/2026 :
-                    // la sidebar affichait encore "CA|"/"AL|"... à côté des catégories
-                    // FR une fois nettoyées) — garde les catégories sans préfixe du
-                    // tout (cf. commentaire sur contentLanguage plus haut : pas un
-                    // "exact match", sinon "Sport" sans préfixe disparaissait aussi).
-                    val base = if (contentLanguage == null) list
-                               else list.filter { val c = extractLeadingLanguageCode(it.category); c == null || c == contentLanguage }
-                    base.map { displayCategory(it.category) }.filter { it.isNotBlank() }.distinct()
-                        .sortedWith(compareByDescending<String> { isFrenchLabel(it) }.thenBy { it })
-                }
-                value = result
-            }
-        }
-    }
+    private val _isReady = MutableLiveData(false)
+    val isReady: LiveData<Boolean> = _isReady
 
-    // ⚠️ Recherche par nom en SQL (repository.searchChannelsByName) quand une
-    // requête est tapée — cf. MoviesViewModel.filteredMovies, même principe/
-    // même raison (jusqu'à ~47 000 chaînes, foldAccents() par frappe trop lent
-    // même en coroutine). Favoris/catégorie/FR appliqués ensuite sur le
-    // résultat déjà réduit par le SQL (ou sur le catalogue complet sans
-    // recherche en cours).
-    // ⚠️ Debounce seulement si recherche en cours — cf. MoviesViewModel.
-    // filteredMovies, même correctif (le delay(150) s'appliquait aussi à
-    // l'ouverture de l'écran/changement de catégorie ou favoris, "recharge
-    // tout" perçu à chaque retour sur Chaînes).
-    val filteredChannels: LiveData<List<Channel>> = MediatorLiveData<List<Channel>>().apply {
-        var job: Job? = null
-        fun filter() {
-            job?.cancel()
-            job = viewModelScope.launch {
-                val query = searchQuery.value.orEmpty().trim()
-                if (query.isNotBlank()) delay(150)
-                val favOnly = favoritesOnly.value == true
-                val cat = selectedCategory.value
-                // ⚠️ Déporté en Dispatchers.Default (corrigé 29/08/2026) — cf.
-                // MoviesViewModel.filteredMovies, même correctif : ce filtre +
-                // le tri TNT (foldAccents par chaîne) tournaient sur le thread
-                // principal jusqu'à ~47 000 chaînes.
-                val result = withContext(Dispatchers.Default) {
-                    var base = if (query.isBlank()) allChannels.value ?: emptyList()
-                               else repository.searchChannelsByName(query)
-                    if (favOnly) base = base.filter { it.isFavorite }
-                    cat?.let { c -> base = base.filter { displayCategory(it.category) == c } }
+    private val _isLoadingMore = MutableLiveData(false)
+    val isLoadingMore: LiveData<Boolean> = _isLoadingMore
 
-                    // Réglage persistant "Langue du contenu" : exclut seulement un
-                    // préfixe explicite d'une AUTRE langue ("FR: TF1" avec réglage
-                    // "AF" → exclu) et retire le préfixe quand il correspond
-                    // ("FR: TF1" → "TF1") — une chaîne sans préfixe du tout est
-                    // gardée telle quelle, cf. commentaire sur contentLanguage
-                    // plus haut (pas un "exact match", régression "beIN Sport"
-                    // corrigée le 28/08/2026).
-                    if (contentLanguage != null) {
-                        base = base.mapNotNull { channel ->
-                            val code = extractLeadingLanguageCode(channel.name)
-                            when {
-                                code == null -> channel
-                                code == contentLanguage -> channel.copy(name = stripLeadingLanguageCode(channel.name, contentLanguage))
-                                else -> null
-                            }
-                        }
-                    }
+    private var pagingOffset = 0
+    private var endReached = false
+    private var isSearching = false
 
-                    // Tri "ordre TNT" (demande explicite) : quand on regarde du
-                    // français (catégorie FR, ou réglage langue = FR), TF1/
-                    // France 2/France 3/... dans l'ordre de la numérotation
-                    // officielle plutôt qu'alphabétique/ordre de la playlist. Hors
-                    // contexte FR, ordre inchangé (sortOrder/nom, cf.
-                    // ChannelDao.getAllChannels).
-                    val frenchContext = contentLanguage == ContentLanguagePrefs.FRENCH || cat?.let { isFrenchLabel(it) } == true
-                    if (frenchContext) base.sortedWith(compareBy({ tntRank(it) }, { it.name })) else base
-                }
-                value = result
-            }
-        }
-        addSource(allChannels) { filter() }
-        addSource(searchQuery) { filter() }
-        addSource(selectedCategory) { filter() }
-        addSource(favoritesOnly) { filter() }
-    }
+    private val _channels = MediatorLiveData<List<Channel>>()
+    val channels: LiveData<List<Channel>> = _channels
 
-    /** Nom de catégorie affiché dans la sidebar — retire le préfixe langue
-     * ("FR| Sport" → "Sport") quand il correspond au réglage "Langue du
-     * contenu" (contentLanguage), même principe que sur le nom des chaînes
-     * (cf. contentLanguage plus haut). Redondant une fois filtré sur une
-     * seule langue, inutile de le garder affiché. Sert aussi de clé de
-     * comparaison pour selectedCategory (sidebar ne connaît que le libellé
-     * déjà nettoyé, jamais le brut). */
+    /** Cf. MoviesViewModel.pageLimitFor — pagination sur "Toutes" seulement. */
+    private fun pageLimitFor(category: String?): Int =
+        if (category == null) PlaylistRepository.MOVIES_PAGE_SIZE else PlaylistRepository.NO_LIMIT
+
+    /** Contexte français : réglage langue = FR, ou catégorie sélectionnée
+     * reconnue française (cf. isFrenchLabel) → tri "ordre TNT" (demande
+     * explicite 28/08/2026) plutôt que l'ordre de la playlist. Inchangé, mais
+     * désormais transmis à SQL au lieu d'être appliqué après coup en Kotlin. */
+    private fun frenchSortFor(category: String?): Boolean =
+        contentLanguage == ContentLanguagePrefs.FRENCH || category?.let { isFrenchLabel(it) } == true
+
+    /** Nom de catégorie affiché dans la sidebar — cf. ChannelEntity.
+     * categoryStripped, qui fait désormais ce travail en base. Cette version
+     * Kotlin ne sert plus qu'au chemin RECHERCHE (non paginé). */
     private fun displayCategory(category: String): String {
         val code = contentLanguage ?: return category
         return if (extractLeadingLanguageCode(category) == code) stripLeadingLanguageCode(category, code) else category
     }
 
-    /** Rang dans la numérotation officielle de la TNT française (1 à 25) —
-     * comparaison par sous-chaîne sur le nom nettoyé (accents/casse), tolérant
-     * aux préfixes de playlist ("FR| TF1 HD", "FR - TF1", "TF1 FHD"...). Pas de
-     * source fiable de numéro de chaîne côté Xtream/M3U (même limite que
-     * isFrenchLabel) : chaîne non reconnue → Int.MAX_VALUE, reléguée en fin de
-     * liste plutôt que de casser le tri. */
-    private fun tntRank(channel: Channel): Int {
-        val name = channel.name.foldAccents().uppercase()
-        val idx = TNT_ORDER.indexOfFirst { name.contains(it) }
-        return if (idx >= 0) idx else Int.MAX_VALUE
+    init {
+        loadCategories()
+
+        var job: Job? = null
+        fun load() {
+            job?.cancel()
+            pagingOffset = 0
+            endReached = false
+            _isReady.value = false
+            job = viewModelScope.launch {
+                val query = searchQuery.value.orEmpty().trim()
+                if (query.isNotBlank()) delay(150)
+                val cat = selectedCategory.value
+                val favOnly = favoritesOnly.value == true
+                val result = withContext(Dispatchers.Default) {
+                    if (query.isNotBlank()) {
+                        // Chemin recherche : déjà borné à 200 lignes côté SQL,
+                        // filtres/tri appliqués en Kotlin comme avant la
+                        // pagination (coût négligeable sur si peu de lignes).
+                        var base = repository.searchChannelsByName(query)
+                        if (favOnly) base = base.filter { it.isFavorite }
+                        cat?.let { c -> base = base.filter { displayCategory(it.category) == c } }
+                        if (contentLanguage != null) {
+                            base = base.mapNotNull { channel ->
+                                val code = extractLeadingLanguageCode(channel.name)
+                                when {
+                                    code == null -> channel
+                                    code == contentLanguage -> channel.copy(name = stripLeadingLanguageCode(channel.name, contentLanguage))
+                                    else -> null
+                                }
+                            }
+                        }
+                        if (frenchSortFor(cat)) base.sortedWith(compareBy({ tntRankFor(it.name) }, { it.name })) else base
+                    } else {
+                        repository.getChannelsPage(
+                            lang = contentLanguage, category = cat, favoritesOnly = favOnly,
+                            frenchSort = frenchSortFor(cat), offset = 0, limit = pageLimitFor(cat)
+                        )
+                    }
+                }
+                isSearching = query.isNotBlank()
+                pagingOffset = result.size
+                endReached = isSearching || cat != null || result.size < PlaylistRepository.MOVIES_PAGE_SIZE
+                _channels.value = result
+                _isReady.value = true
+            }
+        }
+        _channels.addSource(searchQuery) { load() }
+        _channels.addSource(selectedCategory) { load() }
+        _channels.addSource(favoritesOnly) { load() }
+    }
+
+    private fun loadCategories() {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.Default) {
+                repository.getChannelsCategories(contentLanguage)
+                    .filter { it.isNotBlank() }
+                    // Catégories France en premier (demande explicite) — cf. isFrenchLabel.
+                    .sortedWith(compareByDescending<String> { isFrenchLabel(it) }.thenBy { it })
+            }
+            _categories.value = result
+        }
+    }
+
+    /** Cf. MoviesViewModel.loadNextPage. */
+    fun loadNextPage() {
+        if (isSearching || endReached || _isLoadingMore.value == true) return
+        _isLoadingMore.value = true
+        viewModelScope.launch {
+            val cat = selectedCategory.value
+            val page = withContext(Dispatchers.Default) {
+                repository.getChannelsPage(
+                    lang = contentLanguage, category = cat, favoritesOnly = favoritesOnly.value == true,
+                    frenchSort = frenchSortFor(cat), offset = pagingOffset, limit = PlaylistRepository.MOVIES_PAGE_SIZE
+                )
+            }
+            pagingOffset += page.size
+            if (page.size < PlaylistRepository.MOVIES_PAGE_SIZE) endReached = true
+            _channels.value = (_channels.value ?: emptyList()) + page
+            _isLoadingMore.value = false
+        }
+    }
+
+    /** Cf. MoviesViewModel.refreshFavoriteStates — appelé par
+     * LiveActivity.onResume. ⚠️ Quand le filtre "favoris uniquement" est
+     * actif, un retrait de favori doit aussi FAIRE DISPARAÎTRE la tuile :
+     * dans ce cas on relance un chargement complet plutôt qu'une simple mise
+     * à jour d'état (la liste elle-même change, pas seulement les étoiles). */
+    fun refreshFavoriteStates() {
+        if (favoritesOnly.value == true) {
+            // Réémet la même valeur : déclenche `load()` via addSource, donc un
+            // rechargement propre de la première page avec le filtre à jour.
+            favoritesOnly.value = true
+            return
+        }
+        val current = _channels.value
+        if (current.isNullOrEmpty()) return
+        viewModelScope.launch {
+            val favIds = repository.getFavoriteChannelIds()
+            _channels.value = current.map { it.copy(isFavorite = it.id in favIds) }
+        }
     }
 
     fun toggleFavorite(channel: Channel) {
         viewModelScope.launch {
             repository.toggleFavorite(channel.id, FavoriteEntity.Type.CHANNEL, channel.isFavorite)
+            refreshFavoriteStates()
         }
-    }
-
-    companion object {
-        // Numérotation officielle TNT (hertzien national, hors chaînes locales/
-        // régionales) — ordre exact demandé (TF1, France 2, France 3...).
-        private val TNT_ORDER = listOf(
-            "TF1", "FRANCE 2", "FRANCE 3", "CANAL+", "FRANCE 5", "M6", "ARTE", "C8", "W9",
-            "TMC", "TFX", "NRJ 12", "LCP", "FRANCE 4", "BFM TV", "CNEWS", "CSTAR", "GULLI",
-            "TF1 SERIES FILMS", "EQUIPE", "6TER", "RMC STORY", "RMC DECOUVERTE",
-            "CHERIE 25", "FRANCEINFO"
-        )
     }
 }

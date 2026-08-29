@@ -5,94 +5,151 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.asLiveData
+import androidx.lifecycle.viewModelScope
 import com.nicotv.iptv2.IptvApplication
 import com.nicotv.iptv2.data.database.entity.FavoriteEntity
+import com.nicotv.iptv2.data.repository.PlaylistRepository
 import com.nicotv.iptv2.domain.model.Movie
 import com.nicotv.iptv2.util.extractLeadingLanguageCode
 import com.nicotv.iptv2.util.isFrenchLabel
+import com.nicotv.iptv2.util.stripLeadingLanguageCode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import androidx.lifecycle.viewModelScope
 
+/**
+ * ⚠️ Réécrit en pagination le 30/08/2026 — strictement le même patron que
+ * [com.nicotv.iptv2.ui.movies.MoviesViewModel] (lire son en-tête pour le
+ * pourquoi complet : mapper tout le catalogue en mémoire avant affichage
+ * coûtait des dizaines de secondes de CPU sur un gros panel). Séries n'avait
+ * pas été traité dans le premier lot (portée volontairement limitée à Films),
+ * étendu ici sur demande explicite : "faire pareil pour série et live".
+ *
+ * Pagination sur "Toutes" uniquement ; une catégorie précise est chargée en
+ * entier (cf. pageLimitFor). Recherche texte non paginée (déjà bornée à 200
+ * côté SQL).
+ */
 class SeriesViewModel(application: Application) : AndroidViewModel(application) {
 
     private val app = application as IptvApplication
     private val repository = app.playlistRepository
-
-    private val allSeries = repository.getSeries().asLiveData()
-
-    // ⚠️ Distingue "pas encore chargé" de "vraiment vide" — cf.
-    // MoviesViewModel.isReady/PlaylistRepository.isSeriesReady, même correctif.
-    val isReady = repository.isSeriesReady().asLiveData()
-
-    // Réglage persistant (Réglages > Langue du contenu) — cf. MoviesViewModel,
-    // même principe (filtre par code, pas l'heuristique isFrenchLabel).
-    // ⚠️ Pas un "exact match" (corrigé 28/08/2026, régression signalée par
-    // l'utilisateur : plus aucune série visible) — cf. MoviesViewModel.
-    // applyLanguageFilter pour le détail : garde si aucun préfixe détecté OU
-    // préfixe == contentLanguage, exclut seulement un préfixe explicite d'une
-    // AUTRE langue.
     private val contentLanguage = app.contentLanguagePrefs.getLanguage()
-    private fun applyLanguageFilter(list: List<Movie>): List<Movie> =
-        if (contentLanguage == null) list
-        else list.filter { val c = extractLeadingLanguageCode(it.category); c == null || c == contentLanguage }
 
     val searchQuery = MutableLiveData("")
     // null = "Toutes" — cf. LiveViewModel/MoviesViewModel, même principe.
     val selectedCategory = MutableLiveData<String?>(null)
 
-    val categories: LiveData<List<String>> = MediatorLiveData<List<String>>().apply {
-        // Catégories France en premier (demande explicite) — cf. isFrenchLabel.
-        // ⚠️ Calcul déporté en Dispatchers.Default (corrigé 29/08/2026) — cf.
-        // MoviesViewModel.categories, même freeze main thread constaté sur
-        // l'écran Séries.
-        addSource(allSeries) { list ->
-            viewModelScope.launch {
-                val result = withContext(Dispatchers.Default) {
-                    applyLanguageFilter(list).map { it.category }.filter { it.isNotBlank() }.distinct()
-                        .sortedWith(compareByDescending<String> { isFrenchLabel(it) }.thenBy { it })
-                }
-                value = result
-            }
-        }
+    private val _categories = MutableLiveData<List<String>>(emptyList())
+    val categories: LiveData<List<String>> = _categories
+
+    private val _isReady = MutableLiveData(false)
+    val isReady: LiveData<Boolean> = _isReady
+
+    private val _isLoadingMore = MutableLiveData(false)
+    val isLoadingMore: LiveData<Boolean> = _isLoadingMore
+
+    private var pagingOffset = 0
+    private var endReached = false
+    private var isSearching = false
+
+    private val _series = MediatorLiveData<List<Movie>>()
+    val series: LiveData<List<Movie>> = _series
+
+    /** Cf. MoviesViewModel.pageLimitFor — pagination sur "Toutes" seulement. */
+    private fun pageLimitFor(category: String?): Int =
+        if (category == null) PlaylistRepository.MOVIES_PAGE_SIZE else PlaylistRepository.NO_LIMIT
+
+    /** Appliqués UNIQUEMENT aux résultats de recherche (≤200 lignes) — le
+     * chemin sans recherche filtre déjà langue/catégorie en SQL, cf.
+     * SeriesDao.getSeriesPage. */
+    private fun applyLanguageFilter(list: List<Movie>): List<Movie> =
+        if (contentLanguage == null) list
+        else list.filter { val c = extractLeadingLanguageCode(it.category); c == null || c == contentLanguage }
+
+    private fun displayCategory(category: String): String {
+        val code = contentLanguage ?: return category
+        return if (extractLeadingLanguageCode(category) == code) stripLeadingLanguageCode(category, code) else category
     }
 
-    // ⚠️ Recherche par titre en SQL — cf. MoviesViewModel.filteredMovies, même
-    // raison et même principe (repository.searchSeriesByTitle).
-    // ⚠️ Debounce seulement si recherche en cours — cf. MoviesViewModel.
-    // filteredMovies, même correctif (le delay(150) s'appliquait aussi à
-    // l'ouverture de l'écran, "recharge tout" perçu à chaque retour).
-    val filteredSeries: LiveData<List<Movie>> = MediatorLiveData<List<Movie>>().apply {
+    init {
+        loadCategories()
+
         var job: Job? = null
-        fun filter() {
+        fun load() {
             job?.cancel()
+            pagingOffset = 0
+            endReached = false
+            _isReady.value = false
             job = viewModelScope.launch {
                 val query = searchQuery.value.orEmpty().trim()
                 if (query.isNotBlank()) delay(150)
-                // ⚠️ Déporté en Dispatchers.Default (corrigé 29/08/2026) — cf.
-                // MoviesViewModel.filteredMovies, même correctif.
-                val series = withContext(Dispatchers.Default) {
-                    var s = if (query.isBlank()) allSeries.value ?: emptyList()
-                            else repository.searchSeriesByTitle(query)
-                    s = applyLanguageFilter(s)
-                    selectedCategory.value?.let { cat -> s = s.filter { it.category == cat } }
-                    s
+                val cat = selectedCategory.value
+                val result = withContext(Dispatchers.Default) {
+                    if (query.isNotBlank()) {
+                        var s = repository.searchSeriesByTitle(query)
+                        s = applyLanguageFilter(s)
+                        cat?.let { c -> s = s.filter { displayCategory(it.category) == c } }
+                        s
+                    } else {
+                        repository.getSeriesPage(contentLanguage, cat, offset = 0, limit = pageLimitFor(cat))
+                    }
                 }
-                value = series
+                isSearching = query.isNotBlank()
+                pagingOffset = result.size
+                endReached = isSearching || cat != null || result.size < PlaylistRepository.MOVIES_PAGE_SIZE
+                _series.value = result
+                _isReady.value = true
             }
         }
-        addSource(allSeries) { filter() }
-        addSource(searchQuery) { filter() }
-        addSource(selectedCategory) { filter() }
+        _series.addSource(searchQuery) { load() }
+        _series.addSource(selectedCategory) { load() }
+    }
+
+    private fun loadCategories() {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.Default) {
+                repository.getSeriesCategories(contentLanguage)
+                    .filter { it.isNotBlank() }
+                    // Catégories France en premier (demande explicite) — cf. isFrenchLabel.
+                    .sortedWith(compareByDescending<String> { isFrenchLabel(it) }.thenBy { it })
+            }
+            _categories.value = result
+        }
+    }
+
+    /** Cf. MoviesViewModel.loadNextPage. */
+    fun loadNextPage() {
+        if (isSearching || endReached || _isLoadingMore.value == true) return
+        _isLoadingMore.value = true
+        viewModelScope.launch {
+            val page = withContext(Dispatchers.Default) {
+                repository.getSeriesPage(contentLanguage, selectedCategory.value, offset = pagingOffset, limit = PlaylistRepository.MOVIES_PAGE_SIZE)
+            }
+            pagingOffset += page.size
+            if (page.size < PlaylistRepository.MOVIES_PAGE_SIZE) endReached = true
+            _series.value = (_series.value ?: emptyList()) + page
+            _isLoadingMore.value = false
+        }
+    }
+
+    /** Cf. MoviesViewModel.refreshFavoriteStates — appelé par
+     * SeriesActivity.onResume (la pagination n'est plus réactive à la table
+     * favoris, contrairement à l'ancien seriesFlow). */
+    fun refreshFavoriteStates() {
+        val current = _series.value
+        if (current.isNullOrEmpty()) return
+        viewModelScope.launch {
+            val favIds = repository.getFavoriteSeriesIds()
+            _series.value = current.map { it.copy(isFavorite = it.id in favIds) }
+        }
     }
 
     fun toggleFavorite(series: Movie) {
         viewModelScope.launch {
             repository.toggleFavorite(series.id, FavoriteEntity.Type.SERIES, series.isFavorite)
+            refreshFavoriteStates()
         }
     }
 }

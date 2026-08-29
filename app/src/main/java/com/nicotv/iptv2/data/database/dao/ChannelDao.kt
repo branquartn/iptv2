@@ -28,6 +28,48 @@ interface ChannelDao {
     @Query("SELECT * FROM channels WHERE name LIKE '%' || :query || '%' COLLATE NOCASE ORDER BY name ASC LIMIT :limit")
     suspend fun searchByName(query: String, limit: Int = 200): List<ChannelEntity>
 
+    // ⚠️ Pagination (30/08/2026) — cf. MovieDao.getMoviesPage. Trois
+    // spécificités propres à l'écran Chaînes, toutes reprises telles quelles de
+    // l'ancien filtrage Kotlin (LiveViewModel.filteredChannels) :
+    // 1. le filtre de langue porte sur le NOM (nameLanguageCode), pas sur la
+    //    catégorie — deux conventions distinctes, cf. ChannelEntity ;
+    // 2. le filtre "favoris uniquement" (:favOnly = 1) passe par une
+    //    sous-requête sur la table favorites (pas de clé étrangère Room, cf.
+    //    FavoriteEntity — on filtre toujours par itemType) ;
+    // 3. le tri "ordre TNT" (:frenchSort = 1, quand le contexte est français)
+    //    utilise la colonne précalculée tntRank ; sinon ordre de la playlist
+    //    (sortOrder, comme getAllChannels). Ce tri DOIT être en SQL : appliqué
+    //    page par page en Kotlin, l'ordre global serait incohérent.
+    // [limit] négatif = aucune limite (catégorie précise sélectionnée).
+    @Query("""
+        SELECT * FROM channels
+        WHERE (:lang IS NULL OR nameLanguageCode = '' OR nameLanguageCode = :lang)
+          AND (:category IS NULL OR categoryStripped = :category)
+          AND (:favOnly = 0 OR id IN (SELECT itemId FROM favorites WHERE itemType = :favType))
+        ORDER BY
+          CASE WHEN :frenchSort = 1 THEN tntRank ELSE sortOrder END ASC,
+          name ASC
+        LIMIT :limit OFFSET :offset
+    """)
+    suspend fun getChannelsPage(
+        lang: String?,
+        category: String?,
+        favOnly: Int,
+        favType: String,
+        frenchSort: Int,
+        limit: Int,
+        offset: Int
+    ): List<ChannelEntity>
+
+    /** Cf. MovieDao.getDistinctCategoriesForLanguage — mais filtré sur le
+     * préfixe de la CATÉGORIE (categoryLanguageCode), pas celui du nom :
+     * la sidebar liste des catégories, cf. ChannelEntity. */
+    @Query("""
+        SELECT DISTINCT categoryStripped FROM channels
+        WHERE categoryStripped != '' AND (:lang IS NULL OR categoryLanguageCode = '' OR categoryLanguageCode = :lang)
+    """)
+    suspend fun getDistinctCategoriesForLanguage(lang: String?): List<String>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(channels: List<ChannelEntity>)
 

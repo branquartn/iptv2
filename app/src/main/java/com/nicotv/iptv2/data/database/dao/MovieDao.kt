@@ -56,6 +56,11 @@ interface MovieDao {
     // optionnel — un film sans préfixe détecté (languageCode = '') passe
     // toujours, même principe que l'ancien filtre Kotlin (applyLanguageFilter).
     // `:category IS NULL` = "Toutes" catégories.
+    // ⚠️ [limit] négatif = AUCUNE limite (comportement SQLite standard pour
+    // `LIMIT -1`) — utilisé quand une catégorie précise est sélectionnée
+    // (30/08/2026, demande explicite : pagination seulement sur "Toutes",
+    // chargement complet dans une catégorie donnée, toujours bien plus petite
+    // que le catalogue entier).
     @Query("""
         SELECT * FROM movies
         WHERE (:lang IS NULL OR languageCode = '' OR languageCode = :lang)

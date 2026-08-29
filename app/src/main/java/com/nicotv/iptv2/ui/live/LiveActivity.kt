@@ -9,7 +9,6 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.util.UnstableApi
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -48,8 +47,22 @@ class LiveActivity : BaseActivity() {
             },
             onToggleFavorite = { channel -> viewModel.toggleFavorite(channel) }
         )
-        binding.rvChannels.layoutManager = GridLayoutManager(this, computeSpanCount())
+        val gridLayoutManager = GridLayoutManager(this, computeSpanCount())
+        binding.rvChannels.layoutManager = gridLayoutManager
         binding.rvChannels.adapter = channelAdapter
+        binding.rvChannels.addOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
+            override fun onScrolled(rv: androidx.recyclerview.widget.RecyclerView, dx: Int, dy: Int) {
+                // ⚠️ Pagination (30/08/2026) — cf. MoviesActivity, même
+                // déclenchement (moins de 2 rangées avant la fin), no-op côté
+                // ViewModel si recherche/catégorie/dernière page.
+                if (dy <= 0) return
+                val total = gridLayoutManager.itemCount
+                val lastVisible = gridLayoutManager.findLastVisibleItemPosition()
+                if (total > 0 && lastVisible >= total - gridLayoutManager.spanCount * 2) {
+                    viewModel.loadNextPage()
+                }
+            }
+        })
 
         categoryAdapter = CategorySidebarAdapter(getString(R.string.category_all)) { category -> viewModel.selectedCategory.value = category }
         binding.rvCategories.layoutManager = LinearLayoutManager(this)
@@ -76,14 +89,14 @@ class LiveActivity : BaseActivity() {
 
         // ⚠️ Cf. MoviesActivity, même correctif 29/08/2026 ("la première fois
         // que je vais dans Chaînes il ne charge pas") — le spinner reste
-        // affiché tant que isReady n'est pas true, pas juste tant que
-        // filteredChannels n'a rien émis (sa toute première valeur peut déjà
-        // être une liste vide arrivée avant la vraie requête Room).
+        // affiché tant que isReady n'est pas true, pas juste tant que la liste
+        // a émis quelque chose (sa toute première valeur peut être vide alors
+        // que la première page n'est pas encore arrivée).
         val render = androidx.lifecycle.MediatorLiveData<Unit>()
-        render.addSource(viewModel.filteredChannels) { render.value = Unit }
+        render.addSource(viewModel.channels) { render.value = Unit }
         render.addSource(viewModel.isReady) { render.value = Unit }
         render.observe(this) {
-            val channels = viewModel.filteredChannels.value ?: emptyList()
+            val channels = viewModel.channels.value ?: emptyList()
             val ready = viewModel.isReady.value == true
             binding.progressLoading.visibility = if (!ready) View.VISIBLE else View.GONE
             channelAdapter.submitList(channels)
@@ -100,6 +113,15 @@ class LiveActivity : BaseActivity() {
                 getString(R.string.live_empty_title)
             }
         }
+    }
+
+    // ⚠️ Cf. MoviesActivity.onResume — la pagination n'est plus réactive à la
+    // table favoris ; en plus, si le filtre "favoris uniquement" est actif, le
+    // ViewModel relance un chargement complet (une tuile retirée des favoris
+    // doit disparaître, pas seulement perdre son étoile).
+    override fun onResume() {
+        super.onResume()
+        viewModel.refreshFavoriteStates()
     }
 
     /** Cf. MoviesActivity.computeSpanCount — même sidebar catégories à déduire.

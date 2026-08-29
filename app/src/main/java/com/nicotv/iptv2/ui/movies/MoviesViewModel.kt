@@ -96,6 +96,14 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
     private val _movies = MediatorLiveData<List<Movie>>()
     val movies: LiveData<List<Movie>> = _movies
 
+    /** Pagination seulement sur "Toutes" (30/08/2026, demande explicite :
+     * "ça se limite à 60 pour Toutes, mais pour chaque catégorie tu peux tout
+     * charger") — une catégorie précise est toujours bien plus petite que le
+     * catalogue complet, donc chargée en entier d'un coup : compteur juste
+     * immédiatement et scroll complet sans attendre de page suivante. */
+    private fun pageLimitFor(category: String?): Int =
+        if (category == null) PlaylistRepository.MOVIES_PAGE_SIZE else PlaylistRepository.NO_LIMIT
+
     init {
         loadCategories()
 
@@ -116,12 +124,15 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
                         cat?.let { c -> m = m.filter { displayCategory(it.category) == c } }
                         m
                     } else {
-                        repository.getMoviesPage(contentLanguage, cat, offset = 0, limit = PlaylistRepository.MOVIES_PAGE_SIZE)
+                        repository.getMoviesPage(contentLanguage, cat, offset = 0, limit = pageLimitFor(cat))
                     }
                 }
                 isSearching = query.isNotBlank()
                 pagingOffset = result.size
-                endReached = isSearching || result.size < PlaylistRepository.MOVIES_PAGE_SIZE
+                // Rien de plus à paginer si : recherche (résultat déjà borné à
+                // 200), catégorie précise (tout a été chargé d'un coup, cf.
+                // pageLimitFor), ou page incomplète (fin du catalogue).
+                endReached = isSearching || cat != null || result.size < PlaylistRepository.MOVIES_PAGE_SIZE
                 _movies.value = result
                 _isReady.value = true
             }
