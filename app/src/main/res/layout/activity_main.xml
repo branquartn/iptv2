@@ -160,7 +160,7 @@
                 android:visibility="invisible" />
         </FrameLayout>
 
-        <!-- Réglages (profil actif, cache images/playlist/EPG) -->
+        <!-- Réglages (profil actif, cache images/playlist) -->
         <FrameLayout
             android:id="@+id/btn_settings"
             android:layout_width="44dp"
@@ -203,20 +203,21 @@
             android:layout_width="220dp"
             android:layout_height="188dp"
             android:layout_marginEnd="18dp"
-            android:background="@drawable/bg_hub_card"
+            android:background="@drawable/bg_hub_live"
             android:focusable="true"
             android:focusableInTouchMode="true">
 
-            <!-- Mosaïque FIXE de logos de chaînes FR (demande explicite 28/08/2026,
-                 remplace la rotation d'un logo unique) — 6 logos chargés une seule
-                 fois (MainActivity.bindLiveMosaic), jamais retouchés après. fitCenter,
-                 pas centerCrop : un logo est souvent transparent, pas une affiche
-                 plein cadre. -->
+            <!-- Mosaïque FIXE de 6 marques précises (Canal+/beIN/TF1/OCS/Prime/
+                 Netflix, cf. MainActivity.brandMosaicLogos) — chargée une seule
+                 fois (bindLiveMosaic), jamais retouchée après. fitCenter, pas
+                 centerCrop : un logo est souvent transparent, pas une affiche
+                 plein cadre. Chaque logo sur sa propre "chip" (bg_mosaic_tile,
+                 29/08/2026 : avant, logos nus à alpha 0.6 directement sur le
+                 fond de carte, look plat et sombre — cf. bg_hub_live). -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:orientation="vertical"
-                android:alpha="0.6"
                 android:padding="10dp">
 
                 <LinearLayout
@@ -230,21 +231,27 @@
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
-                        android:padding="6dp"
+                        android:layout_margin="3dp"
+                        android:background="@drawable/bg_mosaic_tile"
+                        android:padding="8dp"
                         android:scaleType="fitCenter" />
                     <ImageView
                         android:id="@+id/iv_live_logo_2"
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
-                        android:padding="6dp"
+                        android:layout_margin="3dp"
+                        android:background="@drawable/bg_mosaic_tile"
+                        android:padding="8dp"
                         android:scaleType="fitCenter" />
                     <ImageView
                         android:id="@+id/iv_live_logo_3"
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
-                        android:padding="6dp"
+                        android:layout_margin="3dp"
+                        android:background="@drawable/bg_mosaic_tile"
+                        android:padding="8dp"
                         android:scaleType="fitCenter" />
                 </LinearLayout>
 
@@ -259,28 +266,38 @@
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
-                        android:padding="6dp"
+                        android:layout_margin="3dp"
+                        android:background="@drawable/bg_mosaic_tile"
+                        android:padding="8dp"
                         android:scaleType="fitCenter" />
                     <ImageView
                         android:id="@+id/iv_live_logo_5"
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
-                        android:padding="6dp"
+                        android:layout_margin="3dp"
+                        android:background="@drawable/bg_mosaic_tile"
+                        android:padding="8dp"
                         android:scaleType="fitCenter" />
                     <ImageView
                         android:id="@+id/iv_live_logo_6"
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
-                        android:padding="6dp"
+                        android:layout_margin="3dp"
+                        android:background="@drawable/bg_mosaic_tile"
+                        android:padding="8dp"
                         android:scaleType="fitCenter" />
                 </LinearLayout>
             </LinearLayout>
 
+            <!-- Dégradé limité à une bande basse (avant : match_parent sur
+                 toute la carte, assombrissait aussi la rangée du haut sans
+                 raison — seul le texte "Chaînes" en bas a besoin de contraste). -->
             <View
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
+                android:layout_height="64dp"
+                android:layout_gravity="bottom"
                 android:background="@drawable/gradient_hub" />
 
             <ImageView

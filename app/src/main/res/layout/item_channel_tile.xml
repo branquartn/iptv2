@@ -60,29 +60,13 @@
                 android:paddingStart="8dp"
                 android:paddingEnd="8dp"
                 android:paddingTop="6dp"
+                android:paddingBottom="8dp"
                 android:gravity="center"
                 android:textColor="@color/text_primary"
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:ellipsize="end"
                 android:maxLines="1" />
-
-            <!-- Mini-guide "en cours" (Xtream uniquement) — vide/GONE sinon, cf.
-                 ChannelGridAdapter. -->
-            <TextView
-                android:id="@+id/tv_epg"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp"
-                android:paddingTop="2dp"
-                android:paddingBottom="8dp"
-                android:gravity="center"
-                android:textColor="@color/text_secondary"
-                android:textSize="10sp"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:visibility="gone" />
         </LinearLayout>
 
         <com.nicotv.iptv2.ui.common.RotatingBorderView

@@ -23,7 +23,7 @@ app/src/main/java/com/nicotv/iptv2/
     ImageCacheUtil.kt         # vide le cache Coil (mémoire+disque), cf. Réglages
     m3u/M3uParser.kt          # #EXTINF/URL → M3uEntry, classification live/VOD/série
     xtream/XtreamClient.kt    # player_api.php (login, catégories, live/VOD/séries,
-                              # get_short_epg, get_vod_info, get_series_info)
+                              # get_vod_info, get_series_info)
     xtream/XtreamModels.kt   # modèles Xtream — parsing JSON à la main (org.json),
                               # jamais de désérialisation Gson stricte (panels incohérents)
     tmdb/TmdbClient.kt       # recherche par titre (jaquettes) + credits/recommandations/
@@ -33,7 +33,7 @@ app/src/main/java/com/nicotv/iptv2/
                                        # films/séries/chaînes joints favoris+reprise
                                        # (StateFlow chauds, cf. section dédiée)
   domain/model/            # Movie (films+séries+épisodes unifiés, .displayTitle),
-                           # Series, Channel, EpgNowNext, SimilarWork/OpenTarget
+                           # Series, Channel, SimilarWork/OpenTarget
   util/                    # foldAccents, isFrenchLabel, stripReleaseTags, LanguageCode —
                            # partagées entre plusieurs écrans/ViewModels
   player/                  # PlayerActivity (Media3/ExoPlayer)
@@ -42,7 +42,7 @@ app/src/main/java/com/nicotv/iptv2/
                              # d'ajout ; saut auto si profil déjà actif (pas de login)
     main/MainActivity        # accueil : 3 tuiles Chaînes/Films/Séries, jaquettes/
                              # logo en rotation, fond aléatoire
-    settings/SettingsActivity  # cache images/EPG/playlist, langue du contenu,
+    settings/SettingsActivity  # cache images/playlist, langue du contenu,
                                # changer de source
     live/                    # chaînes : mosaïque + sidebar catégories + favoris
     movies/ series/ detail/  # films/séries : mur d'affiches, sidebar catégories,
@@ -256,15 +256,22 @@ d'aller" — un test manuel qui tape lentement ne révèle pas ce genre de perte
 Ajouté 28/08/2026 (demande explicite, comportement IPTV Smarters Pro) :
 `ChannelGridAdapter` + `item_channel_tile.xml` remplacent la liste verticale
 sur l'écran Chaînes — `GridLayoutManager` (comme `PosterAdapter`), tuile
-logo+nom+mini-guide EPG, pas de bouton favori dédié (place limitée) :
-**tap = lecture, appui long = ajouter/retirer des favoris**. L'ancien
-`ChannelAdapter` (liste, avec bouton favori explicite) est **gardé tel quel**
-pour `SearchActivity` uniquement, où chaînes/films/séries se mélangent dans
-un écran de résultats compact — pas de mosaïque là, une liste reste plus
-lisible mélangée à un mur d'affiches. Les deux adapters dupliquent la même
-logique EPG (fetch à la demande au bind, job annulé au recyclage) — accepté,
-pas mutualisé pour éviter une abstraction commune forcée entre deux layouts
-très différents.
+logo+nom, pas de bouton favori dédié (place limitée) : **tap = lecture, appui
+long = ajouter/retirer des favoris**. L'ancien `ChannelAdapter` (liste, avec
+bouton favori explicite) est **gardé tel quel** pour `SearchActivity`
+uniquement, où chaînes/films/séries se mélangent dans un écran de résultats
+compact — pas de mosaïque là, une liste reste plus lisible mélangée à un mur
+d'affiches.
+
+⚠️ **Mini-guide EPG retiré entièrement** (29/08/2026, demande explicite) :
+les deux adapters affichaient un "en cours" par chaîne (Xtream uniquement,
+`get_short_epg`) — supprimé partout (adapters, layouts `tv_epg`, `Channel
+Repository.getShortEpg`/`XtreamClient.getShortEpg`, modèles `EpgNowNext`/
+`XtEpgListing`, table Room `epg_cache` + son dao/entity, bouton "Vider le
+cache EPG" de Réglages). DB `version` passée à 6 (`fallbackToDestructive
+Migration`, cf. section Room plus bas) pour refléter la table en moins. Si
+un mini-guide EPG redevient utile, repartir de zéro plutôt que de chercher
+un reste — rien n'a été laissé en place derrière un flag.
 
 ## Cache catalogue chaud (PlaylistRepository) + recherche interne en SQL
 
@@ -478,25 +485,15 @@ un bandeau clair permanent affichant le nom de l'app en haut de l'écran. Piège
 vécu — un premier correctif posant `windowNoTitle` sur `Theme.IPTV` visait le
 mauvais thème et n'avait donc aucun effet.
 
-## Réglages (SettingsActivity) — cache images / playlist / EPG / langue
+## Réglages (SettingsActivity) — cache images / playlist / langue
 
 Écran ouvert depuis l'engrenage de l'accueil (`btn_settings` — **a changé de
 sens** : ouvrait `SetupActivity` directement jusqu'ici, ouvre maintenant
 `SettingsActivity`, qui elle-même propose "Changer de source" vers
 `SetupActivity(EXTRA_FORCE_SHOW)`). Ne pas revenir à l'ancien raccourci direct.
+Depuis 29/08/2026, `SetupActivity` a elle aussi son propre accès direct
+(icône Réglages dans sa barre d'en-tête, cf. sa section plus haut).
 
-- **Mini-guide EPG "en cours / à suivre"** (`PlaylistRepository.getShortEpg`,
-  affiché sous chaque chaîne dans `LiveActivity`/`ChannelAdapter`) :
-  **Xtream Codes uniquement** (`get_short_epg`, `ChannelEntity.xtreamStreamId`)
-  — un M3U n'expose aucune source EPG exploitable (pas d'URL XMLTV gérée),
-  `xtreamStreamId` y reste vide et la chaîne n'essaie même pas l'appel.
-  Résultat mis en cache (`epg_cache`, TTL 30 min) — vidé automatiquement à
-  chaque rechargement de catalogue (les id de chaîne sont réattribués) et
-  depuis Réglages ("Vider le cache EPG"). `title`/`description` du panel sont
-  en base64 (norme XMLTV) : `XtreamClient.decodeMaybeBase64` décode, tolérant
-  si un panel non conforme renvoie déjà du clair. Appelé à la demande au bind
-  de chaque ligne visible (`ChannelAdapter`, job annulé si la vue est recyclée
-  avant la réponse) — jamais au chargement du catalogue entier.
 - **Cache images (Coil)** : config explicite dans `IptvApplication`
   (`ImageLoaderFactory`) — 300 Mo disque, 25% de la RAM en mémoire. Par défaut
   Coil n'a pas de limite fiable en usage réel sur un mur d'affiches

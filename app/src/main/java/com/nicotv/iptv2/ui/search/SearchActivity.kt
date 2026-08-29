@@ -67,9 +67,7 @@ class SearchActivity : BaseActivity() {
                     putExtra(PlayerActivity.EXTRA_TITLE, channel.name)
                 })
             },
-            onToggleFavorite = {},
-            epgScope = lifecycleScope,
-            fetchEpg = { channel -> viewModel.getShortEpg(channel) }
+            onToggleFavorite = {}
         )
         binding.rvChannels.layoutManager = LinearLayoutManager(this)
         binding.rvChannels.adapter = channelAdapter

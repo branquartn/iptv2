@@ -46,9 +46,7 @@ class LiveActivity : BaseActivity() {
                     putExtra(PlayerActivity.EXTRA_TITLE, channel.name)
                 })
             },
-            onToggleFavorite = { channel -> viewModel.toggleFavorite(channel) },
-            epgScope = lifecycleScope,
-            fetchEpg = { channel -> viewModel.getShortEpg(channel) }
+            onToggleFavorite = { channel -> viewModel.toggleFavorite(channel) }
         )
         binding.rvChannels.layoutManager = GridLayoutManager(this, computeSpanCount())
         binding.rvChannels.adapter = channelAdapter

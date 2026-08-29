@@ -17,8 +17,8 @@ import kotlinx.coroutines.launch
 
 /** Écran "Réglages", ouvert depuis l'icône engrenage de l'accueil — gestion
  * du profil actif (renvoie vers SetupActivity pour ajouter/éditer/supprimer,
- * cf. son en-tête) et des 3 caches de l'app (images Coil, catalogue playlist,
- * mini-guide EPG). Pas de compte, rien d'autre à régler. */
+ * cf. son en-tête) et des caches de l'app (images Coil, catalogue playlist).
+ * Pas de compte, rien d'autre à régler. */
 class SettingsActivity : BaseActivity() {
 
     private lateinit var binding: ActivitySettingsBinding
@@ -47,12 +47,6 @@ class SettingsActivity : BaseActivity() {
         binding.btnClearImageCache.setOnClickListener {
             ImageCacheUtil.clear(this)
             Toast.makeText(this, R.string.settings_cache_cleared, Toast.LENGTH_SHORT).show()
-        }
-        binding.btnClearEpgCache.setOnClickListener {
-            lifecycleScope.launch {
-                (application as IptvApplication).playlistRepository.clearEpgCache()
-                Toast.makeText(this@SettingsActivity, R.string.settings_cache_cleared, Toast.LENGTH_SHORT).show()
-            }
         }
 
         updateLastUpdateLabel()

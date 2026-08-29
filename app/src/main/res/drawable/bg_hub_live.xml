@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fond propre à la carte Chaînes (29/08/2026, demande explicite "plus
+     design"/"un peu sombre") : bg_hub_card (transparent) laissait la mosaïque
+     de logos flotter directement sur le fond quasi noir de l'appli
+     (@color/bg_dark, #0F0F1A) — aucun contraste pour des logos souvent
+     blancs/clairs. Dégradé bleu nuit, assez clair pour faire ressortir les
+     logos, assez sombre pour rester dans l'identité visuelle sombre de l'app. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <gradient
+        android:type="linear"
+        android:angle="135"
+        android:startColor="#33384F"
+        android:endColor="#181B2C" />
+    <corners android:radius="16dp" />
+</shape>

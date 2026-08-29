@@ -8,22 +8,15 @@ import coil.load
 import com.nicotv.iptv2.R
 import com.nicotv.iptv2.databinding.ItemChannelTileBinding
 import com.nicotv.iptv2.domain.model.Channel
-import com.nicotv.iptv2.domain.model.EpgNowNext
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 
 /** Mosaïque de chaînes (écran Chaînes), comme IPTV Smarters Pro — remplace la
  * liste verticale (ChannelAdapter, gardé pour l'écran Recherche uniquement, où
- * films/séries/chaînes se mélangent). Mêmes principes que ChannelAdapter pour
- * l'EPG (fetch à la demande au bind, job annulé au recyclage) et l'absence de
- * ListAdapter/DiffUtil (cf. PosterAdapter — diff impraticable sur un catalogue
- * de dizaines de milliers de chaînes). */
+ * films/séries/chaînes se mélangent). Même principe que ChannelAdapter pour
+ * l'absence de ListAdapter/DiffUtil (cf. PosterAdapter — diff impraticable sur
+ * un catalogue de dizaines de milliers de chaînes). */
 class ChannelGridAdapter(
     private val onClick: (Channel) -> Unit,
-    private val onToggleFavorite: (Channel) -> Unit,
-    private val epgScope: CoroutineScope,
-    private val fetchEpg: suspend (Channel) -> EpgNowNext?
+    private val onToggleFavorite: (Channel) -> Unit
 ) : RecyclerView.Adapter<ChannelGridAdapter.VH>() {
 
     private var items: List<Channel> = emptyList()
@@ -48,12 +41,7 @@ class ChannelGridAdapter(
 
     override fun onBindViewHolder(holder: VH, position: Int) = holder.bind(items[position])
 
-    override fun onViewRecycled(holder: VH) {
-        holder.cancelEpgFetch()
-    }
-
     inner class VH(private val b: ItemChannelTileBinding) : RecyclerView.ViewHolder(b.root) {
-        private var epgJob: Job? = null
 
         init {
             b.root.setOnFocusChangeListener { v, hasFocus ->
@@ -62,11 +50,6 @@ class ChannelGridAdapter(
                 b.focusOverlay.visibility = if (hasFocus) View.VISIBLE else View.INVISIBLE
                 if (hasFocus) b.focusOverlay.startAnim() else b.focusOverlay.stopAnim()
             }
-        }
-
-        fun cancelEpgFetch() {
-            epgJob?.cancel()
-            epgJob = null
         }
 
         fun bind(channel: Channel) {
@@ -85,18 +68,6 @@ class ChannelGridAdapter(
 
             b.focusOverlay.visibility = View.INVISIBLE
             b.focusOverlay.stopAnim()
-
-            cancelEpgFetch()
-            b.tvEpg.visibility = View.GONE
-            if (channel.xtreamStreamId.isBlank()) return
-            epgJob = epgScope.launch {
-                val epg = fetchEpg(channel)
-                val pos = adapterPosition
-                if (pos == RecyclerView.NO_POSITION || items.getOrNull(pos)?.id != channel.id) return@launch
-                if (epg == null || epg.nowTitle.isBlank()) return@launch
-                b.tvEpg.text = epg.nowTitle
-                b.tvEpg.visibility = View.VISIBLE
-            }
         }
     }
 }

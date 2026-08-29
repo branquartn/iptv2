@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Chip individuelle derrière chaque logo de la mosaïque Chaînes (29/08/2026,
+     demande explicite "plus design") : sans ça un logo transparent/blanc
+     flottait nu sur le fond de carte, pas de séparation visuelle entre les
+     6 cases. Blanc très translucide, façon icône d'app sur écran d'accueil. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#1FFFFFFF" />
+    <corners android:radius="10dp" />
+</shape>

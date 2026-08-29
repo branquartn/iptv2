@@ -146,10 +146,6 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Mini-guide "en cours/à suivre" d'une chaîne — cf. ChannelAdapter (appelé
-     * au bind d'une ligne, résultat mis en cache par le repository). */
-    suspend fun getShortEpg(channel: Channel) = repository.getShortEpg(channel)
-
     companion object {
         // Numérotation officielle TNT (hertzien national, hors chaînes locales/
         // régionales) — ordre exact demandé (TF1, France 2, France 3...).

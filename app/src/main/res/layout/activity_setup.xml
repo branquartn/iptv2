@@ -110,15 +110,9 @@
             android:layout_marginBottom="10dp"
             android:visibility="gone">
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="6dp"
-                android:text="@string/setup_profiles_title"
-                android:textColor="@color/text_primary"
-                android:textSize="13sp"
-                android:textStyle="bold" />
-
+            <!-- Texte "Mes profils" retiré (29/08/2026, demande explicite) :
+                 redondant avec le titre "Profils" désormais affiché dans la
+                 barre d'en-tête au-dessus. -->
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rv_profiles"
                 android:layout_width="match_parent"
@@ -212,6 +206,9 @@
                     android:clipChildren="false"
                     android:clipToPadding="false">
 
+                    <!-- Icône roue paramètres retirée (29/08/2026, demande explicite) :
+                         doublonnait visuellement avec la vraie icône Réglages de la
+                         barre d'en-tête, alors qu'elle ne menait pas à Réglages ici. -->
                     <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -219,20 +216,13 @@
                         android:gravity="center"
                         android:orientation="vertical">
 
-                        <ImageView
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
-                            android:src="@drawable/ic_settings"
-                            app:tint="@color/text_primary" />
-
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
                             android:gravity="center"
                             android:text="@string/setup_type_xtream"
                             android:textColor="@color/text_primary"
-                            android:textSize="11sp"
+                            android:textSize="13sp"
                             android:textStyle="bold" />
                     </LinearLayout>
 

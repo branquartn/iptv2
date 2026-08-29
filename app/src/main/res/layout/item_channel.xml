@@ -41,20 +41,6 @@
                 android:textStyle="bold"
                 android:ellipsize="end"
                 android:maxLines="1" />
-
-            <!-- Mini-guide "en cours / à suivre" (Xtream uniquement) — vide et
-                 GONE tant que non résolu (cf. ChannelAdapter), pas de texte
-                 d'attente qui clignoterait au scroll. -->
-            <TextView
-                android:id="@+id/tv_epg"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:visibility="gone" />
         </LinearLayout>
 
         <FrameLayout

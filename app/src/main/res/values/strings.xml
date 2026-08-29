@@ -72,7 +72,7 @@
     <string name="setup_error_empty_xtream">Renseigne un nom, le serveur, l\'utilisateur et le mot de passe</string>
     <string name="setup_error_generic">Échec du chargement</string>
 
-    <!-- Réglages (cache images/playlist/EPG) -->
+    <!-- Réglages (cache images/playlist) -->
     <string name="settings_title">Réglages</string>
     <string name="settings_section_playlist">Playlist</string>
     <string name="settings_change_source">Changer de source</string>
@@ -86,9 +86,6 @@
     <string name="settings_section_image_cache">Cache images</string>
     <string name="settings_clear_image_cache">Vider le cache images</string>
     <string name="settings_clear_image_cache_sub">Jaquettes et logos (jusqu\'à 300 Mo) — se rechargent automatiquement</string>
-    <string name="settings_section_epg">Guide TV (EPG)</string>
-    <string name="settings_clear_epg_cache">Vider le cache EPG</string>
-    <string name="settings_clear_epg_cache_sub">Programmes en cours/à suivre — disponible avec une source Xtream Codes uniquement</string>
     <string name="settings_action_open">Ouvrir</string>
     <string name="settings_action_change">Changer</string>
     <string name="settings_action_refresh">Actualiser</string>

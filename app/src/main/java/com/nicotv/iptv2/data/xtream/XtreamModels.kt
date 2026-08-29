@@ -48,15 +48,6 @@ data class XtSeriesInfo(
     val episodesBySeason: Map<Int, List<XtEpisode>>
 )
 
-/** Un créneau du mini-guide (get_short_epg) — programme "en cours" ou "à
- * suivre" d'une chaîne live. Timestamps unix (secondes) fournis par le panel. */
-data class XtEpgListing(
-    val title: String,
-    val startTimestamp: Long,
-    val stopTimestamp: Long,
-    val nowPlaying: Boolean
-)
-
 /** Détail d'un film VOD (get_vod_info) — appelé à la demande à l'ouverture de
  * la fiche film uniquement (pas au chargement du catalogue, cf.
  * PlaylistRepository.enrichMovieFromXtreamIfNeeded) : get_vod_streams (liste

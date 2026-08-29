@@ -19,8 +19,8 @@ data class ChannelEntity(
     val logoUrl: String = "",
     val category: String = "",
     val sortOrder: Int = 0,
-    // Vide pour une chaîne issue d'un M3U (pas d'EPG possible) — rempli pour
-    // Xtream, seule source qui expose un mini-guide (get_short_epg).
+    // Vide pour une chaîne issue d'un M3U — rempli pour Xtream (id propre à
+    // cette source, utilisé pour les appels d'API dédiés à ces chaînes).
     val xtreamStreamId: String = ""
 ) {
     fun toDomain(isFavorite: Boolean = false) = Channel(
