@@ -1,6 +1,6 @@
 {
-  "versionCode": 67,
-  "versionName": "1.0.66",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.66.apk",
-  "changelog": "Chaînes/Films/Séries : le spinner reste affiché tant que le catalogue charge vraiment, au lieu d'afficher \"Aucun titre trouvé\" par erreur au premier accès."
+  "versionCode": 68,
+  "versionName": "1.0.67",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.67.apk",
+  "changelog": "Films : chargement par pages (affichage quasi instantané même sur un très gros catalogue) au lieu de tout charger d'un coup — catalogue à recharger une fois après cette mise à jour."
 }
