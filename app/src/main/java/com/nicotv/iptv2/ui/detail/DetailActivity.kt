@@ -382,15 +382,24 @@ class DetailActivity : BaseActivity() {
             if (hasFocus) trailerRing.startAnim() else trailerRing.stopAnim()
         }
 
-        btnAdd.text = if (work.owned) "✓" else "+"
-        btnAdd.setBackgroundResource(if (work.owned) R.drawable.bg_badge_owned else R.drawable.bg_badge_add)
-        btnAddWrap.setOnClickListener {
-            d.dismiss()
-            handleWorkClick(work)
-        }
-        btnAddWrap.setOnFocusChangeListener { _, hasFocus ->
-            addRing.visibility = if (hasFocus) View.VISIBLE else View.INVISIBLE
-            if (hasFocus) addRing.startAnim() else addRing.stopAnim()
+        // Plus de "+" pour un film absent du catalogue (29/08/2026, demande
+        // explicite) : ce badge n'a jamais rien fait d'autre qu'un message
+        // "pas dans votre playlist" pour ce cas — case vide maintenant sans
+        // badge du tout, cf. même correctif sur SimilarWorkAdapter.
+        if (work.owned) {
+            btnAddWrap.visibility = View.VISIBLE
+            btnAdd.text = "✓"
+            btnAdd.setBackgroundResource(R.drawable.bg_badge_owned)
+            btnAddWrap.setOnClickListener {
+                d.dismiss()
+                handleWorkClick(work)
+            }
+            btnAddWrap.setOnFocusChangeListener { _, hasFocus ->
+                addRing.visibility = if (hasFocus) View.VISIBLE else View.INVISIBLE
+                if (hasFocus) addRing.startAnim() else addRing.stopAnim()
+            }
+        } else {
+            btnAddWrap.visibility = View.GONE
         }
     }
 

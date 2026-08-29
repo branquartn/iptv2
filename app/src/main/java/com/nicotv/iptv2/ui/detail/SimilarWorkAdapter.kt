@@ -9,9 +9,12 @@ import com.nicotv.iptv2.R
 import com.nicotv.iptv2.databinding.ItemSimilarMovieBinding
 import com.nicotv.iptv2.domain.model.SimilarWork
 
-/** [onBadgeClick] : le rond ✓/+ (ouvre si déjà dans le catalogue chargé, sinon
- * n'ajoute rien — pas de backend pour ça ici, contrairement à NicoTV — juste un
- * message). [onPreviewClick] : le reste de la carte (jaquette/titre) — aperçu
+/** [onBadgeClick] : le rond ✓, visible **seulement** si le film/série est déjà
+ * dans le catalogue chargé (ouvre sa fiche) — plus de "+" pour les absents
+ * (retiré 29/08/2026, demande explicite) : pas de backend pour ajouter quoi
+ * que ce soit ici, ce "+" n'avait jamais rien fait d'autre qu'un message
+ * "pas dans votre playlist", case vide maintenant sans badge du tout.
+ * [onPreviewClick] : le reste de la carte (jaquette/titre) — aperçu
  * (synopsis + bande-annonce), jamais d'ouverture directe.
  * [gridMode] : la carte prend toute la largeur de sa cellule (GridLayoutManager,
  * filmographie acteur) au lieu de sa largeur fixe (rangée horizontale). */
@@ -56,12 +59,15 @@ class SimilarWorkAdapter(
             b.focusOverlay.stopAnim()
             b.tvBadgeType.visibility = View.GONE
 
-            b.tvBadgeOwned.visibility = View.VISIBLE
-            b.tvBadgeOwned.text = if (work.owned) "✓" else "+"
-            b.tvBadgeOwned.setBackgroundResource(
-                if (work.owned) R.drawable.bg_badge_owned else R.drawable.bg_badge_add
-            )
-            b.tvBadgeOwned.setOnClickListener { onBadgeClick(work) }
+            if (work.owned) {
+                b.tvBadgeOwned.visibility = View.VISIBLE
+                b.tvBadgeOwned.text = "✓"
+                b.tvBadgeOwned.setBackgroundResource(R.drawable.bg_badge_owned)
+                b.tvBadgeOwned.setOnClickListener { onBadgeClick(work) }
+            } else {
+                b.tvBadgeOwned.visibility = View.GONE
+                b.tvBadgeOwned.setOnClickListener(null)
+            }
 
             b.root.setOnClickListener { onPreviewClick(work) }
             b.root.setOnFocusChangeListener { v, hasFocus ->

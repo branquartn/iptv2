@@ -10,8 +10,8 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 48
-val appVersionName = "1.0.47"
+val appVersionCode = 49
+val appVersionName = "1.0.48"
 // Changelog affiché dans le modal de mise à jour OTA — mis à jour à chaque bump.
 val appChangelog = "Chaînes : suppression du bouton FR en haut d'écran (redondant avec Réglages > Langue du contenu)."
 

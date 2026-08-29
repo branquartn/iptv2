@@ -413,8 +413,18 @@ Aucun backend : l'app interroge TMDb directement (clé dans `AppConfig.Tmdb`).
   ouverture de fiche, c'est `cleanTitle()` qui détermine si elle aboutit).
   Différence forcée par l'absence de backend : un titre similaire déjà présent
   dans le catalogue chargé s'ouvre (badge ✓, résolution **par titre** —
-  `MovieDao/SeriesDao.findByTitle`, nos entrées n'ont pas d'id TMDb propre) ;
-  sinon (+) affiche juste « pas dans votre playlist », pas de file d'ajout.
+  `MovieDao/SeriesDao.findByTitle`, nos entrées n'ont pas d'id TMDb propre).
+
+  ⚠️ **Badge "+" retiré (29/08/2026, demande explicite)** — contrairement à
+  NicoTV (convention `feedback_tmdb_addcard_convention`, mémoire utilisateur :
+  "+" ajoute réellement à une file d'attente côté backend), le "+" d'iptv2
+  n'a **jamais** fait qu'un `Toast` "pas dans votre playlist" — il n'existe
+  pas de backend ici pour ajouter quoi que ce soit. Sur demande, ce badge
+  n'apparaît donc plus du tout pour un titre absent du catalogue (case vide,
+  `SimilarWorkAdapter`/`DetailActivity.btnAddWrap`) ; seul le ✓ (déjà dans le
+  catalogue) reste affiché. **Divergence assumée d'iptv2 par rapport à la
+  convention NicoTV** — ne pas reporter ce retrait vers NicoTV, où le "+"
+  reste fonctionnel et doit rester tel quel.
 
 Tous les appels TMDb sont **best-effort** : `TmdbClient` avale les exceptions et
 renvoie `null`/liste vide, un échec réseau ne doit jamais bloquer un écran.
