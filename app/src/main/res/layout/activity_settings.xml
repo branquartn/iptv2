@@ -226,6 +226,7 @@
                             android:textSize="15sp"
                             android:textStyle="bold" />
                         <TextView
+                            android:id="@+id/tv_image_cache_size"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
@@ -303,8 +304,18 @@
             android:layout_weight="1"
             android:text="@string/settings_title"
             android:textColor="@color/text_primary"
-            android:textSize="20sp"
+            android:textSize="16sp"
             android:textStyle="bold" />
+
+        <!-- Logo en haut à droite (29/08/2026, demande explicite : "pareil que
+             quand j'ajoute un Xtream Codes") — même taille/police de titre et
+             même position de logo que AddXtreamActivity. -->
+        <ImageView
+            android:layout_width="wrap_content"
+            android:layout_height="20dp"
+            android:adjustViewBounds="true"
+            android:src="@drawable/ic_nicotv_wordmark"
+            android:scaleType="fitCenter" />
     </LinearLayout>
 
     <ProgressBar

@@ -88,6 +88,7 @@
     <string name="settings_section_image_cache">Cache images</string>
     <string name="settings_clear_image_cache">Vider le cache images</string>
     <string name="settings_clear_image_cache_sub">Jaquettes et logos (jusqu\'à 300 Mo) — se rechargent automatiquement</string>
+    <string name="settings_clear_image_cache_sub_sized">Jaquettes et logos — %s utilisés sur 300 Mo max — se rechargent automatiquement</string>
     <string name="settings_action_open">Ouvrir</string>
     <string name="settings_action_change">Changer</string>
     <string name="settings_action_refresh">Actualiser</string>

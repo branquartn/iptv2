@@ -490,13 +490,23 @@ dans `SetupActivity.setupProfilesList()`) : rien à "Profils" au sens propre
 avant le tout premier enregistrement. La flèche retour, elle, garde sa
 propre condition indépendante (`EXTRA_FORCE_SHOW`) — les deux peuvent donc
 être masqués en même temps (premier démarrage) ou l'un sans l'autre.
-Wordmark de l'écran (plus bas dans le layout, mi-page) **non repositionné**
-(demande similaire faite entre-temps redirigée vers les pages Ajouter une
-source, voir plus bas) mais **corrigé le jour même** : `layout_width="0dp"`
-sans poids le rendait invisible depuis toujours (largeur 0) — bug jamais
-remarqué avant que l'utilisateur demande explicitement "je veux aussi mon
-logo sur la page des profils". Passé en `wrap_content`+`adjustViewBounds`,
-même correctif que les pages Ajouter une source.
+
+⚠️ **En-tête passée en superposition + logo, dénouement du même jour**
+(29/08/2026, demande explicite finale : "pareil que Xtream Codes... logo en
+haut à droite... bandeau en haut" — après un aller-retour : le wordmark
+mi-page avait d'abord été juste rendu visible, `layout_width="0dp"` sans
+poids le rendant invisible depuis toujours, bug jamais remarqué avant "je
+veux aussi mon logo sur la page des profils"). État final : la barre
+d'en-tête (`btn_back` + `tv_screen_title`) n'est plus empilée dans le flux
+de contenu — même principe de superposition que `activity_settings.xml`
+(posée en dernier enfant du `FrameLayout` racine, donc dessinée par-dessus,
+fond `@color/bg_nav` + `elevation`, contenu compensé par un `paddingTop`
+fixe sur la `LinearLayout` de contenu). Logo `ic_nicotv_wordmark` ajouté
+dans cette barre, après le titre (à droite) — le wordmark mi-page devenu
+redondant a été **retiré entièrement** (un seul logo par écran, comme
+Réglages/Ajouter une source). Un futur ajout de contenu à cet écran doit
+revérifier le budget vertical (`~360dp` sans scroll, cf. plus haut) en
+tenant compte de cette nouvelle structure, pas de l'ancienne empilée.
 
 ⚠️ **Historique du raccourci auto-load (inversé en 1.0.20)** : une version
 antérieure sautait à l'accueil dès qu'un profil était actif, avec un défaut
@@ -589,11 +599,28 @@ si un futur écran empile encore un en-tête `wrap_content` au-dessus d'un
 `ScrollView` en simples frères, reprendre ce même patron de superposition
 plutôt que redemander "pourquoi ça déborde".
 
+⚠️ **Titre 16sp + logo à droite, alignés sur Ajouter une source** (corrigé
+29/08/2026, demande explicite "pareil que quand j'ajoute un Xtream
+Codes... même grosseur de police") — `settings_title` passé de `20sp` à
+`16sp` (seul ce point précis a été aligné ; la flèche retour garde ses
+48dp/24dp propres à cet écran, pas les 36dp/18dp d'`AddXtreamActivity` — pas
+demandé, `Live/Movies/Series/Detail` partagent cette même taille 48dp, la
+réduire ici casserait CETTE cohérence-là). `ic_nicotv_wordmark` ajouté après
+le titre (`wrap_content`+`adjustViewBounds`, hauteur 20dp).
+
 - **Cache images (Coil)** : config explicite dans `IptvApplication`
   (`ImageLoaderFactory`) — 300 Mo disque, 25% de la RAM en mémoire. Par défaut
   Coil n'a pas de limite fiable en usage réel sur un mur d'affiches
   film/série/chaîne d'un gros panel Xtream. Vidé via `ImageCacheUtil.clear()`
-  ("Vider le cache images").
+  ("Vider le cache images"). **Taille réelle affichée** (29/08/2026, demande
+  explicite "voir aussi la taille") — avant, le sous-texte n'indiquait que le
+  plafond configuré (300 Mo) en dur, jamais l'usage réel.
+  `ImageCacheUtil.diskCacheSizeLabel()` lit `DiskCache.size` (Coil, octets
+  déjà occupés — pas `maxSize`, le plafond), `SettingsActivity.
+  updateImageCacheSizeLabel()` l'affiche dans `tv_image_cache_size`
+  (`settings_clear_image_cache_sub_sized`, "%s utilisés sur 300 Mo max"),
+  rafraîchi à l'ouverture, après un "Vider" et à chaque `onResume` (la
+  navigation entre-temps a pu charger de nouvelles jaquettes).
 - **Cache playlist/catalogue** : le tap sur un profil dans `SetupActivity`
   reste **toujours** un rechargement réseau complet (comportement volontaire
   et documenté plus haut, ne pas changer — un flux/token Xtream peut tourner).

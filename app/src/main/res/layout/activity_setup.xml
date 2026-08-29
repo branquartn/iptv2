@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Barre d'en-tête en superposition, pas empilée dans le flux (29/08/2026,
+     demande explicite "pareil que Xtream Codes... bandeau en haut") — même
+     principe que activity_settings.xml/activity_add_xtream.xml : posée APRÈS
+     le contenu (donc dessinée par-dessus), fond opaque plein cadre
+     (@color/bg_nav) + logo à droite. Le contenu compense avec un paddingTop
+     qui dégage la hauteur de cette barre. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -15,69 +21,10 @@
         android:gravity="center_horizontal"
         android:paddingStart="24dp"
         android:paddingEnd="24dp"
-        android:paddingTop="8dp"
+        android:paddingTop="58dp"
         android:paddingBottom="8dp"
         android:clipChildren="false"
         android:clipToPadding="false">
-
-        <!-- Barre d'en-tête, même structure que Réglages (activity_settings.xml) :
-             flèche retour (visible seulement si on arrive via Réglages >
-             "Changer de source", EXTRA_FORCE_SHOW — au lancement normal, rien
-             à quoi revenir) + titre "Profils". Pas d'accès Réglages ici
-             (retiré 29/08/2026, demande explicite) — seul MainActivity l'ouvre. -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="8dp"
-            android:orientation="horizontal"
-            android:clipChildren="false"
-            android:clipToPadding="false">
-
-            <FrameLayout
-                android:id="@+id/btn_back"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:layout_marginEnd="12dp"
-                android:focusable="true"
-                android:clickable="true"
-                android:clipChildren="false"
-                android:clipToPadding="false"
-                android:defaultFocusHighlightEnabled="false"
-                android:visibility="gone">
-
-                <ImageView
-                    android:layout_width="18dp"
-                    android:layout_height="18dp"
-                    android:layout_gravity="center"
-                    android:src="@drawable/ic_pwa_back"
-                    app:tint="@color/text_primary" />
-
-                <com.nicotv.iptv2.ui.common.RotatingBorderView
-                    android:id="@+id/btn_back_ring"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    app:circular="true"
-                    app:borderColor="@android:color/white"
-                    android:visibility="invisible" />
-            </FrameLayout>
-
-            <!-- Masqué tant qu'aucun profil n'existe (29/08/2026, demande
-                 explicite "au premier démarrage... pas voir le texte Profils")
-                 — rien à "Profils" au sens propre avant le tout premier
-                 enregistrement. Visibilité pilotée par SetupActivity, même
-                 condition que section_profiles (profils.isEmpty()). -->
-            <TextView
-                android:id="@+id/tv_screen_title"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/setup_screen_title"
-                android:textColor="@color/text_primary"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
-        </LinearLayout>
 
         <!-- Profils sauvegardés — tout en haut de la fenêtre, avant même le
              wordmark : c'est ce qu'on veut voir/reprendre en premier une
@@ -101,20 +48,11 @@
                 android:nestedScrollingEnabled="false" />
         </LinearLayout>
 
-        <!-- ⚠️ `layout_width="0dp"` sans poids = largeur 0, logo invisible
-             (bug pré-existant, corrigé 29/08/2026 : "je veux aussi mon logo
-             sur la page des profils" — l'utilisateur ne le voyait jamais).
-             `wrap_content`+`adjustViewBounds` : largeur proportionnelle à la
-             hauteur fixe, centré via le gravity="center_horizontal" du
-             conteneur parent. -->
-        <ImageView
-            android:layout_width="wrap_content"
-            android:layout_height="24dp"
-            android:layout_marginBottom="10dp"
-            android:adjustViewBounds="true"
-            android:src="@drawable/ic_nicotv_wordmark"
-            android:scaleType="fitCenter" />
-
+        <!-- Wordmark mi-page retiré (29/08/2026, demande explicite "pareil
+             que Xtream Codes" — un seul logo par écran désormais, dans la
+             barre d'en-tête tout en bas de ce fichier). Avait été rendu
+             visible plus tôt le même jour (bug largeur 0dp) avant d'être
+             remplacé par celui de l'en-tête. -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -243,5 +181,79 @@
                 android:visibility="gone" />
 
         </LinearLayout>
+    </LinearLayout>
+
+    <!-- Barre d'en-tête fixe, ajoutée APRÈS le contenu (dessinée par-dessus),
+         fond opaque bg_nav — cf. commentaire en tête de fichier. Flèche
+         retour visible seulement si on arrive via Réglages > "Changer de
+         source" (EXTRA_FORCE_SHOW — au lancement normal, rien à quoi
+         revenir). Pas d'accès Réglages ici (retiré 29/08/2026, demande
+         explicite) — seul MainActivity l'ouvre. -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:background="@color/bg_nav"
+        android:elevation="4dp"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="8dp"
+        android:clipChildren="false"
+        android:clipToPadding="false">
+
+        <FrameLayout
+            android:id="@+id/btn_back"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginEnd="12dp"
+            android:focusable="true"
+            android:clickable="true"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:defaultFocusHighlightEnabled="false"
+            android:visibility="gone">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_pwa_back"
+                app:tint="@color/text_primary" />
+
+            <com.nicotv.iptv2.ui.common.RotatingBorderView
+                android:id="@+id/btn_back_ring"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                app:circular="true"
+                app:borderColor="@android:color/white"
+                android:visibility="invisible" />
+        </FrameLayout>
+
+        <!-- Masqué tant qu'aucun profil n'existe (29/08/2026, demande
+             explicite "au premier démarrage... pas voir le texte Profils")
+             — rien à "Profils" au sens propre avant le tout premier
+             enregistrement. Visibilité pilotée par SetupActivity, même
+             condition que section_profiles (profils.isEmpty()). -->
+        <TextView
+            android:id="@+id/tv_screen_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/setup_screen_title"
+            android:textColor="@color/text_primary"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <!-- Logo en haut à droite (29/08/2026, demande explicite : "pareil
+             que quand j'ajoute un Xtream Codes"). -->
+        <ImageView
+            android:layout_width="wrap_content"
+            android:layout_height="20dp"
+            android:adjustViewBounds="true"
+            android:src="@drawable/ic_nicotv_wordmark"
+            android:scaleType="fitCenter" />
     </LinearLayout>
 </FrameLayout>

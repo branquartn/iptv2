@@ -47,9 +47,11 @@ class SettingsActivity : BaseActivity() {
         binding.btnClearImageCache.setOnClickListener {
             ImageCacheUtil.clear(this)
             Toast.makeText(this, R.string.settings_cache_cleared, Toast.LENGTH_SHORT).show()
+            updateImageCacheSizeLabel()
         }
 
         updateLastUpdateLabel()
+        updateImageCacheSizeLabel()
     }
 
     override fun onResume() {
@@ -57,6 +59,20 @@ class SettingsActivity : BaseActivity() {
         // Le profil actif a pu changer entre-temps (retour de SetupActivity
         // après "Changer de source").
         updateLastUpdateLabel()
+        // La taille du cache a pu changer en naviguant dans l'app entre-temps
+        // (jaquettes chargées sur d'autres écrans).
+        updateImageCacheSizeLabel()
+    }
+
+    /** Taille actuelle du cache disque affichée sous "Vider le cache images"
+     * (29/08/2026, demande explicite "voir aussi la taille") — avant, le
+     * texte affichait seulement le plafond configuré (300 Mo) en dur, jamais
+     * l'usage réel. */
+    private fun updateImageCacheSizeLabel() {
+        binding.tvImageCacheSize.text = getString(
+            R.string.settings_clear_image_cache_sub_sized,
+            ImageCacheUtil.diskCacheSizeLabel(this)
+        )
     }
 
     private fun updateLastUpdateLabel() {
