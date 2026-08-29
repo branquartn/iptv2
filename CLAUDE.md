@@ -740,6 +740,16 @@ heartbeat de présence, téléchargements hors-ligne (aucun sens sans compte
 serveur). `historyKey` calculé depuis `seriesId`/`fileKeyExtra` (voir
 `PlayerActivity.historyKey`) plutôt que transmis en extra séparé.
 
+⚠️ **Barre de contrôle disparaissait trop vite au premier tap** (corrigé
+29/08/2026, demande explicite "au moins 5s") : `controllerShowTimeoutMs`
+n'était mis à 5000ms que dans `setControllerVisibilityListener`/
+`closePanel` — donc seulement à partir de la **deuxième** apparition ; la
+toute première (lecture démarrée ou premier tap de l'utilisateur) utilisait
+le défaut `PlayerView` (3000ms), d'où l'impression qu'elle "disparaît vite".
+Fixé en initialisant aussi `controllerShowTimeoutMs = 5000` dès la config
+du player (à côté de `controllerAutoShow`/`controllerHideOnTouch`). Un seul
+`PlayerActivity` pour Chaînes/Films/Séries — le correctif couvre les 3.
+
 ⚠️ **Redirections cross-protocole obligatoires** (corrigé en 1.0.6) :
 `DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true)`, passé au
 player via un `DefaultMediaSourceFactory` dédié. Sans ça, les flux d'un panel

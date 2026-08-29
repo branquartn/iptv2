@@ -521,6 +521,13 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                 binding.playerView.player = exo
                 binding.playerView.controllerAutoShow = true
                 binding.playerView.controllerHideOnTouch = false
+                // Sinon la toute première apparition (lecture démarrée ou premier
+                // tap) utilise le défaut PlayerView (3000ms) — les autres
+                // réapparitions passent bien à 5000ms via setControllerVisibilityListener/
+                // closePanel, mais seulement APRÈS la première disparition. Bug vécu
+                // (29/08/2026, demande explicite) : la barre semblait "disparaître
+                // vite" au premier tap précisément à cause de ce défaut de 3s.
+                binding.playerView.controllerShowTimeoutMs = 5000
                 binding.playerView.setShowSubtitleButton(false)
 
                 // Sous-titres désactivés par défaut
