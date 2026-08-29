@@ -633,11 +633,25 @@ un logo unique en rotation, puis cette mosaïque à 6 logos statique sur
 demande explicite : **ne pas re-proposer un autre traitement sans
 redemander**, ce choix a déjà changé deux fois dans la journée).
 `bindLiveMosaic()` charge une seule fois (`liveMosaicBound`, jamais retouché
-après) 6 logos de chaînes dont `extractLeadingLanguageCode(name) == "FR"`
-dans une grille 3×2 (`iv_live_logo_1`..`6`, `fitCenter` + padding — pas
-`centerCrop`, un logo est souvent transparent). Aucune notion de "récent"
-possible (`ChannelEntity` n'a pas de `updatedAt`) : simple échantillon des
-premiers logos FR non vides rencontrés.
+après) 6 logos dans une grille 3×2 (`iv_live_logo_1`..`6`, `fitCenter` +
+padding — pas `centerCrop`, un logo est souvent transparent). Aucune notion
+de "récent" possible (`ChannelEntity` n'a pas de `updatedAt`).
+
+⚠️ **6 marques précises, pas 6 logos FR quelconques** (29/08/2026, demande
+explicite) : `brandMosaicLogos()` remplace l'échantillon "premiers logos FR
+rencontrés" par une recherche ciblée, dans cet ordre fixe — Canal+, beIN
+Sport, TF1, OCS, Prime, Netflix. Recherche sur **tout** le catalogue (pas de
+filtre `extractLeadingLanguageCode == "FR"` : beIN/OCS/Netflix n'ont
+généralement pas ce préfixe), un mot-clé par marque sur `name.lowercase()`
+(`"tf1"` exclut explicitement les noms contenant `"serie"`/`"film"`, sinon
+"TF1 Séries Films" passerait avant la vraie chaîne TF1 si elle apparaît
+en premier dans le panel). Toujours le logo **fourni par le panel** de
+l'utilisateur, jamais un asset embarqué dans l'app — une marque absente du
+panel laisse simplement sa case vide (`bindLiveMosaic` tolère moins de 6
+logos). Si une marque n'apparaît jamais alors qu'elle existe bien dans le
+panel de test, vérifier d'abord l'orthographe exacte utilisée par CE panel
+(ex. "CANAL +" avec espace est couvert car les espaces sont retirés avant
+le test, mais un panel pourrait nommer une chaîne différemment).
 
 ⚠️ **Compteurs retirés des 3 cartes** (`tv_live_count`/`tv_films_count`/
 `tv_series_count`, 28/08/2026, demande explicite) — les vues XML **et** leurs

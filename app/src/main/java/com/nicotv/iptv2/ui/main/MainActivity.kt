@@ -102,6 +102,31 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
      * une seule fois (`liveMosaicBound`), jamais retouchée après même si la
      * liste de chaînes change par la suite (contrairement aux jaquettes
      * Films/Séries, qui tournent en continu). */
+    /** Logos réels du catalogue chargé pour 6 chaînes/services précis (demande
+     * explicite 29/08/2026 : Canal+, beIN Sport, TF1, OCS, Prime, Netflix —
+     * plus l'ancienne sélection "6 premiers logos FR rencontrés"). Cherche
+     * sur TOUT le catalogue (pas de filtre FR : beIN/OCS/Netflix n'ont pas
+     * forcément de préfixe langue), une correspondance nom → mot-clé pour
+     * chaque marque, dans cet ordre fixe. Une marque absente du panel de
+     * l'utilisateur laisse simplement sa case vide (`bindLiveMosaic` tolère
+     * une liste de moins de 6 logos). Pas d'asset de logo embarqué dans
+     * l'app : toujours le logo fourni par le panel, comme le reste de l'UI. */
+    private fun brandMosaicLogos(channels: List<com.nicotv.iptv2.data.database.entity.ChannelEntity>): List<String> {
+        fun logoFor(match: (String) -> Boolean): String? =
+            channels.firstOrNull { match(it.name.lowercase()) && it.logoUrl.isNotBlank() }?.logoUrl
+
+        return listOfNotNull(
+            logoFor { it.replace(" ", "").contains("canal+") },
+            logoFor { it.contains("bein") },
+            // Exclut "TF1 Séries Films" : sinon elle passerait avant la
+            // vraie chaîne TF1 si elle apparaît en premier dans le catalogue.
+            logoFor { it.contains("tf1") && !it.contains("serie") && !it.contains("film") },
+            logoFor { it.contains("ocs") },
+            logoFor { it.contains("prime") },
+            logoFor { it.contains("netflix") }
+        )
+    }
+
     private fun bindLiveMosaic(logoUrls: List<String>) {
         if (liveMosaicBound || logoUrls.isEmpty()) return
         liveMosaicBound = true
@@ -201,13 +226,7 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
 
         lifecycleScope.launch {
             app.database.channelDao().getAllChannels()
-                .map { channels ->
-                    // Mosaïque FIXE de logos FR uniquement (demande explicite
-                    // 28/08/2026) — pas de rotation, chargée une seule fois
-                    // (cf. bindLiveMosaic/liveMosaicBound).
-                    channels.filter { extractLeadingLanguageCode(it.name) == "FR" && it.logoUrl.isNotBlank() }
-                        .map { it.logoUrl }.distinct().take(6)
-                }
+                .map { channels -> brandMosaicLogos(channels) }
                 .distinctUntilChanged()
                 .collect { logos -> bindLiveMosaic(logos) }
         }
