@@ -76,6 +76,11 @@ interface ChannelDao {
     """)
     suspend fun getDistinctCategoriesForLanguage(lang: String?): List<String>
 
+    /** Chaînes désignées par les favoris — cf. PlaylistRepository.
+     * getFavoriteChannels. ⚠️ Liste à découper par l'appelant. */
+    @Query("SELECT * FROM channels WHERE id IN (:ids) ORDER BY sortOrder ASC, name ASC")
+    suspend fun getChannelsByIds(ids: List<Long>): List<ChannelEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(channels: List<ChannelEntity>)
 

@@ -381,6 +381,55 @@ focus au bon endroit — le lui reprendre serait pire que de ne rien faire.
 **Films n'a volontairement pas ce comportement** (non demandé) : y ajouter le
 même appel suffirait, `positionOf` est déjà partagé dans l'adapter.
 
+## Règle générale : aucun écran ne charge le catalogue entier
+
+⚠️ **Aboutissement de toute la séquence perf des 29-30/08/2026** (question de
+l'utilisateur : "je veux que tout s'affiche le plus rapidement possible, est-ce
+le cas ?"). L'audit a montré qu'il restait **un** écran à mapper l'intégralité
+du catalogue : **Favoris** (`getFavoriteMoviesAndSeries`/`getFavoriteChannels`
+passaient par `getMovies()`/`getSeries()`/`getChannels()` pour ne garder que
+quelques favoris). Pire : tant que l'accueil préchauffait ces StateFlow, le
+coût était payé d'avance et invisible — **le retrait du préchauffage aurait
+donc déplacé la lenteur sur l'ouverture de Favoris**, une régression franche
+introduite par le correctif précédent. Réécrits : on lit la table `favorites`
+(petite) et on ne charge QUE les lignes qu'elle référence
+(`moviesByIds`/`seriesByIds`/`channelsByIds`, découpés).
+
+**Les 3 StateFlow "chauds" du catalogue complet ont alors été SUPPRIMÉS**
+(`moviesFlow`/`seriesFlow`/`channelsFlow` + `getMovies()`/`getSeries()`/
+`getChannels()`) : plus aucun consommateur. Leur histoire, parce que la
+tentation de les recréer sera forte :
+1. créés le 28/08 pour éviter de remapper le catalogue à chaque ouverture
+   d'écran (`stateIn(Eagerly)`, préchauffés depuis l'accueil) ;
+2. vidés de leur rôle par la pagination (29-30/08) ;
+3. retirés un par un de leurs derniers appelants — historique de reprise, fond
+   de l'accueil, puis Favoris — chacun réécrit pour ne lire que son nécessaire.
+
+**Règle qui en découle, à appliquer à tout nouvel écran** : sur un panel de
+plusieurs dizaines de milliers d'entrées, **aucun écran ne doit charger le
+catalogue entier en mémoire — pas même "une seule fois, en cache"**. Un cache
+chaud de 47 000 objets coûte son mapping (CPU + GC) et fait ramer tout le
+reste, y compris les écrans qui ne s'en servent pas. Devant un besoin de "tout
+le catalogue", se demander d'abord **quelle requête SQL bornée répond à la
+question posée** (`LIMIT`, `WHERE ... IN (:ids)` découpé, `COUNT(*)`,
+`GROUP BY`).
+
+État après ce lot — ce que chaque écran charge réellement :
+| Écran | Chargé |
+|---|---|
+| Accueil | compteur favoris (`COUNT`), historique de reprise (lignes référencées), 12 jaquettes pour le fond |
+| Films / Séries / Chaînes | 1 page (60) sur "Toutes", la catégorie choisie sinon |
+| Recherche (globale et interne) | résultats SQL `LIKE`, bornés à 200 |
+| Favoris | uniquement les favoris |
+| Reprise | uniquement les titres en cours |
+
+⚠️ **Point restant assumé** : une catégorie précise est chargée en ENTIER
+(demande explicite du 30/08 : compteur juste + scroll complet). Sur une
+catégorie énorme, c'est plus lourd qu'une page — acceptable parce qu'une
+catégorie reste très inférieure au catalogue, mais c'est le premier endroit à
+regarder si une lenteur réapparaît sur un panel où une catégorie contiendrait
+des dizaines de milliers de titres.
+
 ## Ordre des catégories = celui de la playlist + défilement rapide D-pad
 
 ⚠️ **30/08/2026, demande explicite** : "peut-être trier par id au lieu que par

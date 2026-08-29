@@ -64,6 +64,12 @@ interface SeriesDao {
     """)
     fun getRecentWithArt(limit: Int): Flow<List<SeriesEntity>>
 
+    /** Séries désignées par les favoris — cf. PlaylistRepository.
+     * getFavoriteMoviesAndSeries. ⚠️ Liste à découper par l'appelant
+     * (SQLITE_MAX_VARIABLES). */
+    @Query("SELECT * FROM series WHERE id IN (:ids) ORDER BY title ASC")
+    suspend fun getSeriesByIds(ids: List<Long>): List<SeriesEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(series: SeriesEntity): Long
 

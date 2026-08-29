@@ -31,10 +31,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
@@ -60,10 +58,11 @@ class PlaylistRepository(
     private val db: AppDatabase,
     private val okHttpClient: OkHttpClient,
     private val sourcePrefs: PlaylistSourcePrefs,
-    // Survit à la destruction d'une Activity/ViewModel — indispensable pour que
-    // getMovies()/getSeries()/getChannels() restent des StateFlow "chauds" au
-    // niveau du repository plutôt que recalculés à chaque écran (cf. leurs
-    // commentaires plus bas).
+    // Survit à la destruction d'une Activity/ViewModel — pour les écritures qui
+    // doivent aboutir même si l'écran qui les a déclenchées se ferme juste
+    // après (sauvegarde de la position de lecture au retour du player).
+    // ⚠️ Servait aussi de portée aux 3 StateFlow "chauds" du catalogue complet,
+    // supprimés le 30/08/2026 (cf. plus bas) — ne pas en recréer.
     private val appScope: CoroutineScope
 ) {
     companion object {
@@ -581,51 +580,25 @@ class PlaylistRepository(
 
     // ── Lecture (films / séries / chaînes + favoris + reprise) ─────────────
 
-    // ⚠️ StateFlow "chaud" au niveau du repository, pas un simple Flow recréé à
-    // chaque appel (corrigé 28/08/2026) : un `combine()` classique relance sa
-    // requête SQL + le mapping domaine complet à chaque NOUVEAU collecteur —
-    // comme chaque écran (MoviesActivity/SeriesActivity/LiveActivity) crée un
-    // nouveau ViewModel à chaque ouverture, revisiter Films remappait les
-    // ~136 000 lignes à chaque fois ("toujours long à recharger"). `stateIn` +
-    // `SharingStarted.Eagerly` calcule UNE FOIS (démarré dès la création du
-    // repository, avant même que l'utilisateur touche Films) et garde le
-    // résultat en mémoire pour tout le process — un retour sur l'écran lit la
-    // valeur déjà prête, quasi instantané. Recalculé automatiquement si
-    // movies/favorites/watch_history changent (Room réémet), pas seulement au
-    // premier accès.
-    // ⚠️ Ces 3 Flow ne sont PLUS utilisés par les écrans Films/Séries/Chaînes
-    // depuis le passage à la pagination (29-30/08/2026, cf. CLAUDE.md) — ces
-    // écrans interrogent désormais getMoviesPage/getSeriesPage/getChannelsPage.
-    // Ils restent la source de Favoris, Reprise, Recherche globale et du fond
-    // aléatoire de l'accueil, qui ont besoin du catalogue complet.
-    private val moviesFlow: Flow<List<Movie>> by lazy {
-        combine(db.movieDao().getAllMovies(), db.favoriteDao().getFavoritesByType(FavoriteEntity.Type.MOVIE), db.watchHistoryDao().getAllHistory()) { movies, favs, history ->
-            val favIds = favs.map { it.itemId }.toSet()
-            val historyByKey = history.associateBy { it.historyKey }
-            movies.map { m ->
-                val h = historyByKey["m${m.id}"]
-                m.toDomain(isFavorite = m.id in favIds, watchProgress = h?.progressPercent ?: 0)
-            }
-        }.stateIn(appScope, SharingStarted.Eagerly, emptyList())
-    }
-
-    private val seriesFlow: Flow<List<Movie>> by lazy {
-        combine(db.seriesDao().getAllSeries(), db.favoriteDao().getFavoritesByType(FavoriteEntity.Type.SERIES)) { series, favs ->
-            val favIds = favs.map { it.itemId }.toSet()
-            series.map { it.toDomain(isFavorite = it.id in favIds) }
-        }.stateIn(appScope, SharingStarted.Eagerly, emptyList())
-    }
-
-    private val channelsFlow: Flow<List<Channel>> by lazy {
-        combine(db.channelDao().getAllChannels(), db.favoriteDao().getFavoritesByType(FavoriteEntity.Type.CHANNEL)) { channels, favs ->
-            val favIds = favs.map { it.itemId }.toSet()
-            channels.map { it.toDomain(isFavorite = it.id in favIds) }
-        }.stateIn(appScope, SharingStarted.Eagerly, emptyList())
-    }
-
-    fun getMovies(): Flow<List<Movie>> = moviesFlow
-    fun getSeries(): Flow<List<Movie>> = seriesFlow
-    fun getChannels(): Flow<List<Channel>> = channelsFlow
+    // ⚠️ SUPPRIMÉ le 30/08/2026 : les 3 StateFlow "chauds" du catalogue complet
+    // (moviesFlow/seriesFlow/channelsFlow + getMovies()/getSeries()/
+    // getChannels()) n'avaient plus AUCUN consommateur. Historique, parce que
+    // la tentation de les réintroduire sera forte :
+    //   - créés le 28/08 pour éviter de remapper le catalogue à chaque
+    //     ouverture d'écran (`stateIn(Eagerly)`, préchauffés depuis l'accueil) ;
+    //   - vidés de leur rôle par la pagination (29-30/08) : Films/Séries/
+    //     Chaînes interrogent la base page par page ;
+    //   - puis retirés un par un de leurs derniers appelants — historique de
+    //     reprise, fond de l'accueil, et enfin l'écran Favoris — chacun
+    //     réécrit pour ne lire QUE les lignes dont il a besoin.
+    // Le principe qui a émergé de toute cette séquence : sur un panel de
+    // plusieurs dizaines de milliers d'entrées, **aucun écran ne doit charger
+    // le catalogue entier en mémoire** — pas même "une seule fois, en cache".
+    // Un cache chaud de 47 000 objets coûte son mapping (CPU + GC) et fait
+    // ramer tout le reste. Interroger la base avec un filtre + un LIMIT est
+    // toujours plus rapide que de garder un gros cache en RAM.
+    // Si un besoin de "tout le catalogue" réapparaît, se demander d'abord
+    // quelle requête SQL bornée répondrait à la question posée.
 
     /** Fond aléatoire de l'accueil — cf. MovieDao/SeriesDao.getRecentWithArt :
      * bornés en SQL (12 lignes), là où MainActivity filtrait/triait tout le
@@ -651,11 +624,37 @@ class PlaylistRepository(
         (fromChannels + fromCategories).distinct().sorted()
     }
 
+    // ⚠️ Ne mappent PLUS tout le catalogue (corrigé 30/08/2026) : ces deux
+    // Flow passaient par getMovies()/getSeries()/getChannels(), donc ils
+    // mappaient les ~47 000 films + séries + chaînes en objets domaine pour
+    // n'en garder que les quelques favoris. Tant que MainActivity préchauffait
+    // ces StateFlow, le coût était payé d'avance et invisible ; ce
+    // préchauffage ayant été retiré (devenu inutile pour les écrans
+    // catalogue, cf. plus haut), l'écran Favoris se serait retrouvé à le payer
+    // À SON OUVERTURE — soit une régression franche. Désormais : on lit la
+    // table favorites (petite) et on ne va chercher QUE les lignes qu'elle
+    // référence.
     fun getFavoriteMoviesAndSeries(): Flow<List<Movie>> =
-        combine(getMovies(), getSeries()) { movies, series -> (movies + series).filter { it.isFavorite } }
+        combine(
+            db.favoriteDao().getFavoritesByType(FavoriteEntity.Type.MOVIE),
+            db.favoriteDao().getFavoritesByType(FavoriteEntity.Type.SERIES)
+        ) { movieFavs, seriesFavs -> movieFavs to seriesFavs }
+            .map { (movieFavs, seriesFavs) ->
+                val movieIds = movieFavs.map { it.itemId }
+                val entities = moviesByIds(movieIds).sortedBy { it.title }
+                // Barre de reprise conservée sur les affiches favorites (elle
+                // venait "gratuitement" de getMovies() avant).
+                val historyByKey = watchPositionsFor(entities.map { "m" + it.id })
+                val movies = entities.map {
+                    it.toDomain(isFavorite = true, watchProgress = historyByKey["m" + it.id]?.progressPercent ?: 0)
+                }
+                val series = seriesByIds(seriesFavs.map { it.itemId }).map { it.toDomain(isFavorite = true) }
+                movies + series
+            }
 
     fun getFavoriteChannels(): Flow<List<Channel>> =
-        getChannels().map { list -> list.filter { it.isFavorite } }
+        db.favoriteDao().getFavoritesByType(FavoriteEntity.Type.CHANNEL)
+            .map { favs -> channelsByIds(favs.map { it.itemId }).map { it.toDomain(isFavorite = true) } }
 
     fun getFavoritesCount(): Flow<Int> = db.favoriteDao().getCount()
 
@@ -911,6 +910,18 @@ class PlaylistRepository(
     private suspend fun moviesByIds(ids: List<Long>): List<MovieEntity> {
         if (ids.isEmpty()) return emptyList()
         return ids.chunked(SQLITE_MAX_VARIABLES).flatMap { db.movieDao().getMoviesByIds(it) }
+    }
+
+    /** Cf. moviesByIds. */
+    private suspend fun seriesByIds(ids: List<Long>): List<SeriesEntity> {
+        if (ids.isEmpty()) return emptyList()
+        return ids.chunked(SQLITE_MAX_VARIABLES).flatMap { db.seriesDao().getSeriesByIds(it) }
+    }
+
+    /** Cf. moviesByIds. */
+    private suspend fun channelsByIds(ids: List<Long>): List<ChannelEntity> {
+        if (ids.isEmpty()) return emptyList()
+        return ids.chunked(SQLITE_MAX_VARIABLES).flatMap { db.channelDao().getChannelsByIds(it) }
     }
 
     /** Cf. moviesByIds. */
