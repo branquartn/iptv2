@@ -101,10 +101,17 @@
                 android:nestedScrollingEnabled="false" />
         </LinearLayout>
 
+        <!-- ⚠️ `layout_width="0dp"` sans poids = largeur 0, logo invisible
+             (bug pré-existant, corrigé 29/08/2026 : "je veux aussi mon logo
+             sur la page des profils" — l'utilisateur ne le voyait jamais).
+             `wrap_content`+`adjustViewBounds` : largeur proportionnelle à la
+             hauteur fixe, centré via le gravity="center_horizontal" du
+             conteneur parent. -->
         <ImageView
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="24dp"
             android:layout_marginBottom="10dp"
+            android:adjustViewBounds="true"
             android:src="@drawable/ic_nicotv_wordmark"
             android:scaleType="fitCenter" />
 

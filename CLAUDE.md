@@ -490,9 +490,13 @@ dans `SetupActivity.setupProfilesList()`) : rien à "Profils" au sens propre
 avant le tout premier enregistrement. La flèche retour, elle, garde sa
 propre condition indépendante (`EXTRA_FORCE_SHOW`) — les deux peuvent donc
 être masqués en même temps (premier démarrage) ou l'un sans l'autre.
-Wordmark de l'écran (plus bas dans le layout, mi-page) **non touché** par
-cette demande — resté à sa position d'origine, demande similaire faite
-entre-temps redirigée vers les pages Ajouter une source (voir plus bas).
+Wordmark de l'écran (plus bas dans le layout, mi-page) **non repositionné**
+(demande similaire faite entre-temps redirigée vers les pages Ajouter une
+source, voir plus bas) mais **corrigé le jour même** : `layout_width="0dp"`
+sans poids le rendait invisible depuis toujours (largeur 0) — bug jamais
+remarqué avant que l'utilisateur demande explicitement "je veux aussi mon
+logo sur la page des profils". Passé en `wrap_content`+`adjustViewBounds`,
+même correctif que les pages Ajouter une source.
 
 ⚠️ **Historique du raccourci auto-load (inversé en 1.0.20)** : une version
 antérieure sautait à l'accueil dès qu'un profil était actif, avec un défaut
@@ -528,13 +532,14 @@ toujours dans un `ScrollView` : l'écran reste en `sensorLandscape` (~360dp
 de haut), le clavier ouvert sur le dernier champ fait sortir le bouton
 « Charger »/« Se connecter » de la zone visible sans ça.
 
-⚠️ **Logo centré ajouté en haut du contenu** (29/08/2026, demande explicite
-— d'abord évoquée pour l'écran Profils, redirigée ici après clarification)
-— `ic_nicotv_wordmark`, `wrap_content`+`adjustViewBounds` (hauteur fixe
-28dp, largeur proportionnelle), centré via le `gravity="center_horizontal"`
-du conteneur. Ces 2 pages n'avaient jusqu'ici aucun logo, contrairement à
-Profils/l'accueil. **Profils et l'accueil (MainActivity) non touchés** par
-cette demande — cf. leur section respective.
+⚠️ **Logo dans la barre d'en-tête** (29/08/2026, demande explicite — 2 essais
+le même jour : d'abord dans le contenu défilant/centré, puis déplacé ici sur
+clarification "dans la zone en haut avec Xtream Codes") — `ic_nicotv_wordmark`
+posé dans la `LinearLayout` d'en-tête elle-même (celle avec `btn_back` et le
+titre), après le titre (`wrap_content`+`adjustViewBounds`, hauteur 20dp).
+Ces 2 pages n'avaient jusqu'ici aucun logo. **Profils et l'accueil
+(MainActivity) non touchés** par cette demande — cf. leur section respective
+(Profils a son propre logo, ailleurs dans son layout, corrigé séparément).
 
 ⚠️ **`installSplashScreen()` obligatoire** : `SetupActivity` déclare
 `android:theme="@style/Theme.IPTV.Splash"` dans le manifeste (parent

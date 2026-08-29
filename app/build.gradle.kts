@@ -10,8 +10,8 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 53
-val appVersionName = "1.0.52"
+val appVersionCode = 54
+val appVersionName = "1.0.53"
 // Changelog affiché dans le modal de mise à jour OTA.
 // ⚠️ OUBLIÉ PENDANT ~15 VERSIONS (29/08/2026, bug signalé par l'utilisateur :
 // "le texte de la maj n'est pas le bon") — appVersionCode/appVersionName ont
@@ -20,7 +20,7 @@ val appVersionName = "1.0.52"
 // modif du 28/08 alors qu'on en était à v1.0.50). Ce commentaire ne suffit
 // visiblement pas tout seul à s'en souvenir : à chaque bump de version,
 // updater CETTE ligne AVANT de commit, pas après coup.
-val appChangelog = "Titre \"Profils\" masqué tant qu'aucun profil n'existe, logo ajouté sur les pages d'ajout de source, correction du texte de mise à jour."
+val appChangelog = "Logo visible sur la page Profils (bug corrigé), logo déplacé dans la barre du haut des pages d'ajout de source."
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
