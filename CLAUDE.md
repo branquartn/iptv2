@@ -446,11 +446,20 @@ partout) pour que tout tienne dans ~360dp sans scroll. Une barre d'en-tête a
 (`btn_back`, **visible seulement** si l'écran est ouvert via Réglages →
 « Changer de source », `EXTRA_FORCE_SHOW` — au lancement normal, aucun profil
 actif, il n'y a rien à quoi revenir) + titre `setup_screen_title` ("Profils")
-+ accès Réglages (`btn_settings`, **toujours visible** — cet écran n'avait
-jusqu'ici aucun moyen d'y aller directement, seul `MainActivity` l'ouvrait).
++ accès Réglages, **toujours visible** — cet écran n'avait jusqu'ici aucun
+moyen d'y aller directement, seul `MainActivity` l'ouvrait.
 Si une future modif de cet écran ajoute du contenu, revérifier sur un
 appareil bas de gamme/petit écran en `sensorLandscape` que ça tient toujours
 sans réintroduire de scroll.
+
+⚠️ **`btn_settings` en texte, pas en icône roue crantée** (29/08/2026,
+deuxième revirement le jour même — d'abord icône+anneau comme le reste des
+boutons ronds de l'app, rejetée aussitôt) : `TextView` "Réglages" (couleur
+`@color/accent`), simple agrandissement au focus (`SetupActivity.
+setupHeader`), pas de `RotatingBorderView` (anneau circulaire mal adapté à
+une forme de texte). Toujours dans la même barre d'en-tête que la flèche
+retour — rien d'autre sur cet écran ne partage cette ligne, pas de risque de
+chevauchement avec un autre texte.
 
 ⚠️ **Historique du raccourci auto-load (inversé en 1.0.20)** : une version
 antérieure sautait à l'accueil dès qu'un profil était actif, avec un défaut
@@ -661,6 +670,19 @@ l'utilisateur malgré le risque juridique — cf. sa réponse à la question
 posée avant l'implémentation). Ne jamais ajouter d'autre logo de marque de
 cette façon sans reposer la même question — ce n'est pas un précédent
 généralisé à toute future demande de logo.
+
+⚠️ **Pas de "chip"/case derrière chaque logo** (retirée le jour même,
+demande explicite après l'avoir vue en usage réel) : `bg_mosaic_tile.xml`
+supprimé, logos nus directement sur `bg_hub_live`. **Correspondance par mot
+entier, pas `contains` brut** (même retour d'usage — logos OCS/Prime/Canal+
+signalés invisibles) : `hasWord()` (regex `\b...\b`) remplace le `contains`
+simple pour éviter qu'un `Remote` trouvé par erreur (ex. "ocs" matchait une
+chaîne "XXX DOCS HD") vole la case au repli `Local` avec un logo au final
+non pertinent/non chargeable. "Prime" exige en plus "video" ou "amazon" à
+proximité (sinon matchait n'importe quelle "Prime Time"/"Prime News"
+générique). Si une marque redevient "invisible" malgré son repli `Local`,
+vérifier en premier qu'aucune chaîne du panel de test n'accroche le mot-clé
+par erreur avant de soupçonner l'asset lui-même.
 
 ⚠️ **Compteurs retirés des 3 cartes** (`tv_live_count`/`tv_films_count`/
 `tv_series_count`, 28/08/2026, demande explicite) — les vues XML **et** leurs

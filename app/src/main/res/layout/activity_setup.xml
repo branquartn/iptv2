@@ -71,31 +71,23 @@
                 android:textSize="16sp"
                 android:textStyle="bold" />
 
-            <FrameLayout
+            <!-- Texte "Réglages", pas une icône roue crantée (29/08/2026,
+                 demande explicite) — même barre d'en-tête que ci-dessus,
+                 jamais recouvert par autre chose : rien d'autre sur cet
+                 écran n'est positionné à cette hauteur. -->
+            <TextView
                 android:id="@+id/btn_settings"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
                 android:focusable="true"
                 android:clickable="true"
-                android:clipChildren="false"
-                android:clipToPadding="false">
-
-                <ImageView
-                    android:layout_width="18dp"
-                    android:layout_height="18dp"
-                    android:layout_gravity="center"
-                    android:src="@drawable/ic_settings"
-                    app:tint="@color/text_primary" />
-
-                <com.nicotv.iptv2.ui.common.RotatingBorderView
-                    android:id="@+id/btn_settings_ring"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    app:circular="true"
-                    app:borderColor="@android:color/white"
-                    android:visibility="invisible" />
-            </FrameLayout>
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:padding="4dp"
+                android:text="@string/settings_title"
+                android:textColor="@color/accent"
+                android:textSize="14sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
         <!-- Profils sauvegardés — tout en haut de la fenêtre, avant même le

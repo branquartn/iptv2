@@ -211,9 +211,9 @@
                  Netflix, cf. MainActivity.brandMosaicLogos) — chargée une seule
                  fois (bindLiveMosaic), jamais retouchée après. fitCenter, pas
                  centerCrop : un logo est souvent transparent, pas une affiche
-                 plein cadre. Chaque logo sur sa propre "chip" (bg_mosaic_tile,
-                 29/08/2026 : avant, logos nus à alpha 0.6 directement sur le
-                 fond de carte, look plat et sombre — cf. bg_hub_live). -->
+                 plein cadre. Pas de "chip"/case derrière chaque logo (retirée
+                 29/08/2026, demande explicite) — logos nus sur le fond de
+                 carte (bg_hub_live). -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
@@ -231,8 +231,6 @@
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
-                        android:layout_margin="3dp"
-                        android:background="@drawable/bg_mosaic_tile"
                         android:padding="8dp"
                         android:scaleType="fitCenter" />
                     <ImageView
@@ -240,8 +238,6 @@
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
-                        android:layout_margin="3dp"
-                        android:background="@drawable/bg_mosaic_tile"
                         android:padding="8dp"
                         android:scaleType="fitCenter" />
                     <ImageView
@@ -249,8 +245,6 @@
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
-                        android:layout_margin="3dp"
-                        android:background="@drawable/bg_mosaic_tile"
                         android:padding="8dp"
                         android:scaleType="fitCenter" />
                 </LinearLayout>
@@ -266,8 +260,6 @@
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
-                        android:layout_margin="3dp"
-                        android:background="@drawable/bg_mosaic_tile"
                         android:padding="8dp"
                         android:scaleType="fitCenter" />
                     <ImageView
@@ -275,8 +267,6 @@
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
-                        android:layout_margin="3dp"
-                        android:background="@drawable/bg_mosaic_tile"
                         android:padding="8dp"
                         android:scaleType="fitCenter" />
                     <ImageView
@@ -284,8 +274,6 @@
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
-                        android:layout_margin="3dp"
-                        android:background="@drawable/bg_mosaic_tile"
                         android:padding="8dp"
                         android:scaleType="fitCenter" />
                 </LinearLayout>

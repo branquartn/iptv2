@@ -90,7 +90,11 @@ class SetupActivity : BaseActivity() {
         binding.btnSettings.setOnClickListener {
             startActivity(Intent(this, com.nicotv.iptv2.ui.settings.SettingsActivity::class.java))
         }
-        applyRing(binding.btnSettings, binding.btnSettingsRing, 1.2f)
+        // Texte, pas une icône avec anneau (29/08/2026) — simple agrandissement
+        // au focus, pas besoin de RotatingBorderView pour un texte.
+        binding.btnSettings.setOnFocusChangeListener { v, hasFocus ->
+            v.animate().scaleX(if (hasFocus) 1.1f else 1f).scaleY(if (hasFocus) 1.1f else 1f).setDuration(150).start()
+        }
     }
 
     /** Saut automatique et rapide vers l'accueil si un profil actif valide

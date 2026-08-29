@@ -128,6 +128,13 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
     private fun brandMosaicLogos(channels: List<com.nicotv.iptv2.data.database.entity.ChannelEntity>): List<MosaicLogo?> {
         if (channels.isEmpty()) return emptyList()
 
+        // Mot entier délimité, pas un simple `contains` (29/08/2026, corrige
+        // un faux positif constaté : "ocs" matchait une chaîne "XXX DOCS HD"
+        // (documentaires) et volait la case à la place du repli Local — la
+        // chaîne trouvée n'avait pas forcément un logo pertinent/chargeable,
+        // d'où des cases qui semblaient vides côté utilisateur).
+        fun hasWord(text: String, word: String) = Regex("\\b${Regex.escape(word)}\\b").containsMatchIn(text)
+
         fun logoFor(fallback: Int? = null, match: (String) -> Boolean): MosaicLogo? {
             val url = channels.firstOrNull { match(it.name.lowercase()) && it.logoUrl.isNotBlank() }?.logoUrl
             return when {
@@ -142,13 +149,17 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                 val cleaned = it.replace(" ", "")
                 cleaned.contains("canal+") || cleaned.contains("canalplus")
             },
-            logoFor { it.contains("bein") },
+            logoFor { hasWord(it, "bein") },
             // Exclut "TF1 Séries Films" : sinon elle passerait avant la
             // vraie chaîne TF1 si elle apparaît en premier dans le catalogue.
-            logoFor { it.contains("tf1") && !it.contains("serie") && !it.contains("film") },
-            logoFor(R.drawable.logo_ocs) { it.contains("ocs") },
-            logoFor(R.drawable.logo_prime) { it.contains("prime") },
-            logoFor { it.contains("netflix") }
+            logoFor { hasWord(it, "tf1") && !it.contains("serie") && !it.contains("film") },
+            logoFor(R.drawable.logo_ocs) { hasWord(it, "ocs") },
+            // "prime" seul matcherait "Prime Time"/"Prime News" (générique à
+            // plein de chaînes) : exige aussi "video" ou "amazon" à proximité.
+            logoFor(R.drawable.logo_prime) {
+                hasWord(it, "prime") && (hasWord(it, "video") || hasWord(it, "amazon"))
+            },
+            logoFor { hasWord(it, "netflix") }
         )
     }
 
