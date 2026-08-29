@@ -50,6 +50,15 @@ interface SeriesDao {
     """)
     suspend fun getDistinctCategoriesForLanguage(lang: String?): List<String>
 
+    /** Cf. MovieDao.getRecentWithArt — même rôle pour le fond de l'accueil. */
+    @Query("""
+        SELECT * FROM series
+        WHERE backdropUrl != '' OR posterUrl != ''
+        ORDER BY updatedAt DESC
+        LIMIT :limit
+    """)
+    fun getRecentWithArt(limit: Int): Flow<List<SeriesEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(series: SeriesEntity): Long
 

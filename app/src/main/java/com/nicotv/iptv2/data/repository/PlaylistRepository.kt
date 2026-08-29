@@ -92,6 +92,8 @@ class PlaylistRepository(
         // ce seuil — cf. watchPositionsFor et le crash du 30/08/2026
         // documenté dans CLAUDE.md. 900 = marge de sécurité.
         private const val SQLITE_MAX_VARIABLES = 900
+        /** Nombre de jaquettes candidates pour le fond de l'accueil. */
+        private const val HOME_BG_LIMIT = 12
     }
 
     class LoadException(message: String, cause: Throwable? = null) : Exception(message, cause)
@@ -597,6 +599,16 @@ class PlaylistRepository(
     fun getSeries(): Flow<List<Movie>> = seriesFlow
     fun getChannels(): Flow<List<Channel>> = channelsFlow
 
+    /** Fond aléatoire de l'accueil — cf. MovieDao/SeriesDao.getRecentWithArt :
+     * bornés en SQL (12 lignes), là où MainActivity filtrait/triait tout le
+     * catalogue en Kotlin à chaque affichage de l'accueil (corrigé 30/08/2026,
+     * même cause que getUnifiedHistory ci-dessus). [lang] = contentLanguage. */
+    fun getRecentMoviesWithArt(lang: String?, limit: Int = HOME_BG_LIMIT): Flow<List<MovieEntity>> =
+        db.movieDao().getRecentWithArt(lang, limit)
+
+    fun getRecentSeriesWithArt(limit: Int = HOME_BG_LIMIT): Flow<List<SeriesEntity>> =
+        db.seriesDao().getRecentWithArt(limit)
+
     /** Langues/bouquets réellement présents dans le catalogue chargé — pour
      * peupler dynamiquement le choix "Langue du contenu" (Réglages), pas de
      * liste figée : chaque panel a ses propres codes ("FR", "AF", "CA"...),
@@ -757,10 +769,23 @@ class PlaylistRepository(
 
     /** Écran "Reprendre la lecture" : films et épisodes en cours, triés du plus
      * récent au plus ancien. */
+    // ⚠️ Ne mappe PLUS tout le catalogue (corrigé 30/08/2026, signalé "ça
+    // charge encore tous puis la catégorie") : la version précédente
+    // combinait l'historique avec `getAllMovies()` ET `getAllEpisodesFlow()`,
+    // donc elle chargeait et mappait les ~47 000 films + tous les épisodes en
+    // mémoire — À CHAQUE émission, et depuis l'ACCUEIL (MainActivity l'observe
+    // pour le bouton "Reprendre"). C'était le gros du travail de fond qui
+    // saturait le CPU au lancement, avant même d'ouvrir Films. Désormais :
+    // seul l'historique (quelques lignes) est un Flow, et on ne va chercher
+    // en base QUE les films/épisodes qu'il référence.
     fun getUnifiedHistory(): Flow<List<Movie>> =
-        combine(db.watchHistoryDao().getRecentHistory(), db.movieDao().getAllMovies(), db.episodeDao().getAllEpisodesFlow()) { history, movies, episodes ->
-            val moviesById = movies.associateBy { it.id }
-            val episodesByWatchKey = episodes.associateBy { it.watchKey }
+        db.watchHistoryDao().getRecentHistory().map { history ->
+            if (history.isEmpty()) return@map emptyList<Movie>()
+            val movieIds = history.filter { it.historyKey.startsWith("m") }
+                .mapNotNull { it.historyKey.removePrefix("m").toLongOrNull() }
+            val episodeKeys = history.filterNot { it.historyKey.startsWith("m") }.map { it.movieId }
+            val moviesById = moviesByIds(movieIds).associateBy { it.id }
+            val episodesByWatchKey = episodesByWatchKeys(episodeKeys).associateBy { it.watchKey }
             history.mapNotNull { h ->
                 if (h.historyKey.startsWith("m")) {
                     val movieId = h.historyKey.removePrefix("m").toLongOrNull() ?: return@mapNotNull null
@@ -853,6 +878,19 @@ class PlaylistRepository(
      * clés (page de 60, recherche bornée à 200), mais une catégorie complète
      * en compte des milliers — la requête devenait impossible à compiler.
      * Ne JAMAIS repasser un `getPositions(...)` brut sur une liste non bornée. */
+    /** Cf. watchPositionsFor — même découpage obligatoire (`IN (...)` borné à
+     * [SQLITE_MAX_VARIABLES] paramètres). */
+    private suspend fun moviesByIds(ids: List<Long>): List<MovieEntity> {
+        if (ids.isEmpty()) return emptyList()
+        return ids.chunked(SQLITE_MAX_VARIABLES).flatMap { db.movieDao().getMoviesByIds(it) }
+    }
+
+    /** Cf. moviesByIds. */
+    private suspend fun episodesByWatchKeys(keys: List<Long>): List<EpisodeEntity> {
+        if (keys.isEmpty()) return emptyList()
+        return keys.chunked(SQLITE_MAX_VARIABLES).flatMap { db.episodeDao().getEpisodesByWatchKeys(it) }
+    }
+
     private suspend fun watchPositionsFor(keys: List<String>): Map<String, WatchHistoryEntity> {
         if (keys.isEmpty()) return emptyMap()
         return keys.chunked(SQLITE_MAX_VARIABLES)

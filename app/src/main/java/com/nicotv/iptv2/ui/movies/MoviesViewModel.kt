@@ -10,10 +10,12 @@ import com.nicotv.iptv2.IptvApplication
 import com.nicotv.iptv2.data.database.entity.FavoriteEntity
 import com.nicotv.iptv2.data.repository.PlaylistRepository
 import com.nicotv.iptv2.domain.model.Movie
+import com.nicotv.iptv2.util.MOVIES_CATEGORY_ORDER
 import com.nicotv.iptv2.util.MOVIES_PREFERRED_CATEGORIES
 import com.nicotv.iptv2.util.extractLeadingLanguageCode
 import com.nicotv.iptv2.util.isFrenchLabel
 import com.nicotv.iptv2.util.pickDefaultCategory
+import com.nicotv.iptv2.util.sortCategoriesByPreferredOrder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -155,10 +157,14 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
             // bon. En cas d'échec on repart sur "Toutes" (aucune catégorie).
             val result = try {
                 withContext(Dispatchers.Default) {
-                    repository.getMoviesCategories(contentLanguage)
-                        .filter { it.isNotBlank() }
-                        // Catégories France en premier (demande explicite) — cf. isFrenchLabel.
-                        .sortedWith(compareByDescending<String> { isFrenchLabel(it) }.thenBy { it })
+                    // Ordre voulu (nouveautés → genres → ... ), cf.
+                    // util.MOVIES_CATEGORY_ORDER ; les catégories non listées
+                    // gardent l'ancien classement (françaises d'abord, puis
+                    // alphabétique).
+                    sortCategoriesByPreferredOrder(
+                        repository.getMoviesCategories(contentLanguage).filter { it.isNotBlank() },
+                        MOVIES_CATEGORY_ORDER
+                    ) { isFrenchLabel(it) }
                 }
             } catch (e: Exception) {
                 emptyList()

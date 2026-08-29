@@ -15,6 +15,12 @@ interface EpisodeDao {
     @Query("SELECT * FROM episodes")
     suspend fun getAllEpisodes(): List<EpisodeEntity>
 
+    /** Épisodes désignés par la reprise de lecture — cf.
+     * PlaylistRepository.getUnifiedHistory. ⚠️ Liste à découper par
+     * l'appelant (SQLITE_MAX_VARIABLES). */
+    @Query("SELECT * FROM episodes WHERE watchKey IN (:keys)")
+    suspend fun getEpisodesByWatchKeys(keys: List<Long>): List<EpisodeEntity>
+
     @Query("SELECT * FROM episodes WHERE watchKey = :watchKey LIMIT 1")
     suspend fun getEpisodeByWatchKey(watchKey: Long): EpisodeEntity?
 

@@ -381,6 +381,59 @@ focus au bon endroit — le lui reprendre serait pire que de ne rien faire.
 **Films n'a volontairement pas ce comportement** (non demandé) : y ajouter le
 même appel suffirait, `positionOf` est déjà partagé dans l'adapter.
 
+## Ordre des catégories Films + fin du travail full-catalogue sur l'accueil
+
+⚠️ **30/08/2026, demande explicite** : "pour les films ça charge encore tous
+puis la catégorie, je veux charger la catégorie tout de suite ; et en première
+catégorie c'est FR - LE DRENIER AJOUTEE puis FR - ACTION, FR - HORREUR, trouve
+l'ordre qui correspond".
+
+**1. Le libellé réel du panel contient une faute de frappe.** Relevé par dump
+`uiautomator` de la sidebar sur le Shield (101 catégories films, dont 28
+françaises) : le panel écrit **`FR - LE DRENIER AJOUTEE`** — "DRENIER", pas
+"DERNIER", et "AJOUTEE". La première version de `MOVIES_PREFERRED_CATEGORIES`
+cherchait "LE DERNIER AJOUTE" : elle ne matchait donc **jamais**, et
+`pickDefaultCategory` retombait sur son repli (première catégorie de la
+liste). **Ne jamais "corriger" l'orthographe de ces fragments** — ils doivent
+coller au panel, pas au français. Les variantes correctes restent listées
+derrière au cas où le fournisseur corrigerait.
+
+**2. Ordre de la sidebar Films** (`MOVIES_CATEGORY_ORDER` +
+`sortCategoriesByPreferredOrder`) : nouveautés → genres → collections/qualité
+→ plateformes → sport. Une catégorie non listée n'est pas perdue, elle passe
+après, avec l'ancien classement (françaises d'abord via `isFrenchLabel`, puis
+alphabétique) — c'est le cas de toutes les catégories non francophones
+(NETFLIX, NORDIC, PT/BR...). Les deux `LE DRENIER AJOUTEE` (simple et
+`ᴰᴼᴸᴮʸ ᴬᵁᴰᴵᴼ`) matchent le même fragment et se départagent alphabétiquement,
+donc la simple passe devant : voulu.
+
+**3. "Ça charge encore tous" : c'était l'ACCUEIL, pas l'écran Films.** L'écran
+Films ne chargeait déjà plus que sa page (pagination), mais deux traitements
+full-catalogue tournaient encore en fond **depuis l'accueil**, saturant le CPU
+du Shield avant même d'ouvrir Films :
+
+- **`getUnifiedHistory()`** (bouton "Reprendre") combinait l'historique avec
+  `getAllMovies()` **et** `getAllEpisodesFlow()` — soit un mapping des ~47 000
+  films + tous les épisodes **à chaque émission**. Réécrit : seul l'historique
+  (quelques lignes) reste un Flow, et on ne va chercher en base que les
+  films/épisodes qu'il référence (`getMoviesByIds`/`getEpisodesByWatchKeys`,
+  **découpés** via `SQLITE_MAX_VARIABLES`, cf. le crash "too many SQL
+  variables" plus bas).
+- **Le préchauffage** des StateFlow catalogue dans `MainActivity.observeData()`
+  (`getMovies()/getSeries()/getChannels()` référencés pour payer d'avance leur
+  mapping) : pertinent tant que les 3 écrans consommaient ces Flow, **inutile**
+  depuis la pagination — ils ne les touchent plus du tout. Il ne faisait donc
+  plus que brûler du CPU. **Retiré.** Favoris/Reprise/Recherche, seuls
+  consommateurs restants, initialisent à leur ouverture. Ne pas le
+  réintroduire sans vérifier qui consomme réellement ces Flow.
+- **Le fond aléatoire de l'accueil** filtrait/triait lui aussi tout le
+  catalogue en Kotlin → remplacé par `MovieDao/SeriesDao.getRecentWithArt`
+  (tri + filtre + `LIMIT 12` en SQL).
+
+Leçon : après un changement d'architecture (ici la pagination), **re-vérifier
+qui consomme encore les anciens Flow** — un préchauffage devenu inutile ne
+disparaît pas tout seul et se paie en CPU à chaque lancement.
+
 ## Catégories : plus de renommage + catégorie ouverte par défaut
 
 ⚠️ **30/08/2026, demande explicite** : "je ne veux plus de renommage des

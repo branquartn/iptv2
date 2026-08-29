@@ -20,7 +20,6 @@ import com.nicotv.iptv2.ui.resume.ResumeActivity
 import com.nicotv.iptv2.ui.search.SearchActivity
 import com.nicotv.iptv2.ui.series.SeriesActivity
 import com.nicotv.iptv2.update.checkForAppUpdate
-import com.nicotv.iptv2.util.extractLeadingLanguageCode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
@@ -173,60 +172,28 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
     private fun observeData() {
         val app = application as IptvApplication
 
-        // Préchauffe le cache StateFlow du repository (cf. PlaylistRepository.
-        // moviesFlow/seriesFlow/channelsFlow) pendant que l'utilisateur est
-        // encore sur l'accueil — juste référencer getMovies()/getSeries()/
-        // getChannels() suffit à déclencher le `by lazy` + le démarrage du
-        // partage `Eagerly` (tourne sur appScope, indépendant de cet écran).
-        // Sans ça, le premier visite de Films/Séries/Chaînes dans la session
-        // paie quand même le coût initial ; avec ça, il est déjà payé la
-        // plupart du temps le temps que l'utilisateur clique depuis l'accueil.
-        app.playlistRepository.getMovies()
-        app.playlistRepository.getSeries()
-        app.playlistRepository.getChannels()
+        // ⚠️ Le PRÉCHAUFFAGE des StateFlow catalogue a été RETIRÉ le
+        // 30/08/2026 (signalé "ça charge encore tous puis la catégorie").
+        // Il référençait getMovies()/getSeries()/getChannels() dès l'accueil
+        // pour payer d'avance le mapping complet du catalogue — utile tant que
+        // les écrans Films/Séries/Chaînes consommaient ces Flow, INUTILE
+        // depuis leur passage à la pagination (cf. CLAUDE.md) : ces écrans
+        // interrogent maintenant la base page par page et ne touchent plus
+        // jamais ces Flow. Le préchauffage ne faisait donc plus que brûler du
+        // CPU (mapping de ~47 000 films + séries + chaînes, GC en rafale)
+        // pendant que l'utilisateur naviguait — exactement le "ça charge
+        // tout" perçu. Favoris/Reprise/Recherche, seuls consommateurs
+        // restants, déclenchent l'initialisation à leur ouverture.
+        // ⚠️ Ne pas le réintroduire sans vérifier qui consomme réellement ces
+        // Flow — le remède était devenu la maladie.
 
-        // ⚠️ `.map` déporté en Dispatchers.Default via `flowOn` (corrigé
-        // 29/08/2026, signalé "je sors de Films et j'y retourne, 5 secondes
-        // avant que tout charge") — `lifecycleScope.launch` tourne sur
-        // Main.immediate par défaut, et un `Flow.map` s'exécute dans le
-        // contexte du COLLECTEUR sans `flowOn` explicite. Concrètement :
-        // filter+sort+map sur les ~47 000/136 000 films (et pareil pour les
-        // séries) tournait EN ENTIER sur le thread principal, à chaque
-        // création de MainActivity — confirmé par logcat sur le Shield de
-        // test (`Choreographer: Skipped 179 frames!`, `Davey duration=
-        // 3012ms`, rafale de GC pendant plusieurs secondes). Ce n'était donc
-        // pas le catalogue qui "rechargeait" à chaque retour sur Films, mais
-        // l'accueil qui gelait l'app en repassant tout le catalogue au crible
-        // pour le fond aléatoire — perçu comme un rechargement complet.
-        // `flowOn(Dispatchers.Default)` s'applique à tout ce qui est EN AMONT
-        // dans la chaîne (donc au `.map`), `collect` reste sur Main comme
-        // avant (nécessaire pour toucher `binding.ivHomeBg`).
+        // Fond aléatoire : requêtes BORNÉES (12 lignes, tri/filtre en SQL) au
+        // lieu de l'ancien mapping de tout le catalogue en Kotlin, cf.
+        // PlaylistRepository.getRecentMoviesWithArt.
+        val contentLanguage = app.contentLanguagePrefs.getLanguage()
         lifecycleScope.launch {
-            app.database.movieDao().getAllMovies()
-                .map { movies ->
-                    // Films FR uniquement, les plus récents (demande explicite
-                    // 28/08/2026) — cf. util.LanguageCode.
-                    //
-                    // ⚠️ Bug corrigé 29/08/2026 : `== "FR"` strict excluait tout
-                    // film SANS préfixe de langue détecté dans sa catégorie — sur
-                    // un panel où la plupart des catégories françaises n'ont
-                    // justement aucun préfixe (cf. section Réglages/Langue du
-                    // contenu du CLAUDE.md, même piège déjà rencontré et corrigé
-                    // là-bas), ça ne laissait qu'une poignée de films, parfois un
-                    // seul -> le fond "tournait" toujours sur la même image.
-                    // Même règle que MoviesViewModel.applyLanguageFilter : aucun
-                    // préfixe détecté = accepté, exclut seulement un préfixe
-                    // explicite d'une AUTRE langue.
-                    movies.filter {
-                        val c = extractLeadingLanguageCode(it.category)
-                        (c == null || c == "FR") &&
-                            (it.backdropUrl.isNotBlank() || it.posterUrl.isNotBlank())
-                    }
-                        .sortedByDescending { it.updatedAt }
-                        .take(12)
-                        .map { it.backdropUrl.ifBlank { it.posterUrl } }
-                        .distinct()
-                }
+            app.playlistRepository.getRecentMoviesWithArt(contentLanguage)
+                .map { movies -> movies.map { it.backdropUrl.ifBlank { it.posterUrl } }.distinct() }
                 .flowOn(Dispatchers.Default)
                 .distinctUntilChanged()
                 .collect { movieUrls ->
@@ -235,14 +202,8 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                 }
         }
         lifecycleScope.launch {
-            app.database.seriesDao().getAllSeries()
-                .map { series ->
-                    series.filter { it.backdropUrl.isNotBlank() || it.posterUrl.isNotBlank() }
-                        .sortedByDescending { it.updatedAt }
-                        .take(12)
-                        .map { it.backdropUrl.ifBlank { it.posterUrl } }
-                        .distinct()
-                }
+            app.playlistRepository.getRecentSeriesWithArt()
+                .map { series -> series.map { it.backdropUrl.ifBlank { it.posterUrl } }.distinct() }
                 .flowOn(Dispatchers.Default)
                 .distinctUntilChanged()
                 .collect { seriesUrls ->

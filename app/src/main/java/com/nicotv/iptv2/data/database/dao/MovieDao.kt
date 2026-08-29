@@ -84,6 +84,26 @@ interface MovieDao {
     """)
     suspend fun getDistinctCategoriesForLanguage(lang: String?): List<String>
 
+    /** Films désignés par la reprise de lecture — cf.
+     * PlaylistRepository.getUnifiedHistory : avant (30/08/2026), cet écran
+     * mappait TOUT le catalogue en mémoire pour n'en retenir que quelques
+     * entrées. ⚠️ Liste à découper par l'appelant (SQLITE_MAX_VARIABLES). */
+    @Query("SELECT * FROM movies WHERE id IN (:ids)")
+    suspend fun getMoviesByIds(ids: List<Long>): List<MovieEntity>
+
+    /** Fond aléatoire de l'accueil (cf. MainActivity.maybeSetHomeBg) — bornée
+     * en SQL, là où l'ancienne version filtrait/triait les ~47 000 films en
+     * Kotlin à chaque affichage de l'accueil. Même règle de langue que le
+     * reste : pas de préfixe détecté OU préfixe == langue choisie. */
+    @Query("""
+        SELECT * FROM movies
+        WHERE (backdropUrl != '' OR posterUrl != '')
+          AND (:lang IS NULL OR languageCode = '' OR languageCode = :lang)
+        ORDER BY updatedAt DESC
+        LIMIT :limit
+    """)
+    fun getRecentWithArt(lang: String?, limit: Int): Flow<List<MovieEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(movies: List<MovieEntity>)
 
