@@ -26,6 +26,9 @@ class LiveActivity : BaseActivity() {
     private lateinit var channelAdapter: ChannelGridAdapter
     private lateinit var categoryAdapter: CategorySidebarAdapter
 
+    /** Cf. focusCategoryWhenReady — le focus initial n'est posé qu'une fois. */
+    private var initialCategoryFocusDone = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityLiveBinding.inflate(layoutInflater)
@@ -90,7 +93,19 @@ class LiveActivity : BaseActivity() {
         // util.pickDefaultCategory) — setSelectedSilently, pas `selected =` :
         // la sélection vient DÉJÀ du ViewModel, la repasser par le setter
         // public rappellerait onSelect et relancerait un chargement en double.
-        viewModel.selectedCategory.observe(this) { cat -> categoryAdapter.setSelectedSilently(cat) }
+        viewModel.selectedCategory.observe(this) { cat ->
+            categoryAdapter.setSelectedSilently(cat)
+            // Curseur (D-pad) posé sur cette catégorie au premier affichage —
+            // demande explicite 30/08/2026 : "quand ça va dans Général FR je
+            // voudrais que le curseur soit focus dessus". Une seule fois : un
+            // changement de catégorie ULTÉRIEUR vient forcément d'un clic de
+            // l'utilisateur, qui a déjà le focus au bon endroit — le lui
+            // reprendre serait pire que de ne rien faire.
+            if (!initialCategoryFocusDone && cat != null) {
+                initialCategoryFocusDone = true
+                focusCategoryWhenReady(cat)
+            }
+        }
 
         // ⚠️ Cf. MoviesActivity, même correctif 29/08/2026 ("la première fois
         // que je vais dans Chaînes il ne charge pas") — le spinner reste
@@ -129,6 +144,42 @@ class LiveActivity : BaseActivity() {
         viewModel.refreshFavoriteStates()
     }
 
+    /** Pose le focus D-pad sur la ligne de [category] dans la sidebar, en
+     * attendant que le RecyclerView l'ait réellement créée.
+     *
+     * ⚠️ Trois asynchronismes se cumulent ici, d'où la boucle de tentatives
+     * plutôt qu'un simple `requestFocus()` : (1) `CategorySidebarAdapter` est
+     * un `ListAdapter`, sa diff est asynchrone — juste après `submitList`,
+     * `positionOf` peut encore renvoyer -1 ; (2) même une fois la liste
+     * connue, le `ViewHolder` de cette position n'existe pas tant que le
+     * RecyclerView n'a pas fait sa passe de layout ; (3) la catégorie visée
+     * peut être hors écran, donc jamais créée sans un `scrollToPosition`
+     * préalable. On réessaie donc à chaque frame jusqu'à [MAX_FOCUS_ATTEMPTS]
+     * — au-delà on abandonne silencieusement (focus par défaut du système),
+     * jamais de boucle infinie si la catégorie a disparu entre-temps. */
+    private fun focusCategoryWhenReady(category: String, attempt: Int = 0) {
+        if (attempt >= MAX_FOCUS_ATTEMPTS) return
+        binding.rvCategories.post {
+            val position = categoryAdapter.positionOf(category)
+            if (position < 0) {
+                focusCategoryWhenReady(category, attempt + 1)
+                return@post
+            }
+            // Amène la ligne à l'écran : sans ça, une catégorie hors écran n'a
+            // pas de ViewHolder à qui donner le focus.
+            (binding.rvCategories.layoutManager as? LinearLayoutManager)
+                ?.scrollToPositionWithOffset(position, 0)
+            binding.rvCategories.post {
+                val holder = binding.rvCategories.findViewHolderForAdapterPosition(position)
+                if (holder == null) {
+                    focusCategoryWhenReady(category, attempt + 1)
+                } else {
+                    holder.itemView.requestFocus()
+                }
+            }
+        }
+    }
+
     /** Cf. MoviesActivity.computeSpanCount — même sidebar catégories à déduire.
      * Tuile un peu plus large qu'une affiche (logo + nom, pas un poster vertical). */
     private fun computeSpanCount(): Int {
@@ -151,5 +202,12 @@ class LiveActivity : BaseActivity() {
             ring.visibility = if (hasFocus) View.VISIBLE else View.INVISIBLE
             if (hasFocus) ring.startAnim() else ring.stopAnim()
         }
+    }
+
+    companion object {
+        // Cf. focusCategoryWhenReady — ~20 frames suffisent largement pour que
+        // la diff du ListAdapter soit committée et le ViewHolder créé ; passé
+        // ce cap, mieux vaut laisser le focus par défaut que boucler.
+        private const val MAX_FOCUS_ATTEMPTS = 20
     }
 }

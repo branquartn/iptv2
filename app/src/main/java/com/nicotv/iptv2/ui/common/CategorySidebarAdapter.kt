@@ -49,6 +49,14 @@ class CategorySidebarAdapter(
         super.submitList(listOf(ALL) + list.orEmpty())
     }
 
+    /** Position de [category] dans la liste RÉELLEMENT affichée (donc en
+     * tenant compte de l'entrée "Toutes" ajoutée en tête par [submitList]),
+     * ou -1 si elle n'y est pas encore — la diff d'un `ListAdapter` étant
+     * asynchrone, l'appelant doit gérer ce cas (cf.
+     * LiveActivity.focusCategoryWhenReady). null = "Toutes" → position 0. */
+    fun positionOf(category: String?): Int =
+        if (category == null) 0 else currentList.indexOf(category)
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
         val b = ItemCategorySidebarBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         return VH(b)

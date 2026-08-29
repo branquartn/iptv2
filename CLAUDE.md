@@ -351,6 +351,25 @@ en amont. Sur ce projet où Claude ne compile jamais (cf. consigne de build),
 `adb logcat -b crash` sur le Shield reste le moyen le plus rapide d'obtenir
 la cause exacte plutôt que de deviner.
 
+⚠️ **Focus D-pad posé sur la catégorie par défaut — Chaînes uniquement**
+(30/08/2026, demande explicite : "quand ça va dans Général FR je voudrais que
+le curseur soit focus dessus") — `LiveActivity.focusCategoryWhenReady()`.
+**Trois asynchronismes se cumulent**, d'où une boucle de tentatives (max 20
+frames) plutôt qu'un `requestFocus()` direct qui échouerait silencieusement :
+(1) `CategorySidebarAdapter` est un `ListAdapter`, sa diff est **asynchrone** —
+juste après `submitList`, `positionOf()` peut encore renvoyer -1 ; (2) le
+`ViewHolder` de cette position n'existe pas tant que le RecyclerView n'a pas
+fait sa passe de layout ; (3) une catégorie hors écran n'est jamais créée sans
+`scrollToPositionWithOffset` préalable. Passé les 20 tentatives on abandonne
+(focus système par défaut) — jamais de boucle infinie si la catégorie a
+disparu entre-temps.
+
+Le focus n'est posé **qu'une seule fois** (`initialCategoryFocusDone`) : tout
+changement de catégorie ultérieur vient d'un clic utilisateur, qui a déjà le
+focus au bon endroit — le lui reprendre serait pire que de ne rien faire.
+**Films n'a volontairement pas ce comportement** (non demandé) : y ajouter le
+même appel suffirait, `positionOf` est déjà partagé dans l'adapter.
+
 ## Catégories : plus de renommage + catégorie ouverte par défaut
 
 ⚠️ **30/08/2026, demande explicite** : "je ne veux plus de renommage des
