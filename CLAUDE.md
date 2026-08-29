@@ -806,24 +806,22 @@ nouvelle.
   `isFrenchLabel` (toujours présent, utilisé par le tri des catégories et
   `tntRank`) plutôt que de réintroduire `frenchOnly` tel quel.
 
-  ⚠️ **Défaut = langue de l'appareil, plus "Toutes"** (29/08/2026, demande
-  explicite : "je veux qu'il se mette par défaut sur la langue de l'appareil
-  et sinon en fr") — avant, `ContentLanguagePrefs.getLanguage()` renvoyait
-  `null` (Toutes, aucun filtre) tant que l'utilisateur n'avait jamais ouvert
-  le dialogue. Devenu : `Locale.getDefault().language.uppercase()` (ex. "EN"
-  si l'appareil est en anglais), ou "FR" si ce code n'est pas exploitable
-  (pas 2 lettres). ⚠️ Ce défaut s'applique dynamiquement même si ce code
-  n'existe pas dans le catalogue courant — sans effet dans ce cas (le filtre
-  garde les items sans préfixe + un préfixe correspondant, en exclut aucun de
-  plus puisqu'aucun item n'a ce préfixe). Piège corrigé au passage :
-  `setLanguage(null)` faisait avant un `remove()` de la clé — indiscernable
-  de "jamais touché", donc un choix explicite de "Toutes" se refaisait
-  écraser par le défaut appareil à la relecture suivante. Stocke maintenant
-  un sentinel `"__ALL__"` en dur pour un choix explicite, distinct de
-  l'absence de clé (jamais touché → défaut appareil calculé à la volée, pas
-  stocké). `SettingsActivity.languageLabel()`/le filtre lui-même sont déjà
-  génériques (n'importe quel code 2 lettres, pas juste "FR") — aucun autre
-  fichier à toucher.
+  ⚠️ **Défaut = "FR" fixe, pas la langue de l'appareil** (revenu en arrière
+  29/08/2026, demande explicite : "je veux que la langue par défaut soit fr
+  même quand j'ai une nouvelle installation") — un essai plus tôt le même
+  jour avait calé le défaut sur `Locale.getDefault().language.uppercase()`
+  (langue système de l'appareil, "FR" seulement en repli si code inexploitable),
+  changé sur nouvelle demande : `ContentLanguagePrefs.getLanguage()` renvoie
+  maintenant **toujours** `FRENCH` ("FR") tant que l'utilisateur n'a jamais
+  ouvert le dialogue — plus aucune dépendance à `Locale`/langue système. Piège
+  corrigé au passage (toujours valable) : `setLanguage(null)` faisait avant un
+  `remove()` de la clé — indiscernable de "jamais touché", donc un choix
+  explicite de "Toutes" se refaisait écraser par le défaut FR à la relecture
+  suivante. Stocke un sentinel `"__ALL__"` en dur pour un choix explicite,
+  distinct de l'absence de clé. `SettingsActivity.languageLabel()`/le filtre
+  lui-même restent génériques (n'importe quel code 2 lettres, pas juste "FR")
+  — seul le DÉFAUT est figé sur FR, l'utilisateur peut toujours changer vers
+  n'importe quel code découvert dans son catalogue via Réglages.
 
   ⚠️ **Libellés de catégorie (sidebar Chaînes ET Films) aussi nettoyés**
   (ajouté 28/08/2026, demande explicite en deux temps — d'abord Chaînes,
