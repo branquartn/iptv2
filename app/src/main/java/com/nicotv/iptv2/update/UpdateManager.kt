@@ -58,13 +58,32 @@ fun FragmentActivity.checkForAppUpdate() {
             .setTitle("Mise à jour disponible — v${remote.versionName}")
             .setMessage(changelog)
             .setCancelable(false)
-            .setPositiveButton("Mettre à jour") { _, _ -> updateManager.downloadAndInstall(remote) }
+            .setPositiveButton("Mettre à jour") { _, _ ->
+                // Rond qui tourne pendant le téléchargement (29/08/2026, demande
+                // explicite) — avant, aucun retour visuel entre le clic et l'ouverture
+                // de l'installeur (Toast furtif puis silence, DownloadManager système
+                // sans notif visible). Fermé par le callback dans les deux cas
+                // (succès → installApk lancé, échec → Toast d'erreur déjà affiché).
+                if (!isFinishing && !isDestroyed) showUpdateProgress(updateManager, remote)
+            }
             .setNegativeButton("Plus tard", null)
             .create()
         dialog.show()
         // Fond arrondi comme les autres dialogs de l'app (cf. showQuitDialog / fiche
         // acteur) — sinon rectangle système gris incohérent.
         dialog.window?.setBackgroundDrawableResource(R.drawable.bg_dialog)
+    }
+}
+
+private fun FragmentActivity.showUpdateProgress(updateManager: UpdateManager, remote: RemoteVersion) {
+    val view = layoutInflater.inflate(R.layout.dialog_update_progress, null)
+    val progressDialog = AlertDialog.Builder(this).setView(view).setCancelable(false).create()
+    progressDialog.show()
+    // Vue déjà stylée (bg_dialog, cf. dialog_update_progress.xml) — même trick que
+    // showQuitDialog pour éviter le rectangle système derrière.
+    progressDialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+    updateManager.downloadAndInstall(remote) {
+        if (!isFinishing && !isDestroyed) progressDialog.dismiss()
     }
 }
 
@@ -108,8 +127,12 @@ class UpdateManager(private val context: Context) {
         }
     }
 
-    /** Télécharge l'APK puis déclenche l'installation à la fin du téléchargement. */
-    fun downloadAndInstall(remote: RemoteVersion) {
+    /** Télécharge l'APK puis déclenche l'installation à la fin du téléchargement.
+     * [onFinished] : appelé une fois sur le thread principal, succès ou échec —
+     * pour que l'appelant referme son rond de chargement (cf. showUpdateProgress).
+     * Ne dit rien sur le résultat en lui-même : un Toast d'erreur est déjà affiché
+     * séparément en cas d'échec. */
+    fun downloadAndInstall(remote: RemoteVersion, onFinished: () -> Unit = {}) {
         try {
             val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             val fileName = "iptv2-${remote.versionName.ifBlank { remote.versionCode.toString() }}.apk"
@@ -127,7 +150,6 @@ class UpdateManager(private val context: Context) {
                 setMimeType("application/vnd.android.package-archive")
             }
             val downloadId = dm.enqueue(request)
-            Toast.makeText(context, "Téléchargement de la mise à jour…", Toast.LENGTH_SHORT).show()
 
             // Persisté pour installPendingDownloadIfReady() : filet si le process est
             // tué en arrière-plan pendant le téléchargement (le polling ci-dessous
@@ -145,14 +167,15 @@ class UpdateManager(private val context: Context) {
             // polling interroge directement DownloadManager, indépendamment de tout
             // broadcast, et utilise applicationContext pour survivre à un changement
             // d'écran/activité pendant le téléchargement.
-            pollDownload(downloadId, fileName)
+            pollDownload(downloadId, fileName, onFinished)
         } catch (e: Exception) {
             Log.e(TAG, "downloadAndInstall failed", e)
             Toast.makeText(context, "Erreur de mise à jour : ${e.message}", Toast.LENGTH_LONG).show()
+            onFinished()
         }
     }
 
-    private fun pollDownload(downloadId: Long, fileName: String) {
+    private fun pollDownload(downloadId: Long, fileName: String, onFinished: () -> Unit) {
         val appContext = context.applicationContext
         pollScope.launch {
             val dm = appContext.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -174,11 +197,13 @@ class UpdateManager(private val context: Context) {
                         val apk = File(appContext.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName)
                         withContext(Dispatchers.Main) {
                             installApkOnce(downloadId, apk)
+                            onFinished()
                         }
                         return@launch
                     }
                     null, DownloadManager.STATUS_FAILED -> {
                         clearPendingDownload()
+                        withContext(Dispatchers.Main) { onFinished() }
                         return@launch
                     }
                     else -> delay(1000)

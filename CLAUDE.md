@@ -627,11 +627,25 @@ même journée (rotation de jaquettes catalogue, mosaïque de logos par
 correspondance dynamique, logos embarqués en dur...) avant de se stabiliser
 sur un principe unique et volontairement simple pour les 3 : **une image
 collage statique en plein cadre, aucune dépendance au catalogue de
-l'utilisateur, pas de dégradé, pas d'icône superposée**. Carte élargie
-**220dp → 280dp** (hauteur inchangée 188dp) pour coller au ratio ~3:2 des
-images. **Ne pas réintroduire de rotation/logique dynamique sur ces 3 cartes
-sans redemander** — ce point précis a changé plusieurs fois avant de se
-fixer ici.
+l'utilisateur, pas de dégradé, pas d'icône superposée**. **Ne pas
+réintroduire de rotation/logique dynamique sur ces 3 cartes sans
+redemander** — ce point précis a changé plusieurs fois avant de se fixer
+ici.
+
+⚠️ **Taille calculée à l'exécution, pas fixe** (corrigé le jour même,
+demande explicite "réduire pour ne pas dépasser de l'écran... bien
+centrées") : les 280dp fixes débordaient sur les téléphones en
+`sensorLandscape`, où la largeur dispo est bien moindre que sur une
+tablette/TV. `MainActivity.sizeHubCards()` calcule la largeur à partir de
+`resources.configuration.screenWidthDp` — même principe que
+`MoviesActivity.computeSpanCount()` — coercée entre 120dp et 280dp (280dp
+reste la taille max, confortable sur grand écran), hauteur dérivée au ratio
+3:2 (`cardWidthDp / 1.5f`, identique à celui des 3 images collage — aucun
+rognage `centerCrop` nécessaire quand ça tombe pile dessus). Les valeurs
+`280dp`/`188dp` dans `activity_main.xml` ne sont qu'un repli XML, toujours
+écrasées par `sizeHubCards()` avant le premier rendu. `layout_gravity=
+"center"` sur la rangée (XML, inchangé) centre le résultat quelle que soit
+la taille retenue — pas de logique de centrage séparée à maintenir.
 
 - **Chaînes** (`card_live`) : `res/drawable-nodpi/hub_live_collage.jpg`,
   collage Canal+/TF1/OCS/Netflix/Prime/beIN **fourni par l'utilisateur**
@@ -720,6 +734,17 @@ la source ici est fournie par l'utilisateur : la redirection est la norme.
 - `UpdateManager.checkForUpdate()` lit `AppConfig.Update.VERSION_URL`
   (`https://iptv2.nicotv.ovh/update/version.json`), propose la MAJ si
   `remote.versionCode > BuildConfig.VERSION_CODE`.
+- **Rond qui tourne pendant le téléchargement** (29/08/2026, demande
+  explicite) : `dialog_update_progress.xml` (`ProgressBar` indéterminé +
+  texte), affiché par `showUpdateProgress()` dès le clic sur "Mettre à
+  jour", fermé par le callback `onFinished` de `downloadAndInstall()`
+  (ajouté à cette occasion — appelé une fois sur le thread principal, succès
+  **ou** échec, cf. `pollDownload`). Avant : `DownloadManager` système avec
+  notif masquée (`VISIBILITY_HIDDEN`) + un `Toast` furtif au lancement,
+  aucun retour visuel ensuite jusqu'à l'ouverture de l'installeur — ce
+  `Toast` a été retiré, redondant avec le dialogue désormais visible tout du
+  long. Même trick que `showQuitDialog` pour le fond (`bg_dialog` sur la vue
+  elle-même, fenêtre du dialogue passée en transparent).
 - Déclenché dans `SetupActivity.maybeAutoLoadLastProfile()` et
   `MainActivity.onStart()`, throttlé à 2 min (`lastUpdateCheck`, partagé entre
   tous les écrans).

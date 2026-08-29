@@ -43,6 +43,7 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         binding.tvVersion.text = "v${com.nicotv.iptv2.BuildConfig.VERSION_NAME}"
 
         setupNavigation()
+        sizeHubCards()
         setupFocusAnimations()
         applyHubCardClipping()
         binding.cardLive.requestFocus()
@@ -72,6 +73,32 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
             cachedHomeBgUrl = urls.random()
         }
         binding.ivHomeBg.load(cachedHomeBgUrl) { crossfade(true) }
+    }
+
+    /** Taille des 3 cartes (Chaînes/Films/Séries) calculée à partir de la
+     * largeur d'écran réelle (29/08/2026, demande explicite "réduire pour ne
+     * pas dépasser de l'écran" — les 280dp fixes en XML débordaient sur les
+     * téléphones en `sensorLandscape`, où la largeur dispo est bien moindre
+     * que sur une tablette/TV). Même principe que `MoviesActivity.
+     * computeSpanCount()` : `screenWidthDp`, pas de mesure de vue. Ratio 3:2
+     * conservé (`cardWidthDp / 1.5f`), identique à celui des 3 images collage
+     * — aucun rognage `centerCrop` nécessaire quand la taille calculée tombe
+     * pile sur ce ratio. `layout_gravity="center"` sur la rangée (XML,
+     * inchangé) centre le résultat quelle que soit la taille retenue. */
+    private fun sizeHubCards() {
+        val screenWidthDp = resources.configuration.screenWidthDp
+        // 18dp de marge entre les 3 cartes (×2) + 12dp de padding de chaque
+        // côté de la rangée (×2) — cf. les marges/paddings fixes d'activity_main.xml.
+        val reservedDp = 18 * 2 + 12 * 2
+        val maxCardWidthDp = 280 // taille d'origine, confortable sur TV/tablette
+        val minCardWidthDp = 120
+        val cardWidthDp = ((screenWidthDp - reservedDp) / 3).coerceIn(minCardWidthDp, maxCardWidthDp)
+        val cardHeightDp = (cardWidthDp / 1.5f).toInt()
+        val widthPx = (cardWidthDp * resources.displayMetrics.density).toInt()
+        val heightPx = (cardHeightDp * resources.displayMetrics.density).toInt()
+        listOf(binding.cardLive, binding.cardFilms, binding.cardSeries).forEach { card ->
+            card.layoutParams = card.layoutParams.apply { width = widthPx; height = heightPx }
+        }
     }
 
     private fun applyHubCardClipping() {
