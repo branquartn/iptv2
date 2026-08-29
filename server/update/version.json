@@ -1,6 +1,6 @@
 {
-  "versionCode": 86,
-  "versionName": "1.0.85",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.85.apk",
-  "changelog": "Chargement du catalogue nettement plus rapide (écriture en base optimisée) et désormais atomique."
+  "versionCode": 88,
+  "versionName": "1.0.87",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.87.apk",
+  "changelog": "Nouvelles images pour les cartes Films (salle IMAX) et Séries (salon avec grand écran)."
 }
