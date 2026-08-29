@@ -1,6 +1,6 @@
 {
-  "versionCode": 85,
-  "versionName": "1.0.84",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.84.apk",
-  "changelog": "Chaînes : noms affichés tels quels (sur 2 lignes) et ordre du panel, comme les films. ⚠️ Recharge ta playlist après cette mise à jour."
+  "versionCode": 86,
+  "versionName": "1.0.85",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.85.apk",
+  "changelog": "Chargement du catalogue nettement plus rapide (écriture en base optimisée) et désormais atomique."
 }
