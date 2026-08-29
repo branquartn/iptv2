@@ -1,6 +1,6 @@
 {
-  "versionCode": 70,
-  "versionName": "1.0.69",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.69.apk",
-  "changelog": "Les catégories gardent leur préfixe (FR - ...) ; Films s'ouvre directement sur \"LE DERNIER AJOUTE\" et Chaînes sur \"GENERAL FR\" au lieu de \"Toutes\"."
+  "versionCode": 73,
+  "versionName": "1.0.72",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.72.apk",
+  "changelog": "Chaînes : le curseur se place directement sur la catégorie ouverte par défaut (GENERAL FR)."
 }
