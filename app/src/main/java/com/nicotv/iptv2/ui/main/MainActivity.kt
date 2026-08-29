@@ -102,41 +102,69 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
      * une seule fois (`liveMosaicBound`), jamais retouchée après même si la
      * liste de chaînes change par la suite (contrairement aux jaquettes
      * Films/Séries, qui tournent en continu). */
-    /** Logos réels du catalogue chargé pour 6 chaînes/services précis (demande
-     * explicite 29/08/2026 : Canal+, beIN Sport, TF1, OCS, Prime, Netflix —
-     * plus l'ancienne sélection "6 premiers logos FR rencontrés"). Cherche
-     * sur TOUT le catalogue (pas de filtre FR : beIN/OCS/Netflix n'ont pas
-     * forcément de préfixe langue), une correspondance nom → mot-clé pour
-     * chaque marque, dans cet ordre fixe. Une marque absente du panel de
-     * l'utilisateur laisse simplement sa case vide (`bindLiveMosaic` tolère
-     * une liste de moins de 6 logos). Pas d'asset de logo embarqué dans
-     * l'app : toujours le logo fourni par le panel, comme le reste de l'UI. */
-    private fun brandMosaicLogos(channels: List<com.nicotv.iptv2.data.database.entity.ChannelEntity>): List<String> {
-        fun logoFor(match: (String) -> Boolean): String? =
-            channels.firstOrNull { match(it.name.lowercase()) && it.logoUrl.isNotBlank() }?.logoUrl
+    /** Logo d'une des 6 cases de la mosaïque Chaînes : soit un logo réel tiré
+     * du catalogue chargé de l'utilisateur (Remote, cf. brandMosaicLogos),
+     * soit un logo de marque embarqué dans l'app (Local — demande explicite
+     * 29/08/2026 : Canal+/OCS/Prime n'apparaissent pas comme "chaînes" avec
+     * logo sur la plupart des panels Xtream, ce sont des services VOD, pas
+     * des chaînes live — impossible de tirer un logo du catalogue pour eux).
+     * `null` : marque absente du panel ET pas d'asset embarqué pour elle
+     * (beIN/TF1/Netflix, toujours en Remote uniquement). */
+    private sealed class MosaicLogo {
+        data class Remote(val url: String) : MosaicLogo()
+        data class Local(@androidx.annotation.DrawableRes val resId: Int) : MosaicLogo()
+    }
 
-        return listOfNotNull(
-            logoFor { it.replace(" ", "").contains("canal+") },
+    /** Contenu des 6 cases, dans cet ordre fixe : Canal+, beIN Sport, TF1,
+     * OCS, Prime, Netflix (demande explicite 29/08/2026, remplace l'ancienne
+     * sélection "6 premiers logos FR rencontrés"). Cherche sur TOUT le
+     * catalogue (pas de filtre FR : beIN/OCS/Netflix n'ont pas forcément de
+     * préfixe langue), une correspondance nom → mot-clé par marque — logo du
+     * panel prioritaire sur l'asset embarqué s'il existe (fidèle à ce que
+     * l'utilisateur reçoit réellement). Retourne une liste vide tant que le
+     * catalogue n'a pas encore émis (Room au tout début) : `bindLiveMosaic`
+     * attend ce signal pour se figer, contrairement à une liste de 6 `null`
+     * (catalogue chargé, aucune marque trouvée nulle part). */
+    private fun brandMosaicLogos(channels: List<com.nicotv.iptv2.data.database.entity.ChannelEntity>): List<MosaicLogo?> {
+        if (channels.isEmpty()) return emptyList()
+
+        fun logoFor(fallback: Int? = null, match: (String) -> Boolean): MosaicLogo? {
+            val url = channels.firstOrNull { match(it.name.lowercase()) && it.logoUrl.isNotBlank() }?.logoUrl
+            return when {
+                url != null -> MosaicLogo.Remote(url)
+                fallback != null -> MosaicLogo.Local(fallback)
+                else -> null
+            }
+        }
+
+        return listOf(
+            logoFor(R.drawable.logo_canalplus) {
+                val cleaned = it.replace(" ", "")
+                cleaned.contains("canal+") || cleaned.contains("canalplus")
+            },
             logoFor { it.contains("bein") },
             // Exclut "TF1 Séries Films" : sinon elle passerait avant la
             // vraie chaîne TF1 si elle apparaît en premier dans le catalogue.
             logoFor { it.contains("tf1") && !it.contains("serie") && !it.contains("film") },
-            logoFor { it.contains("ocs") },
-            logoFor { it.contains("prime") },
+            logoFor(R.drawable.logo_ocs) { it.contains("ocs") },
+            logoFor(R.drawable.logo_prime) { it.contains("prime") },
             logoFor { it.contains("netflix") }
         )
     }
 
-    private fun bindLiveMosaic(logoUrls: List<String>) {
-        if (liveMosaicBound || logoUrls.isEmpty()) return
+    private fun bindLiveMosaic(logos: List<MosaicLogo?>) {
+        if (liveMosaicBound || logos.isEmpty()) return
         liveMosaicBound = true
         val targets = listOf(
             binding.ivLiveLogo1, binding.ivLiveLogo2, binding.ivLiveLogo3,
             binding.ivLiveLogo4, binding.ivLiveLogo5, binding.ivLiveLogo6
         )
         targets.forEachIndexed { i, imageView ->
-            val url = logoUrls.getOrNull(i) ?: return@forEachIndexed
-            imageView.load(url) { crossfade(true) }
+            when (val logo = logos.getOrNull(i)) {
+                is MosaicLogo.Remote -> imageView.load(logo.url) { crossfade(true) }
+                is MosaicLogo.Local -> imageView.setImageResource(logo.resId)
+                null -> {}
+            }
         }
     }
 

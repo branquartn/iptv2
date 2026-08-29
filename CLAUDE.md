@@ -642,13 +642,25 @@ filtre `extractLeadingLanguageCode == "FR"` : beIN/OCS/Netflix n'ont
 généralement pas ce préfixe), un mot-clé par marque sur `name.lowercase()`
 (`"tf1"` exclut explicitement les noms contenant `"serie"`/`"film"`, sinon
 "TF1 Séries Films" passerait avant la vraie chaîne TF1 si elle apparaît
-en premier dans le panel). Toujours le logo **fourni par le panel** de
-l'utilisateur, jamais un asset embarqué dans l'app — une marque absente du
-panel laisse simplement sa case vide (`bindLiveMosaic` tolère moins de 6
-logos). Si une marque n'apparaît jamais alors qu'elle existe bien dans le
-panel de test, vérifier d'abord l'orthographe exacte utilisée par CE panel
-(ex. "CANAL +" avec espace est couvert car les espaces sont retirés avant
-le test, mais un panel pourrait nommer une chaîne différemment).
+en premier dans le panel ; `"canal+"` couvre aussi `"canalplus"` écrit en
+toutes lettres, espaces retirés avant comparaison).
+
+⚠️ **Fallback en logo embarqué pour Canal+/OCS/Prime** (29/08/2026, demande
+explicite après constat : ces 3 marques n'apparaissent quasiment jamais comme
+"chaîne" avec logo sur un panel Xtream — ce sont des services VOD, pas des
+chaînes live, impossible d'en tirer quoi que ce soit du catalogue de
+l'utilisateur). `MosaicLogo` (sealed class, `Remote`/`Local`) distingue les
+deux origines ; `logoFor()` essaie d'abord le catalogue (`Remote`, fidèle à
+ce que l'utilisateur reçoit réellement), et ne retombe sur l'asset embarqué
+(`Local`, `R.drawable.logo_canalplus`/`logo_ocs`/`logo_prime`,
+`res/drawable-nodpi/`) que si rien n'est trouvé. beIN/TF1/Netflix restent
+`Remote`-only (pas d'asset de secours) — case vide si absents du panel.
+**⚠️ Assets = vraies marques déposées** (logos officiels récupérés sur
+Wikimedia/Wikipédia, choix délibéré et accepté explicitement par
+l'utilisateur malgré le risque juridique — cf. sa réponse à la question
+posée avant l'implémentation). Ne jamais ajouter d'autre logo de marque de
+cette façon sans reposer la même question — ce n'est pas un précédent
+généralisé à toute future demande de logo.
 
 ⚠️ **Compteurs retirés des 3 cartes** (`tv_live_count`/`tv_films_count`/
 `tv_series_count`, 28/08/2026, demande explicite) — les vues XML **et** leurs
