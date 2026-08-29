@@ -44,7 +44,7 @@ interface ChannelDao {
     @Query("""
         SELECT * FROM channels
         WHERE (:lang IS NULL OR nameLanguageCode = '' OR nameLanguageCode = :lang)
-          AND (:category IS NULL OR categoryStripped = :category)
+          AND (:category IS NULL OR category = :category)
           AND (:favOnly = 0 OR id IN (SELECT itemId FROM favorites WHERE itemType = :favType))
         ORDER BY
           CASE WHEN :frenchSort = 1 THEN tntRank ELSE sortOrder END ASC,
@@ -61,12 +61,13 @@ interface ChannelDao {
         offset: Int
     ): List<ChannelEntity>
 
-    /** Cf. MovieDao.getDistinctCategoriesForLanguage — mais filtré sur le
-     * préfixe de la CATÉGORIE (categoryLanguageCode), pas celui du nom :
-     * la sidebar liste des catégories, cf. ChannelEntity. */
+    /** Cf. MovieDao.getDistinctCategoriesForLanguage — catégories brutes,
+     * préfixe langue conservé (30/08/2026). Filtré sur le préfixe de la
+     * CATÉGORIE (categoryLanguageCode), pas celui du nom : la sidebar liste
+     * des catégories, cf. ChannelEntity. */
     @Query("""
-        SELECT DISTINCT categoryStripped FROM channels
-        WHERE categoryStripped != '' AND (:lang IS NULL OR categoryLanguageCode = '' OR categoryLanguageCode = :lang)
+        SELECT DISTINCT category FROM channels
+        WHERE category != '' AND (:lang IS NULL OR categoryLanguageCode = '' OR categoryLanguageCode = :lang)
     """)
     suspend fun getDistinctCategoriesForLanguage(lang: String?): List<String>
 

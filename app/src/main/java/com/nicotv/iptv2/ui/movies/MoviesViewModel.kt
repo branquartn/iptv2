@@ -10,9 +10,10 @@ import com.nicotv.iptv2.IptvApplication
 import com.nicotv.iptv2.data.database.entity.FavoriteEntity
 import com.nicotv.iptv2.data.repository.PlaylistRepository
 import com.nicotv.iptv2.domain.model.Movie
+import com.nicotv.iptv2.util.MOVIES_PREFERRED_CATEGORIES
 import com.nicotv.iptv2.util.extractLeadingLanguageCode
 import com.nicotv.iptv2.util.isFrenchLabel
-import com.nicotv.iptv2.util.stripLeadingLanguageCode
+import com.nicotv.iptv2.util.pickDefaultCategory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -85,14 +86,6 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
         if (contentLanguage == null) list
         else list.filter { val c = extractLeadingLanguageCode(it.category); c == null || c == contentLanguage }
 
-    /** Cf. MoviesViewModel (ancienne version) — utilisé UNIQUEMENT sur les
-     * résultats de recherche (≤200 lignes), le chemin sans recherche filtre
-     * déjà par categoryStripped en SQL (cf. PlaylistRepository.getMoviesPage). */
-    private fun displayCategory(category: String): String {
-        val code = contentLanguage ?: return category
-        return if (extractLeadingLanguageCode(category) == code) stripLeadingLanguageCode(category, code) else category
-    }
-
     private val _movies = MediatorLiveData<List<Movie>>()
     val movies: LiveData<List<Movie>> = _movies
 
@@ -104,51 +97,85 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
     private fun pageLimitFor(category: String?): Int =
         if (category == null) PlaylistRepository.MOVIES_PAGE_SIZE else PlaylistRepository.NO_LIMIT
 
-    init {
-        loadCategories()
+    private var job: Job? = null
 
-        var job: Job? = null
-        fun load() {
-            job?.cancel()
-            pagingOffset = 0
-            endReached = false
-            _isReady.value = false
-            job = viewModelScope.launch {
-                val query = searchQuery.value.orEmpty().trim()
-                if (query.isNotBlank()) delay(150)
-                val cat = selectedCategory.value
-                val result = withContext(Dispatchers.Default) {
-                    if (query.isNotBlank()) {
-                        var m = repository.searchMoviesByTitle(query)
-                        m = applyLanguageFilter(m)
-                        cat?.let { c -> m = m.filter { displayCategory(it.category) == c } }
-                        m
-                    } else {
-                        repository.getMoviesPage(contentLanguage, cat, offset = 0, limit = pageLimitFor(cat))
-                    }
+    // ⚠️ Bloque le tout premier chargement le temps que la catégorie par
+    // défaut soit connue (30/08/2026, demande explicite : ouvrir directement
+    // sur "FR - LE DERNIER AJOUTE", jamais sur "Toutes"). Sans ce garde-fou,
+    // l'écran chargerait d'abord "Toutes" (le cas le plus lourd, tout le
+    // catalogue paginé) avant de tout jeter pour recharger la catégorie —
+    // deux chargements, dont le plus coûteux pour rien.
+    private var awaitingDefaultCategory = true
+
+    init {
+        _movies.addSource(searchQuery) { reload() }
+        _movies.addSource(selectedCategory) { reload() }
+        loadCategories()
+    }
+
+    private fun reload() {
+        if (awaitingDefaultCategory) return
+        job?.cancel()
+        pagingOffset = 0
+        endReached = false
+        _isReady.value = false
+        job = viewModelScope.launch {
+            val query = searchQuery.value.orEmpty().trim()
+            if (query.isNotBlank()) delay(150)
+            val cat = selectedCategory.value
+            val result = withContext(Dispatchers.Default) {
+                if (query.isNotBlank()) {
+                    var m = repository.searchMoviesByTitle(query)
+                    m = applyLanguageFilter(m)
+                    // Comparaison sur la catégorie BRUTE (30/08/2026 : plus de
+                    // renommage, le préfixe "FR - " reste affiché) — cf.
+                    // MovieDao.getDistinctCategoriesForLanguage.
+                    cat?.let { c -> m = m.filter { it.category == c } }
+                    m
+                } else {
+                    repository.getMoviesPage(contentLanguage, cat, offset = 0, limit = pageLimitFor(cat))
                 }
-                isSearching = query.isNotBlank()
-                pagingOffset = result.size
-                // Rien de plus à paginer si : recherche (résultat déjà borné à
-                // 200), catégorie précise (tout a été chargé d'un coup, cf.
-                // pageLimitFor), ou page incomplète (fin du catalogue).
-                endReached = isSearching || cat != null || result.size < PlaylistRepository.MOVIES_PAGE_SIZE
-                _movies.value = result
-                _isReady.value = true
             }
+            isSearching = query.isNotBlank()
+            pagingOffset = result.size
+            // Rien de plus à paginer si : recherche (résultat déjà borné à
+            // 200), catégorie précise (tout a été chargé d'un coup, cf.
+            // pageLimitFor), ou page incomplète (fin du catalogue).
+            endReached = isSearching || cat != null || result.size < PlaylistRepository.MOVIES_PAGE_SIZE
+            _movies.value = result
+            _isReady.value = true
         }
-        _movies.addSource(searchQuery) { load() }
-        _movies.addSource(selectedCategory) { load() }
     }
 
     private fun loadCategories() {
         viewModelScope.launch {
-            val result = withContext(Dispatchers.Default) {
-                repository.getMoviesCategories(contentLanguage)
-                    .filter { it.isNotBlank() }
-                    .sortedWith(compareByDescending<String> { isFrenchLabel(it) }.thenBy { it })
+            // ⚠️ try/catch obligatoire : awaitingDefaultCategory bloque TOUT
+            // chargement tant qu'il est vrai — si cette lecture échouait sans
+            // être rattrapée, l'écran resterait figé sur le spinner pour de
+            // bon. En cas d'échec on repart sur "Toutes" (aucune catégorie).
+            val result = try {
+                withContext(Dispatchers.Default) {
+                    repository.getMoviesCategories(contentLanguage)
+                        .filter { it.isNotBlank() }
+                        // Catégories France en premier (demande explicite) — cf. isFrenchLabel.
+                        .sortedWith(compareByDescending<String> { isFrenchLabel(it) }.thenBy { it })
+                }
+            } catch (e: Exception) {
+                emptyList()
             }
             _categories.value = result
+
+            // Catégorie ouverte par défaut — cf. util.pickDefaultCategory.
+            val default = pickDefaultCategory(result, MOVIES_PREFERRED_CATEGORIES)
+            awaitingDefaultCategory = false
+            if (default != null) {
+                // Déclenche reload() via addSource(selectedCategory).
+                selectedCategory.value = default
+            } else {
+                // Aucune catégorie dans ce catalogue : on reste sur "Toutes",
+                // mais il faut relancer le chargement bloqué plus haut.
+                reload()
+            }
         }
     }
 

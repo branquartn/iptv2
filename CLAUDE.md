@@ -318,6 +318,62 @@ défaut significative) évitent un flash "aucun favori" pendant que le second
 flux n'a pas encore répondu. Si un 3ᵉ type de favori est ajouté un jour,
 reprendre ce même patron plutôt qu'un simple `isEmpty()` sur une seule liste.
 
+## Catégories : plus de renommage + catégorie ouverte par défaut
+
+⚠️ **30/08/2026, demande explicite** : "je ne veux plus de renommage des
+catégories, laisse le FR ; et dans Films va directement dans FR - LE DERNIER
+AJOUTE si il existe, sinon va dans un autre mais pas Toutes ; pareil pour les
+chaînes, va dans Général FR".
+
+**1. Le préfixe de langue reste affiché.** Les 3 DAO lisent/filtrent désormais
+`category` (brut) au lieu de `categoryStripped` — sidebar comme filtre. Le
+renommage automatique ("FR - Action" → "Action"), demandé le 28/08 puis annulé
+ici, n'existe plus nulle part sur les catégories. `displayCategory()` a été
+supprimé des 3 ViewModel ; le chemin recherche compare aussi `it.category`
+brut.
+
+⚠️ **Aucun changement de schéma** : les colonnes `categoryStripped` restent en
+base (simplement plus lues pour les catégories) — Room reste en **version 8**,
+donc **pas de rechargement de catalogue imposé** par cette modif. Ne pas les
+supprimer juste pour "faire propre" : ça coûterait une migration destructive
+de plus à l'utilisateur.
+
+⚠️ **Le nom des CHAÎNES, lui, continue d'être nettoyé** ("FR: TF1" → "TF1",
+via `nameStripped`/`ChannelEntity.toDomain`) — la demande ne visait que les
+catégories, et le nettoyage des noms était lui-même une demande explicite du
+28/08. Ne pas l'étendre aux noms sans redemander.
+
+**2. Catégorie ouverte par défaut** (`util/DefaultCategory.kt`) :
+`pickDefaultCategory(categories, preferred)` cherche, par ordre de préférence,
+un libellé CONTENANT l'un des fragments voulus (comparaison tolérante :
+`foldAccents` + majuscules, car les libellés varient d'un panel à l'autre et
+gardent maintenant leur préfixe). À défaut → **première catégorie de la
+liste** (donc française, cf. tri `isFrenchLabel`) — **jamais "Toutes"**, qui
+reste sélectionnable à la main mais n'est plus l'état initial : c'est
+précisément le cas le plus lourd (catalogue entier paginé) alors qu'une
+catégorie se charge en entier et instantanément.
+
+- Films → `MOVIES_PREFERRED_CATEGORIES` ("LE DERNIER AJOUTE", puis variantes
+  "DERNIERS AJOUTS"/"NOUVEAUTE").
+- Chaînes → `CHANNELS_PREFERRED_CATEGORIES` ("GENERAL FR", puis "FR GENERAL",
+  puis un "GENERAL" quelconque).
+- **Séries : inchangé, ouvre toujours sur "Toutes"** — non demandé. Reprendre
+  le même patron si ça change.
+
+⚠️ **`awaitingDefaultCategory`** (Movies/LiveViewModel) bloque le tout premier
+chargement tant que la catégorie par défaut n'est pas connue. Sans ce
+garde-fou, l'écran chargerait d'abord "Toutes" (le cas le plus coûteux) avant
+de tout jeter pour recharger la catégorie — deux chargements, dont le pire
+pour rien. **Ce drapeau doit impérativement finir à `false` dans tous les
+chemins** : d'où le `try/catch` autour de la lecture des catégories (une
+exception non rattrapée laisserait l'écran figé sur le spinner pour de bon).
+
+⚠️ **`CategorySidebarAdapter.setSelectedSilently()`** (ajouté pour l'occasion)
+met à jour la surbrillance SANS rappeler `onSelect`. Les Activity observent
+`selectedCategory` et passent par là — utiliser le setter public `selected =`
+ici relancerait `onSelect` → ViewModel → observateur, soit un rechargement en
+double pour une valeur déjà appliquée.
+
 ## Pagination — extension à Séries/Chaînes + chargement complet par catégorie
 
 ⚠️ **30/08/2026, demande explicite** : "quand ça charge les films ça se limite

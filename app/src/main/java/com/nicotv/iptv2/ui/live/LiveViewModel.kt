@@ -11,8 +11,10 @@ import com.nicotv.iptv2.data.ContentLanguagePrefs
 import com.nicotv.iptv2.data.database.entity.FavoriteEntity
 import com.nicotv.iptv2.data.repository.PlaylistRepository
 import com.nicotv.iptv2.domain.model.Channel
+import com.nicotv.iptv2.util.CHANNELS_PREFERRED_CATEGORIES
 import com.nicotv.iptv2.util.extractLeadingLanguageCode
 import com.nicotv.iptv2.util.isFrenchLabel
+import com.nicotv.iptv2.util.pickDefaultCategory
 import com.nicotv.iptv2.util.stripLeadingLanguageCode
 import com.nicotv.iptv2.util.tntRankFor
 import kotlinx.coroutines.Dispatchers
@@ -80,75 +82,90 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
     private fun frenchSortFor(category: String?): Boolean =
         contentLanguage == ContentLanguagePrefs.FRENCH || category?.let { isFrenchLabel(it) } == true
 
-    /** Nom de catégorie affiché dans la sidebar — cf. ChannelEntity.
-     * categoryStripped, qui fait désormais ce travail en base. Cette version
-     * Kotlin ne sert plus qu'au chemin RECHERCHE (non paginé). */
-    private fun displayCategory(category: String): String {
-        val code = contentLanguage ?: return category
-        return if (extractLeadingLanguageCode(category) == code) stripLeadingLanguageCode(category, code) else category
-    }
+    private var job: Job? = null
+
+    /** Cf. MoviesViewModel.awaitingDefaultCategory — même garde-fou, pour
+     * ouvrir directement sur "Général FR" plutôt que sur "Toutes". */
+    private var awaitingDefaultCategory = true
 
     init {
+        _channels.addSource(searchQuery) { reload() }
+        _channels.addSource(selectedCategory) { reload() }
+        _channels.addSource(favoritesOnly) { reload() }
         loadCategories()
+    }
 
-        var job: Job? = null
-        fun load() {
-            job?.cancel()
-            pagingOffset = 0
-            endReached = false
-            _isReady.value = false
-            job = viewModelScope.launch {
-                val query = searchQuery.value.orEmpty().trim()
-                if (query.isNotBlank()) delay(150)
-                val cat = selectedCategory.value
-                val favOnly = favoritesOnly.value == true
-                val result = withContext(Dispatchers.Default) {
-                    if (query.isNotBlank()) {
-                        // Chemin recherche : déjà borné à 200 lignes côté SQL,
-                        // filtres/tri appliqués en Kotlin comme avant la
-                        // pagination (coût négligeable sur si peu de lignes).
-                        var base = repository.searchChannelsByName(query)
-                        if (favOnly) base = base.filter { it.isFavorite }
-                        cat?.let { c -> base = base.filter { displayCategory(it.category) == c } }
-                        if (contentLanguage != null) {
-                            base = base.mapNotNull { channel ->
-                                val code = extractLeadingLanguageCode(channel.name)
-                                when {
-                                    code == null -> channel
-                                    code == contentLanguage -> channel.copy(name = stripLeadingLanguageCode(channel.name, contentLanguage))
-                                    else -> null
-                                }
+    private fun reload() {
+        if (awaitingDefaultCategory) return
+        job?.cancel()
+        pagingOffset = 0
+        endReached = false
+        _isReady.value = false
+        job = viewModelScope.launch {
+            val query = searchQuery.value.orEmpty().trim()
+            if (query.isNotBlank()) delay(150)
+            val cat = selectedCategory.value
+            val favOnly = favoritesOnly.value == true
+            val result = withContext(Dispatchers.Default) {
+                if (query.isNotBlank()) {
+                    // Chemin recherche : déjà borné à 200 lignes côté SQL,
+                    // filtres/tri appliqués en Kotlin comme avant la
+                    // pagination (coût négligeable sur si peu de lignes).
+                    var base = repository.searchChannelsByName(query)
+                    if (favOnly) base = base.filter { it.isFavorite }
+                    // Catégorie BRUTE (30/08/2026 : plus de renommage,
+                    // le préfixe "FR| " reste affiché).
+                    cat?.let { c -> base = base.filter { it.category == c } }
+                    if (contentLanguage != null) {
+                        base = base.mapNotNull { channel ->
+                            val code = extractLeadingLanguageCode(channel.name)
+                            when {
+                                code == null -> channel
+                                code == contentLanguage -> channel.copy(name = stripLeadingLanguageCode(channel.name, contentLanguage))
+                                else -> null
                             }
                         }
-                        if (frenchSortFor(cat)) base.sortedWith(compareBy({ tntRankFor(it.name) }, { it.name })) else base
-                    } else {
-                        repository.getChannelsPage(
-                            lang = contentLanguage, category = cat, favoritesOnly = favOnly,
-                            frenchSort = frenchSortFor(cat), offset = 0, limit = pageLimitFor(cat)
-                        )
                     }
+                    if (frenchSortFor(cat)) base.sortedWith(compareBy({ tntRankFor(it.name) }, { it.name })) else base
+                } else {
+                    repository.getChannelsPage(
+                        lang = contentLanguage, category = cat, favoritesOnly = favOnly,
+                        frenchSort = frenchSortFor(cat), offset = 0, limit = pageLimitFor(cat)
+                    )
                 }
-                isSearching = query.isNotBlank()
-                pagingOffset = result.size
-                endReached = isSearching || cat != null || result.size < PlaylistRepository.MOVIES_PAGE_SIZE
-                _channels.value = result
-                _isReady.value = true
             }
+            isSearching = query.isNotBlank()
+            pagingOffset = result.size
+            endReached = isSearching || cat != null || result.size < PlaylistRepository.MOVIES_PAGE_SIZE
+            _channels.value = result
+            _isReady.value = true
         }
-        _channels.addSource(searchQuery) { load() }
-        _channels.addSource(selectedCategory) { load() }
-        _channels.addSource(favoritesOnly) { load() }
     }
 
     private fun loadCategories() {
         viewModelScope.launch {
-            val result = withContext(Dispatchers.Default) {
-                repository.getChannelsCategories(contentLanguage)
-                    .filter { it.isNotBlank() }
-                    // Catégories France en premier (demande explicite) — cf. isFrenchLabel.
-                    .sortedWith(compareByDescending<String> { isFrenchLabel(it) }.thenBy { it })
+            // ⚠️ Cf. MoviesViewModel.loadCategories — try/catch obligatoire,
+            // awaitingDefaultCategory bloque tout chargement tant qu'il est vrai.
+            val result = try {
+                withContext(Dispatchers.Default) {
+                    repository.getChannelsCategories(contentLanguage)
+                        .filter { it.isNotBlank() }
+                        // Catégories France en premier (demande explicite) — cf. isFrenchLabel.
+                        .sortedWith(compareByDescending<String> { isFrenchLabel(it) }.thenBy { it })
+                }
+            } catch (e: Exception) {
+                emptyList()
             }
             _categories.value = result
+
+            // Catégorie ouverte par défaut — cf. util.pickDefaultCategory.
+            val default = pickDefaultCategory(result, CHANNELS_PREFERRED_CATEGORIES)
+            awaitingDefaultCategory = false
+            if (default != null) {
+                selectedCategory.value = default
+            } else {
+                reload()
+            }
         }
     }
 
@@ -178,8 +195,8 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
      * à jour d'état (la liste elle-même change, pas seulement les étoiles). */
     fun refreshFavoriteStates() {
         if (favoritesOnly.value == true) {
-            // Réémet la même valeur : déclenche `load()` via addSource, donc un
-            // rechargement propre de la première page avec le filtre à jour.
+            // Réémet la même valeur : déclenche `reload()` via addSource, donc
+            // un rechargement propre de la première page avec le filtre à jour.
             favoritesOnly.value = true
             return
         }

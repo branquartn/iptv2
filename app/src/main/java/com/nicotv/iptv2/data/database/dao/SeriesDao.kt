@@ -36,16 +36,17 @@ interface SeriesDao {
     @Query("""
         SELECT * FROM series
         WHERE (:lang IS NULL OR languageCode = '' OR languageCode = :lang)
-          AND (:category IS NULL OR categoryStripped = :category)
+          AND (:category IS NULL OR category = :category)
         ORDER BY title ASC
         LIMIT :limit OFFSET :offset
     """)
     suspend fun getSeriesPage(lang: String?, category: String?, limit: Int, offset: Int): List<SeriesEntity>
 
-    /** Cf. MovieDao.getDistinctCategoriesForLanguage. */
+    /** Cf. MovieDao.getDistinctCategoriesForLanguage — catégories brutes,
+     * préfixe langue conservé (30/08/2026). */
     @Query("""
-        SELECT DISTINCT categoryStripped FROM series
-        WHERE categoryStripped != '' AND (:lang IS NULL OR languageCode = '' OR languageCode = :lang)
+        SELECT DISTINCT category FROM series
+        WHERE category != '' AND (:lang IS NULL OR languageCode = '' OR languageCode = :lang)
     """)
     suspend fun getDistinctCategoriesForLanguage(lang: String?): List<String>
 

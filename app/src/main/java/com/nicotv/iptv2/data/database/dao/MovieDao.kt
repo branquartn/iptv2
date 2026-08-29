@@ -64,19 +64,23 @@ interface MovieDao {
     @Query("""
         SELECT * FROM movies
         WHERE (:lang IS NULL OR languageCode = '' OR languageCode = :lang)
-          AND (:category IS NULL OR categoryStripped = :category)
+          AND (:category IS NULL OR category = :category)
         ORDER BY title ASC
         LIMIT :limit OFFSET :offset
     """)
     suspend fun getMoviesPage(lang: String?, category: String?, limit: Int, offset: Int): List<MovieEntity>
 
-    /** Catégories déjà "nettoyées" (categoryStripped) et déjà filtrées par
-     * langue — alimente directement la sidebar, sans avoir à mapper le
-     * catalogue complet en objets domaine pour les en extraire (cf.
-     * l'ancien MoviesViewModel.categories, remplacé). */
+    /** Catégories BRUTES (préfixe langue conservé : "FR - Action" reste
+     * "FR - Action") déjà filtrées par langue — alimente directement la
+     * sidebar, sans mapper le catalogue complet en objets domaine.
+     * ⚠️ 30/08/2026, demande explicite ("je ne veux plus de renommage des
+     * catégories, laisse le FR") : on lit `category`, plus `categoryStripped`
+     * — cf. CLAUDE.md. La colonne `categoryStripped` reste en base (aucun
+     * changement de schéma, donc aucun rechargement de catalogue imposé) mais
+     * n'est plus utilisée pour l'affichage ni le filtrage. */
     @Query("""
-        SELECT DISTINCT categoryStripped FROM movies
-        WHERE categoryStripped != '' AND (:lang IS NULL OR languageCode = '' OR languageCode = :lang)
+        SELECT DISTINCT category FROM movies
+        WHERE category != '' AND (:lang IS NULL OR languageCode = '' OR languageCode = :lang)
     """)
     suspend fun getDistinctCategoriesForLanguage(lang: String?): List<String>
 

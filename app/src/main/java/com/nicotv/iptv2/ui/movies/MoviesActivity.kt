@@ -67,6 +67,11 @@ class MoviesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         binding.rvCategories.layoutManager = LinearLayoutManager(this)
         binding.rvCategories.adapter = categoryAdapter
         viewModel.categories.observe(this) { cats -> categoryAdapter.submitList(cats) }
+        // ⚠️ Surbrillance de la catégorie ouverte par défaut (30/08/2026, cf.
+        // util.pickDefaultCategory) — setSelectedSilently, pas `selected =` :
+        // la sélection vient DÉJÀ du ViewModel, la repasser par le setter
+        // public rappellerait onSelect et relancerait un chargement en double.
+        viewModel.selectedCategory.observe(this) { cat -> categoryAdapter.setSelectedSilently(cat) }
 
         binding.btnBack.setOnClickListener { finish() }
         binding.btnBack.setOnFocusChangeListener { v, hasFocus ->

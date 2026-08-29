@@ -21,13 +21,29 @@ class CategorySidebarAdapter(
 ) : ListAdapter<String, CategorySidebarAdapter.VH>(DIFF) {
 
     // null = "Toutes"
-    var selected: String? = null
+    private var selectedValue: String? = null
+
+    /** Sélection courante. L'affecter simule un choix utilisateur : la
+     * surbrillance suit ET [onSelect] est notifié (c'est le chemin du clic). */
+    var selected: String?
+        get() = selectedValue
         set(value) {
-            val old = field
-            field = value
+            val old = selectedValue
+            selectedValue = value
             notifyItemRangeChanged(0, itemCount)
             if (old != value) onSelect(value)
         }
+
+    /** Met à jour la surbrillance SANS notifier [onSelect] — pour refléter une
+     * sélection décidée ailleurs que par un clic (catégorie ouverte par défaut
+     * au lancement, cf. util.pickDefaultCategory, 30/08/2026). Passer par
+     * `selected =` ici relancerait onSelect → ViewModel → observateur →
+     * `selected =` : un aller-retour inutile, et un rechargement en double
+     * pour une valeur déjà appliquée. */
+    fun setSelectedSilently(value: String?) {
+        selectedValue = value
+        notifyItemRangeChanged(0, itemCount)
+    }
 
     override fun submitList(list: List<String>?) {
         super.submitList(listOf(ALL) + list.orEmpty())
@@ -51,7 +67,7 @@ class CategorySidebarAdapter(
         fun bind(category: String) {
             val isAll = category == ALL
             b.tvCategory.text = if (isAll) allLabel else category
-            b.tvCategory.isSelected = (isAll && selected == null) || category == selected
+            b.tvCategory.isSelected = (isAll && selectedValue == null) || category == selectedValue
             b.root.setOnClickListener { selected = if (isAll) null else category }
         }
     }

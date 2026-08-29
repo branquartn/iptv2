@@ -12,7 +12,6 @@ import com.nicotv.iptv2.data.repository.PlaylistRepository
 import com.nicotv.iptv2.domain.model.Movie
 import com.nicotv.iptv2.util.extractLeadingLanguageCode
 import com.nicotv.iptv2.util.isFrenchLabel
-import com.nicotv.iptv2.util.stripLeadingLanguageCode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -20,6 +19,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
+ * ⚠️ Contrairement à Films et Chaînes, cet écran s'ouvre toujours sur
+ * "Toutes" : la demande du 30/08/2026 ne visait qu'eux ("dans films va
+ * directement dans FR - LE DERNIER AJOUTE... et pareil pour les chaînes").
+ * Si une catégorie par défaut devient souhaitable ici aussi, reprendre
+ * util.pickDefaultCategory + le garde-fou awaitingDefaultCategory de
+ * MoviesViewModel plutôt qu'improviser.
+ *
  * ⚠️ Réécrit en pagination le 30/08/2026 — strictement le même patron que
  * [com.nicotv.iptv2.ui.movies.MoviesViewModel] (lire son en-tête pour le
  * pourquoi complet : mapper tout le catalogue en mémoire avant affichage
@@ -61,17 +67,12 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
     private fun pageLimitFor(category: String?): Int =
         if (category == null) PlaylistRepository.MOVIES_PAGE_SIZE else PlaylistRepository.NO_LIMIT
 
-    /** Appliqués UNIQUEMENT aux résultats de recherche (≤200 lignes) — le
+    /** Appliqué UNIQUEMENT aux résultats de recherche (≤200 lignes) — le
      * chemin sans recherche filtre déjà langue/catégorie en SQL, cf.
      * SeriesDao.getSeriesPage. */
     private fun applyLanguageFilter(list: List<Movie>): List<Movie> =
         if (contentLanguage == null) list
         else list.filter { val c = extractLeadingLanguageCode(it.category); c == null || c == contentLanguage }
-
-    private fun displayCategory(category: String): String {
-        val code = contentLanguage ?: return category
-        return if (extractLeadingLanguageCode(category) == code) stripLeadingLanguageCode(category, code) else category
-    }
 
     init {
         loadCategories()
@@ -90,7 +91,9 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
                     if (query.isNotBlank()) {
                         var s = repository.searchSeriesByTitle(query)
                         s = applyLanguageFilter(s)
-                        cat?.let { c -> s = s.filter { displayCategory(it.category) == c } }
+                        // Catégorie BRUTE (30/08/2026 : plus de renommage,
+                        // le préfixe "FR - " reste affiché).
+                        cat?.let { c -> s = s.filter { it.category == c } }
                         s
                     } else {
                         repository.getSeriesPage(contentLanguage, cat, offset = 0, limit = pageLimitFor(cat))

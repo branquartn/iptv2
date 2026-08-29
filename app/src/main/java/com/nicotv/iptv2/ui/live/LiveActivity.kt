@@ -86,6 +86,11 @@ class LiveActivity : BaseActivity() {
         }
 
         viewModel.categories.observe(this) { cats -> categoryAdapter.submitList(cats) }
+        // ⚠️ Surbrillance de la catégorie ouverte par défaut (30/08/2026, cf.
+        // util.pickDefaultCategory) — setSelectedSilently, pas `selected =` :
+        // la sélection vient DÉJÀ du ViewModel, la repasser par le setter
+        // public rappellerait onSelect et relancerait un chargement en double.
+        viewModel.selectedCategory.observe(this) { cat -> categoryAdapter.setSelectedSilently(cat) }
 
         // ⚠️ Cf. MoviesActivity, même correctif 29/08/2026 ("la première fois
         // que je vais dans Chaînes il ne charge pas") — le spinner reste
