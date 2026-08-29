@@ -1,6 +1,6 @@
 {
-  "versionCode": 65,
-  "versionName": "1.0.64",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.64.apk",
-  "changelog": "Retour sur Chaînes/Films/Séries instantané (le délai de 150ms ne s'applique plus qu'à la recherche texte)."
+  "versionCode": 66,
+  "versionName": "1.0.65",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.65.apk",
+  "changelog": "Accueil : le fond aléatoire ne fige plus l'app pendant plusieurs secondes sur un gros catalogue (calcul déporté hors du thread principal)."
 }
