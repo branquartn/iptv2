@@ -1,6 +1,6 @@
 {
-  "versionCode": 68,
-  "versionName": "1.0.67",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.67.apk",
-  "changelog": "Films : chargement par pages (affichage quasi instantané même sur un très gros catalogue) au lieu de tout charger d'un coup — catalogue à recharger une fois après cette mise à jour."
+  "versionCode": 70,
+  "versionName": "1.0.69",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.69.apk",
+  "changelog": "Les catégories gardent leur préfixe (FR - ...) ; Films s'ouvre directement sur \"LE DERNIER AJOUTE\" et Chaînes sur \"GENERAL FR\" au lieu de \"Toutes\"."
 }
