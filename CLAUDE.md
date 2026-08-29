@@ -792,6 +792,16 @@ la source ici est fournie par l'utilisateur : la redirection est la norme.
 - `UpdateManager.checkForUpdate()` lit `AppConfig.Update.VERSION_URL`
   (`https://iptv2.nicotv.ovh/update/version.json`), propose la MAJ si
   `remote.versionCode > BuildConfig.VERSION_CODE`.
+- ⚠️ **`appChangelog` oublié pendant ~15 versions** (29/08/2026, bug signalé
+  par l'utilisateur : "le texte de la maj n'est pas le bon") — `appVersionCode`/
+  `appVersionName` (`app/build.gradle.kts`) ont été bumpés à chaque commit
+  d'une longue session sans jamais toucher `appChangelog` juste en dessous,
+  qui alimente le champ `changelog` de `version.json` (tâche `publishUpdate`)
+  affiché dans le modal "Mise à jour disponible". Résultat : le texte
+  affiché décrivait un changement du 28/08 alors que l'app en était déjà à
+  v1.0.50. **Systématiquement mettre à jour `appChangelog` avec le VRAI
+  contenu de la release, dans le même commit que le bump de version** — pas
+  après coup, pas "je le ferai au prochain bump".
 - **Rond qui tourne pendant le téléchargement** (29/08/2026, demande
   explicite) : `dialog_update_progress.xml` (`ProgressBar` indéterminé +
   texte), affiché par `showUpdateProgress()` dès le clic sur "Mettre à

@@ -10,10 +10,17 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 51
-val appVersionName = "1.0.50"
-// Changelog affiché dans le modal de mise à jour OTA — mis à jour à chaque bump.
-val appChangelog = "Chaînes : suppression du bouton FR en haut d'écran (redondant avec Réglages > Langue du contenu)."
+val appVersionCode = 52
+val appVersionName = "1.0.51"
+// Changelog affiché dans le modal de mise à jour OTA.
+// ⚠️ OUBLIÉ PENDANT ~15 VERSIONS (29/08/2026, bug signalé par l'utilisateur :
+// "le texte de la maj n'est pas le bon") — appVersionCode/appVersionName ont
+// été bumpés à chaque commit de ce jour-là sans jamais toucher cette ligne,
+// donc chaque "Mise à jour disponible" affichait un texte obsolète (une
+// modif du 28/08 alors qu'on en était à v1.0.50). Ce commentaire ne suffit
+// visiblement pas tout seul à s'en souvenir : à chaque bump de version,
+// updater CETTE ligne AVANT de commit, pas après coup.
+val appChangelog = "Ajout de source dans une page dédiée avec retour vers Profils, nouvelles images sur les cartes Chaînes/Films/Séries, rond de chargement pendant le téléchargement des mises à jour, barre de lecture du lecteur qui reste affichée plus longtemps, correction de la coche sur les films déjà dans votre playlist."
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
