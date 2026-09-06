@@ -1,6 +1,6 @@
 {
-  "versionCode": 88,
-  "versionName": "1.0.87",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.87.apk",
-  "changelog": "Nouvelles images pour les cartes Films (salle IMAX) et Séries (salon avec grand écran)."
+  "versionCode": 89,
+  "versionName": "1.0.88",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.88.apk",
+  "changelog": "Test : conversion vidéo automatique via le serveur NicoTV si un flux ne se lit pas (codec non supporté)."
 }
