@@ -15,12 +15,14 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
@@ -32,8 +34,10 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.PlayerView
+import com.nicotv.iptv2.AppConfig
 import com.nicotv.iptv2.IptvApplication
 import com.nicotv.iptv2.R
+import com.nicotv.iptv2.util.DeviceId
 import com.nicotv.iptv2.data.database.entity.EpisodeEntity
 import com.nicotv.iptv2.databinding.ActivityPlayerBinding
 import kotlinx.coroutines.Job
@@ -68,6 +72,14 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
     // reprise n'est demandée ou que le seek a eu lieu (ou échoué à trouver une position).
     private var resumeSeekDone = true
     private var hasStartedPlaying = false
+    // Repli transcodage serveur (test, cf. api/iptv.php action pub_remux) : source
+    // fournie par l'utilisateur (M3U/Xtream), pas de compte — même serveur/pipeline
+    // ffmpeg que NicoTV, quota séparé. Cascade : direct → remux copie → transcodage
+    // forcé H.264 → abandon (miroir app.js côté NicoTV, cf. reloadTimer/escalateOrGiveUp).
+    private var usedRemux = false
+    private var usedVtrans = false
+    private var remuxRetries = 0
+    private var stallWatchdogJob: Job? = null
     private var currentSpeed = 1.0f
     private var subtitlesEnabled = false
     private var seekHoldStartMs = 0L
@@ -487,6 +499,60 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         }
     }
 
+    /** URL réellement jouée : la source brute tant que rien n'a échoué, sinon le
+     *  proxy de transcodage public (cf. api/iptv.php action pub_remux). */
+    private fun currentSourceUrl(): String {
+        if (!usedRemux) return streamUrl
+        val encoded = java.net.URLEncoder.encode(streamUrl, "UTF-8")
+        val vt = if (usedVtrans) "&vtrans=1" else ""
+        return "${AppConfig.Transcode.API_BASE}?action=pub_remux&src=$encoded&deviceId=${DeviceId.get(this)}$vt"
+    }
+
+    private fun playCurrentSource() {
+        val exo = player ?: return
+        hasStartedPlaying = false
+        exo.setMediaItem(MediaItem.fromUri(Uri.parse(currentSourceUrl())))
+        exo.prepare()
+        exo.playWhenReady = true
+        armStallWatchdog()
+    }
+
+    /** Si la lecture n'a jamais démarré 8 s après une (re)tentative, ExoPlayer est
+     *  parfois juste bloqué en BUFFERING sans jamais émettre d'erreur (flux qui ne
+     *  répond pas, décodeur qui n'avance pas) — miroir du watchdog `reloadTimer`
+     *  de app.js côté NicoTV. */
+    private fun armStallWatchdog() {
+        stallWatchdogJob?.cancel()
+        stallWatchdogJob = lifecycleScope.launch {
+            delay(8000)
+            if (!hasStartedPlaying) escalateOrGiveUp()
+        }
+    }
+
+    /** Cascade : direct → remux copie (conteneur/tag codec mal supporté par ce
+     *  décodeur) → transcodage forcé H.264 (dernier recours, coûteux côté serveur)
+     *  → abandon. 3 essais max une fois en transcodage forcé (flux qui reconnecte). */
+    private fun escalateOrGiveUp() {
+        if (isFinishing) return
+        when {
+            !usedRemux -> {
+                usedRemux = true; remuxRetries = 0
+                Toast.makeText(this, "Conversion du flux…", Toast.LENGTH_SHORT).show()
+                playCurrentSource()
+            }
+            !usedVtrans -> {
+                usedVtrans = true; remuxRetries = 0
+                Toast.makeText(this, "Vidéo convertie pour cet appareil", Toast.LENGTH_SHORT).show()
+                playCurrentSource()
+            }
+            remuxRetries < 3 -> { remuxRetries++; playCurrentSource() }
+            else -> {
+                Toast.makeText(this, "Lecture indisponible.", Toast.LENGTH_LONG).show()
+                finish()
+            }
+        }
+    }
+
     private fun initPlayer() {
         if (streamUrl.isBlank()) { finish(); return }
 
@@ -586,7 +652,10 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                         if (state == Player.STATE_ENDED) onPlaybackEnded()
                     }
                     override fun onIsPlayingChanged(isPlaying: Boolean) {
-                        if (isPlaying) hasStartedPlaying = true
+                        if (isPlaying) {
+                            hasStartedPlaying = true
+                            stallWatchdogJob?.cancel()
+                        }
                         if (hasStartedPlaying) {
                             binding.overlayPauseInfo.visibility =
                                 if (isPlaying) View.GONE else View.VISIBLE
@@ -597,11 +666,15 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                             updateMainMenuValues()
                         }
                     }
+                    // Codec refusé, flux invalide… : ExoPlayer sait le dire explicitement
+                    // ici (contrairement au <video> web, cf. app.js) — filet immédiat, pas
+                    // besoin d'attendre le watchdog 8 s pour ce cas-là.
+                    override fun onPlayerError(error: PlaybackException) {
+                        escalateOrGiveUp()
+                    }
                 })
 
-                exo.setMediaItem(MediaItem.fromUri(Uri.parse(streamUrl)))
-                exo.prepare()
-                exo.playWhenReady = true
+                playCurrentSource()
 
                 val key = historyKey
                 if (key.isNotBlank() && resume) {
@@ -726,6 +799,7 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         nextEpisodeWatcherJob?.cancel()
         nextEpisodeCountdownJob?.cancel()
         seekBarJob?.cancel()
+        stallWatchdogJob?.cancel()
         player?.let { exo ->
             val key = historyKey
             if (key.isNotBlank()) {

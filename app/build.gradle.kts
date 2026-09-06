@@ -10,8 +10,8 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 88
-val appVersionName = "1.0.87"
+val appVersionCode = 89
+val appVersionName = "1.0.88"
 // Changelog affiché dans le modal de mise à jour OTA.
 // ⚠️ OUBLIÉ PENDANT ~15 VERSIONS (29/08/2026, bug signalé par l'utilisateur :
 // "le texte de la maj n'est pas le bon") — appVersionCode/appVersionName ont
@@ -20,7 +20,7 @@ val appVersionName = "1.0.87"
 // modif du 28/08 alors qu'on en était à v1.0.50). Ce commentaire ne suffit
 // visiblement pas tout seul à s'en souvenir : à chaque bump de version,
 // updater CETTE ligne AVANT de commit, pas après coup.
-val appChangelog = "Nouvelles images pour les cartes Films (salle IMAX) et Séries (salon avec grand écran)."
+val appChangelog = "Test : conversion vidéo automatique via le serveur NicoTV si un flux ne se lit pas (codec non supporté)."
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")

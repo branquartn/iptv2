@@ -8,6 +8,14 @@ object AppConfig {
         const val VERSION_URL = "https://iptv2.nicotv.ovh/update/version.json"
     }
 
+    object Transcode {
+        // Réutilise le même serveur/pipeline ffmpeg que NicoTV (cf. api/iptv.php,
+        // actions pub_remux/pub_audiofmt) — pool de quota SÉPARÉ de NicoTV, ne peut
+        // jamais priver la maison de sa propre capacité. Phase de test explicite :
+        // pas de compte, identité par DeviceId (util/DeviceId.kt) uniquement.
+        const val API_BASE = "https://api.nicotv.ovh/"
+    }
+
     object Tmdb {
         // Même clé/compte que NicoTV (obtenir une clé gratuite sur
         // https://www.themoviedb.org/settings/api) — utilisée uniquement en
