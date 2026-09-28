@@ -12,6 +12,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.nicotv.iptv2.R
 import com.nicotv.iptv2.data.SourceType
 import com.nicotv.iptv2.data.database.entity.PlaylistProfileEntity
+import com.nicotv.iptv2.data.xtream.XtAccountInfo
+import com.nicotv.iptv2.data.xtream.formatDate
 import com.nicotv.iptv2.databinding.ItemProfileBinding
 
 /** Sélecteur de profils façon Netflix : cartes horizontales (avatar coloré +
@@ -28,6 +30,11 @@ class ProfileAdapter(
 ) : ListAdapter<PlaylistProfileEntity, ProfileAdapter.VH>(DIFF) {
 
     var activeProfileId: Long? = null
+
+    /** Infos d'abonnement Xtream par id de profil (cf.
+     * PlaylistRepository.getXtreamAccount) — hors entité, même remarque que
+     * [activeProfileId] : notifyDataSetChanged() côté appelant après MAJ. */
+    var accountFor: (Long) -> XtAccountInfo? = { null }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
         val b = ItemProfileBinding.inflate(LayoutInflater.from(parent.context), parent, false)
@@ -66,6 +73,7 @@ class ProfileAdapter(
                 b.tvMeta.text = "$typeLabel · $relativeUse"
                 b.tvMeta.setTextColor(ContextCompat.getColor(context, R.color.text_secondary))
             }
+            bindExpiry(profile)
             b.ivActiveRing.visibility = if (isActive) View.VISIBLE else View.GONE
             b.badgeActive.visibility = if (isActive) View.VISIBLE else View.GONE
 
@@ -85,6 +93,32 @@ class ProfileAdapter(
             b.root.setOnClickListener { onClick(profile) }
             b.btnEdit.setOnClickListener { onEdit(profile) }
             b.btnDelete.setOnClickListener { onDelete(profile) }
+        }
+
+        private fun bindExpiry(profile: PlaylistProfileEntity) {
+            val context = b.root.context
+            val info = if (profile.type == SourceType.XTREAM.name) accountFor(profile.id) else null
+            if (info == null) {
+                b.tvExpiry.visibility = View.GONE
+                return
+            }
+            b.tvExpiry.visibility = View.VISIBLE
+            val date = info.expDateMs?.let { formatDate(it) }
+            b.tvExpiry.text = when {
+                info.isExpired -> context.getString(R.string.xtream_expired_short)
+                date == null -> context.getString(R.string.xtream_unlimited)
+                else -> context.getString(R.string.xtream_expires_short, date)
+            }
+            b.tvExpiry.setTextColor(
+                ContextCompat.getColor(
+                    context,
+                    when {
+                        info.isExpired -> R.color.error
+                        info.isExpiringSoon -> R.color.favorite_yellow
+                        else -> R.color.text_secondary
+                    }
+                )
+            )
         }
     }
 

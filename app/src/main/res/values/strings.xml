@@ -85,6 +85,13 @@
     <string name="settings_refresh_catalog">Actualiser le catalogue</string>
     <string name="settings_no_active_profile">Aucune source active</string>
     <string name="settings_last_update">Dernière mise à jour : %s</string>
+    <string name="xtream_expires_short">Exp. %s</string>
+    <string name="xtream_expired_short">⚠ Expiré</string>
+    <string name="xtream_unlimited">Illimité</string>
+    <string name="xtream_expires_on">Abonnement : expire le %s</string>
+    <string name="xtream_expired_on">⚠ Abonnement expiré le %s</string>
+    <string name="xtream_expired_long">⚠ Abonnement expiré</string>
+    <string name="xtream_unlimited_long">Abonnement : sans date d\'expiration</string>
     <string name="settings_section_language">Langue du contenu</string>
     <string name="settings_content_language">Films / Séries / Chaînes</string>
     <string name="settings_content_language_all">Toutes langues</string>

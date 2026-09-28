@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.text.format.DateUtils
 import android.view.View
+import androidx.core.content.ContextCompat
 import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
 import com.nicotv.iptv2.IptvApplication
@@ -78,7 +79,8 @@ class SettingsActivity : BaseActivity() {
 
     private fun updateLastUpdateLabel() {
         lifecycleScope.launch {
-            val profile = (application as IptvApplication).playlistRepository.getActiveProfile()
+            val repo = (application as IptvApplication).playlistRepository
+            val profile = repo.getActiveProfile()
             binding.tvLastUpdate.text = if (profile == null) {
                 getString(R.string.settings_no_active_profile)
             } else {
@@ -87,7 +89,37 @@ class SettingsActivity : BaseActivity() {
                 )
                 getString(R.string.settings_last_update, relative)
             }
+            showXtreamExpiry(profile?.let { repo.getXtreamAccount(it.id) })
+            // Valeur fraîche lue sur le panel (appel léger user_info).
+            if (profile != null) showXtreamExpiry(repo.refreshXtreamAccount(profile))
         }
+    }
+
+    /** Date d'expiration de l'abonnement Xtream du profil actif, sous
+     * "Dernière mise à jour" — rouge si expiré, jaune si < 7 jours. */
+    private fun showXtreamExpiry(info: com.nicotv.iptv2.data.xtream.XtAccountInfo?) {
+        if (info == null) {
+            binding.tvXtreamExpiry.visibility = View.GONE
+            return
+        }
+        val date = info.expDateMs?.let { com.nicotv.iptv2.data.xtream.formatDate(it) }
+        binding.tvXtreamExpiry.visibility = View.VISIBLE
+        binding.tvXtreamExpiry.text = when {
+            info.isExpired && date != null -> getString(R.string.xtream_expired_on, date)
+            info.isExpired -> getString(R.string.xtream_expired_long)
+            date == null -> getString(R.string.xtream_unlimited_long)
+            else -> getString(R.string.xtream_expires_on, date)
+        }
+        binding.tvXtreamExpiry.setTextColor(
+            ContextCompat.getColor(
+                this,
+                when {
+                    info.isExpired -> R.color.error
+                    info.isExpiringSoon -> R.color.favorite_yellow
+                    else -> R.color.text_secondary
+                }
+            )
+        )
     }
 
     /** Chaque ViewModel (Movies/Series/Live) lit ce réglage une seule fois à sa

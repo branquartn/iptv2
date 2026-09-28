@@ -5,6 +5,7 @@ import android.net.Uri
 import com.nicotv.iptv2.data.PlaylistSourcePrefs
 import com.nicotv.iptv2.data.ProfileBackupPrefs
 import com.nicotv.iptv2.data.SourceType
+import com.nicotv.iptv2.data.XtreamAccountPrefs
 import androidx.room.withTransaction
 import com.nicotv.iptv2.data.database.AppDatabase
 import com.nicotv.iptv2.data.database.entity.ChannelEntity
@@ -18,6 +19,7 @@ import com.nicotv.iptv2.data.m3u.M3uEntry
 import com.nicotv.iptv2.data.m3u.M3uParser
 import com.nicotv.iptv2.AppConfig
 import com.nicotv.iptv2.data.tmdb.TmdbClient
+import com.nicotv.iptv2.data.xtream.XtAccountInfo
 import com.nicotv.iptv2.data.xtream.XtreamClient
 import com.nicotv.iptv2.domain.model.Channel
 import com.nicotv.iptv2.domain.model.EpisodeProgress
@@ -117,6 +119,25 @@ class PlaylistRepository(
 
     fun getProfiles(): Flow<List<PlaylistProfileEntity>> = db.playlistProfileDao().getAll()
 
+    // Date d'expiration Xtream : mémorisée à chaque login (loadXtream) et
+    // rafraîchie à l'ouverture de l'écran Profils (refreshXtreamAccount).
+    private val xtreamAccountPrefs = XtreamAccountPrefs(context)
+
+    /** Dernières infos d'abonnement connues (null si jamais lues / pas Xtream). */
+    fun getXtreamAccount(profileId: Long): XtAccountInfo? = xtreamAccountPrefs.get(profileId)
+
+    /** Relit user_info sur le panel (1 seul appel léger, pas de catalogue) et
+     * mémorise le résultat. Best-effort : en cas d'échec réseau, renvoie la
+     * dernière valeur connue. */
+    suspend fun refreshXtreamAccount(profile: PlaylistProfileEntity): XtAccountInfo? =
+        withContext(Dispatchers.IO) {
+            if (profile.type != SourceType.XTREAM.name) return@withContext null
+            runCatching {
+                xtreamClientFor(profile).login { xtreamAccountPrefs.set(profile.id, it) }
+            }
+            xtreamAccountPrefs.get(profile.id)
+        }
+
     suspend fun getProfile(id: Long): PlaylistProfileEntity? =
         withContext(Dispatchers.IO) { db.playlistProfileDao().getById(id) }
 
@@ -154,6 +175,7 @@ class PlaylistRepository(
 
     suspend fun deleteProfile(id: Long) = withContext(Dispatchers.IO) {
         db.playlistProfileDao().delete(id)
+        xtreamAccountPrefs.remove(id)
         if (sourcePrefs.getActiveProfileId() == id) sourcePrefs.setActiveProfileId(null)
         backupProfiles()
     }
@@ -508,7 +530,7 @@ class PlaylistRepository(
         // enrichMovies, seule étape du chargement M3U qui a un vrai compteur).
         onProgress(10, "Connexion au serveur…")
         val client = xtreamClientFor(profile)
-        client.login()
+        client.login { xtreamAccountPrefs.set(profile.id, it) }
 
         onProgress(30, "Récupération des chaînes…")
         // ⚠️ On garde les LISTES autant que les Map : le panel renvoie ses

@@ -120,6 +120,8 @@ class SetupActivity : BaseActivity() {
             androidx.recyclerview.widget.LinearLayoutManager(this, androidx.recyclerview.widget.LinearLayoutManager.HORIZONTAL, false)
         binding.rvProfiles.clipToPadding = false
         binding.rvProfiles.adapter = profileAdapter
+        val repo = (application as IptvApplication).playlistRepository
+        profileAdapter.accountFor = { id -> repo.getXtreamAccount(id) }
 
         lifecycleScope.launch {
             // Filet : si Room a perdu les profils (montée de schéma destructive,
@@ -145,6 +147,24 @@ class SetupActivity : BaseActivity() {
                 // explicite après l'avoir mis à jour, submitList seul ne suffit pas ici.
                 profileAdapter.activeProfileId = (application as IptvApplication).playlistRepository.getActiveProfile()?.id
                 profileAdapter.submitList(profiles)
+                profileAdapter.notifyDataSetChanged()
+                refreshXtreamAccounts(profiles)
+            }
+        }
+    }
+
+    // Profils Xtream dont la date d'expiration a déjà été relue sur le panel
+    // pendant la vie de cet écran — 1 seul appel par profil, pas à chaque
+    // émission du Flow (touchLastUsed en réémet une à chaque chargement).
+    private val accountsRefreshed = mutableSetOf<Long>()
+
+    /** Relit la date d'expiration des profils Xtream en fond (valeur mémorisée
+     * affichée tout de suite, remplacée par la fraîche dès réception). */
+    private fun refreshXtreamAccounts(profiles: List<PlaylistProfileEntity>) {
+        val repo = (application as IptvApplication).playlistRepository
+        profiles.filter { it.type == "XTREAM" && accountsRefreshed.add(it.id) }.forEach { profile ->
+            lifecycleScope.launch {
+                repo.refreshXtreamAccount(profile)
                 profileAdapter.notifyDataSetChanged()
             }
         }

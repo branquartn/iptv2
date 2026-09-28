@@ -60,3 +60,28 @@ data class XtVodInfo(
     val durationSecs: Int = 0,
     val backdropUrl: String = ""
 )
+
+/** Infos abonnement renvoyées par user_info (login). [expDateMs] null =
+ * pas de date d'expiration communiquée (abonnement illimité ou panel qui ne
+ * la renseigne pas). [status] tel que renvoyé par le panel ("Active",
+ * "Expired", "Banned"...). [checkedAt] = date de la dernière lecture. */
+data class XtAccountInfo(
+    val expDateMs: Long?,
+    val status: String,
+    val checkedAt: Long = System.currentTimeMillis()
+) {
+    /** Expiré si le panel le dit OU si la date est passée (certains panels
+     * laissent "Active" quelques heures après l'échéance). */
+    val isExpired: Boolean
+        get() = status.equals("Expired", ignoreCase = true) ||
+            (expDateMs != null && expDateMs < System.currentTimeMillis())
+
+    /** Expire dans moins de [EXPIRING_SOON_MS] (pas encore expiré). */
+    val isExpiringSoon: Boolean
+        get() = !isExpired && expDateMs != null &&
+            expDateMs - System.currentTimeMillis() < EXPIRING_SOON_MS
+
+    companion object {
+        const val EXPIRING_SOON_MS = 7L * 24 * 3600 * 1000
+    }
+}

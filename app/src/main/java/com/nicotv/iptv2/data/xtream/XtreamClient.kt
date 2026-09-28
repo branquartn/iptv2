@@ -73,16 +73,39 @@ class XtreamClient(
     }
 
     /** Vérifie les identifiants. Lève XtreamException si le panel refuse
-     * explicitement (auth=0) ou si la requête échoue (réseau/HTTP). */
-    suspend fun login() {
+     * explicitement (auth=0) ou si la requête échoue (réseau/HTTP). Renvoie les
+     * infos d'abonnement (date d'expiration) quand le login réussit ; [onAccount]
+     * les reçoit AVANT un éventuel refus, pour mémoriser un abonnement expiré
+     * (auth=0 + status "Expired" sur beaucoup de panels). */
+    suspend fun login(onAccount: (XtAccountInfo) -> Unit = {}): XtAccountInfo {
         val json = callObject("")
         val userInfo = json.optJSONObject("user_info")
             ?: throw XtreamException("Réponse inattendue du serveur (pas un panel Xtream Codes ?)")
+        val account = parseAccount(userInfo)
+        onAccount(account)
         val auth = userInfo.optInt("auth", userInfo.optString("auth", "0").toIntOrNull() ?: 0)
         if (auth != 1) {
             val msg = userInfo.optString("message", "")
-            throw XtreamException(if (msg.isNotBlank()) msg else "Identifiants refusés")
+            throw XtreamException(
+                when {
+                    account.isExpired -> "Abonnement expiré" +
+                        (account.expDateMs?.let { " le " + formatDate(it) } ?: "")
+                    msg.isNotBlank() -> msg
+                    else -> "Identifiants refusés"
+                }
+            )
         }
+        return account
+    }
+
+    /** exp_date : timestamp Unix en SECONDES, en string ou en nombre selon le
+     * panel, parfois null/"null"/"0" (= pas d'échéance). */
+    private fun parseAccount(userInfo: JSONObject): XtAccountInfo {
+        val expSec = userInfo.opt("exp_date")?.toString()?.trim()?.toLongOrNull()
+        return XtAccountInfo(
+            expDateMs = expSec?.takeIf { it > 0 }?.let { it * 1000 },
+            status = userInfo.optString("status", "")
+        )
     }
 
     suspend fun getLiveCategories(): List<XtCategory> = parseCategories(callArray("get_live_categories"))
@@ -227,3 +250,7 @@ class XtreamClient(
      * quand cette dernière ne renvoie aucun flux malgré un login réussi. */
     fun playlistM3uUrl(): String = "$base/get.php?username=${enc(username)}&password=${enc(password)}&type=m3u_plus&output=mpegts"
 }
+
+/** Date d'expiration au format court français (jj/mm/aaaa). */
+fun formatDate(ms: Long): String =
+    java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.FRANCE).format(java.util.Date(ms))
