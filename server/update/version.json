@@ -1,6 +1,6 @@
 {
-  "versionCode": 89,
-  "versionName": "1.0.88",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.88.apk",
+  "versionCode": 90,
+  "versionName": "1.0.89",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.89.apk",
   "changelog": "Test : conversion vidéo automatique via le serveur NicoTV si un flux ne se lit pas (codec non supporté)."
 }
