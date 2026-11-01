@@ -1,6 +1,7 @@
-{
-  "versionCode": 97,
-  "versionName": "1.0.96",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.96.apk",
-  "changelog": "• Accueil : nouvelle icône ⇄ pour changer de playlist en direct (visible quand l'admin t'en a attribué plusieurs) ; le chargement se fait en arrière-plan avec le pourcentage en haut"
-}
+            {
+              "versionCode": 99,
+              "versionName": "1.0.98",
+              "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.98.apk",
+              "changelog": "• Les cartes Films et Séries sont toujours visibles, même si l'administrateur coupe les films/séries d'une playlist : tes films et séries du serveur restent accessibles
+• Quand l'administrateur coupe les films ou les séries d'une playlist, ils disparaissent de l'appli (rechargement automatique en arrière-plan, au plus une minute après)"
+            }
