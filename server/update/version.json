@@ -1,6 +1,6 @@
 {
-  "versionCode": 104,
-  "versionName": "1.0.103",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.103.apk",
-  "changelog": "• Lecteur : plus d'écran noir muet — la barre de lecture est visible dès le début et un message au centre indique l'état (connexion, code Xtream déjà utilisé, conversion, lecture indisponible) ; l'écran ne se ferme plus tout seul"
+  "versionCode": 106,
+  "versionName": "1.0.105",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.105.apk",
+  "changelog": "• Lecture réparée : films, séries et chaînes ne démarraient plus du tout (le lecteur restait à 00:00 sur écran noir)"
 }
