@@ -1,6 +1,6 @@
 {
-  "versionCode": 102,
-  "versionName": "1.0.101",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.101.apk",
-  "changelog": "• Films et séries : jaquettes plus petites (plus d'affiches par ligne), comme dans l'app iptv"
+  "versionCode": 103,
+  "versionName": "1.0.102",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.102.apk",
+  "changelog": "• Lecture : si le code Xtream de la playlist est déjà utilisé sur un autre appareil (1 connexion max), un message l'explique tout de suite au lieu d'un écran noir"
 }
