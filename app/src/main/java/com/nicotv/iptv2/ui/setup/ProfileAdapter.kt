@@ -61,6 +61,7 @@ class ProfileAdapter(
                 SourceType.M3U_URL.name -> context.getString(R.string.setup_profile_type_m3u_url)
                 SourceType.M3U_FILE.name -> context.getString(R.string.setup_profile_type_m3u_file)
                 SourceType.XTREAM.name -> context.getString(R.string.setup_profile_type_xtream)
+                SourceType.SERVER.name -> "Films et séries du serveur"
                 else -> profile.type
             }
             val relativeUse = DateUtils.getRelativeTimeSpanString(
@@ -87,6 +88,7 @@ class ProfileAdapter(
                 when (profile.type) {
                     SourceType.XTREAM.name -> R.drawable.ic_settings
                     SourceType.M3U_FILE.name -> R.drawable.ic_download
+                    SourceType.SERVER.name -> R.drawable.ic_movies
                     else -> R.drawable.ic_refresh
                 }
             )

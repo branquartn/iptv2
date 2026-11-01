@@ -40,6 +40,7 @@ class IptvApplication : Application(), ImageLoaderFactory {
         PlaylistRepository(this, database, okHttpClient, sourcePrefs, appScope).also { repo ->
             // Films / séries autorisés par l'admin pour le profil chargé.
             repo.contentFlags = { id -> sessionManager.getContentFlags(id) }
+            repo.serverToken = { sessionManager.getToken() }
         }
     }
 

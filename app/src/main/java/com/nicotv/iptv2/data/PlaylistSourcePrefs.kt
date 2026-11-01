@@ -5,7 +5,7 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 
 /** Type de source d'un profil (cf. PlaylistProfileEntity.type). */
-enum class SourceType { M3U_URL, M3U_FILE, XTREAM }
+enum class SourceType { M3U_URL, M3U_FILE, XTREAM, SERVER }
 
 /** Ne retient que l'id du profil actif — les profils eux-mêmes (nom,
  * identifiants) vivent dans Room (PlaylistProfileEntity), pas ici : plusieurs

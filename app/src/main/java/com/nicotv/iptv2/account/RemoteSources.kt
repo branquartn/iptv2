@@ -42,7 +42,8 @@ class RemoteSources(
 
         // 1) profils sans lien avec un code du serveur (anciens profils locaux) ou dont le code a disparu
         val keepLocalIds = map.filterKeys { it in remoteIds }.values.toSet()
-        local.filter { it.id !in keepLocalIds }.forEach { repo.deleteProfile(it.id) }
+        // « Mon serveur » n'est pas un code Xtream : on le garde (créé ci-dessous s'il manque).
+        local.filter { it.id !in keepLocalIds && it.type != com.nicotv.iptv2.data.SourceType.SERVER.name }.forEach { repo.deleteProfile(it.id) }
         map.keys.retainAll(remoteIds)
 
         // 2) création / mise à jour
@@ -68,6 +69,7 @@ class RemoteSources(
             flags[localId] = newFlags
             if (localId == activeId && (credsChanged || flagsChanged)) activeChanged = localId to acc.label
         }
+        repo.ensureServerProfile()
         flags.keys.retainAll(map.values.toSet())
         session.saveContentFlagsMap(flags)
         session.saveRemoteMap(map)
