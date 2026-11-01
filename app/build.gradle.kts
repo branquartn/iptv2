@@ -10,8 +10,8 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 109
-val appVersionName = "1.0.108"
+val appVersionCode = 110
+val appVersionName = "1.1.0"
 // Changelog affiché dans le modal de mise à jour OTA.
 // ⚠️ OUBLIÉ PENDANT ~15 VERSIONS (29/08/2026, bug signalé par l'utilisateur :
 // "le texte de la maj n'est pas le bon") — appVersionCode/appVersionName ont
@@ -20,7 +20,7 @@ val appVersionName = "1.0.108"
 // modif du 28/08 alors qu'on en était à v1.0.50). Ce commentaire ne suffit
 // visiblement pas tout seul à s'en souvenir : à chaque bump de version,
 // updater CETTE ligne AVANT de commit, pas après coup.
-val appChangelog = "• Tchat à la télécommande : le message ou le bouton sélectionné est entouré en bleu, le focus démarre sur le dernier message, les flèches haut/bas sortent du champ de saisie, OK maintenu ouvre le menu d'un message, Retour referme d'abord la recherche ou la réponse"
+val appChangelog = "• Temps réel : tes films et séries du serveur se mettent à jour tout seuls (ajout, suppression) ; les modifications de l'admin et les messages du tchat arrivent en direct\n• Retirer un film ou une série de ton serveur : appui long sur OK (ou sur l'affiche)\n• Nouveau « + » sur l'accueil : recherche un film ou une série et ajoute-le à ton serveur\n• Tchat à la télécommande : message et boutons entourés en bleu, focus sur le dernier message, flèches hors du champ de saisie, OK maintenu = menu du message"
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")

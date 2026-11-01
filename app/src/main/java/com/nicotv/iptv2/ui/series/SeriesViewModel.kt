@@ -80,6 +80,9 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
         if (contentLanguage == null) list
         else list.filter { val c = extractLeadingLanguageCode(it.category); c == null || c == contentLanguage }
 
+    // ⚠️ Déclaré AVANT le bloc init qui l'utilise (sinon « must be initialized »).
+    private val revision = MutableLiveData(0)
+
     init {
         loadCategories()
 
@@ -121,7 +124,6 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /** Temps réel : la bibliothèque du serveur a changé → recharge la liste (et les catégories). */
-    private val revision = MutableLiveData(0)
     fun refresh() { revision.value = (revision.value ?: 0) + 1 }
 
     private fun loadCategories() {
