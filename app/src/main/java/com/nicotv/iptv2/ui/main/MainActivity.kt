@@ -61,7 +61,18 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         // Rafraîchissement silencieux du catalogue si le profil actif n'a pas
         // été rechargé depuis 24h (cf. PlaylistRepository.refreshActiveProfileIfStale) —
         // best-effort, ne bloque jamais l'accueil.
-        lifecycleScope.launch { (application as IptvApplication).playlistRepository.refreshActiveProfileIfStale() }
+        lifecycleScope.launch {
+            val app = application as IptvApplication
+            // Codes Xtream de l'admin : relus au plus toutes les 5 min. Session expirée → login ;
+            // code retiré (profil actif disparu) → écran de choix.
+            if (app.remoteSources.sync(force = false) == com.nicotv.iptv2.account.RemoteSources.Status.UNAUTHORIZED) {
+                startActivity(android.content.Intent(this@MainActivity, com.nicotv.iptv2.ui.login.LoginActivity::class.java)); finish(); return@launch
+            }
+            if (!app.playlistRepository.hasValidActiveProfile()) {
+                startActivity(android.content.Intent(this@MainActivity, com.nicotv.iptv2.ui.setup.SetupActivity::class.java)); finish(); return@launch
+            }
+            if (!app.catalogLoader.isRunning) app.playlistRepository.refreshActiveProfileIfStale()
+        }
     }
 
     /** Fond plein écran de l'accueil (jaquette/backdrop tirée au sort dans le

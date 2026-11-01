@@ -543,6 +543,32 @@ class PlaylistRepository(
         val liveCats = liveCatList.associateBy { it.id }
         val liveCatOrder = liveCatList.withIndex().associate { (i, c) -> c.id to i }
         val liveStreams = client.getLiveStreams()
+        val channels = liveStreams.mapIndexed { index, stream ->
+            val cat = liveCats[stream.categoryId]?.name.orEmpty()
+            ChannelEntity(
+                name = stream.name, streamUrl = client.liveStreamUrl(stream.streamId),
+                logoUrl = stream.icon, category = cat,
+                sortOrder = index,
+                xtreamStreamId = stream.streamId,
+                nameLanguageCode = ChannelEntity.nameLanguageCodeFor(stream.name),
+                nameStripped = ChannelEntity.nameStrippedFor(stream.name),
+                categoryLanguageCode = ChannelEntity.categoryLanguageCodeFor(cat),
+                categoryStripped = ChannelEntity.categoryStrippedFor(cat),
+                tntRank = ChannelEntity.tntRankForName(stream.name),
+                categoryOrder = liveCatOrder[stream.categoryId] ?: 0
+            )
+        }
+
+        // ⚠️ Chaînes enregistrées TOUT DE SUITE (avant films/séries, bien plus longs) : le chargement
+        // tourne en arrière-plan avec un bandeau de pourcentage, et la télé est déjà regardable.
+        if (channels.isNotEmpty()) {
+            db.withTransaction {
+                db.channelDao().deleteAll()
+                insertInChunks(channels, 30, 40, "Chaînes", onProgress) { db.channelDao().insertAll(it) }
+            }
+            onProgress(40, "Chaînes prêtes — films et séries en cours…")
+        }
+
         val vodCatList = client.getVodCategories()
         val vodCats = vodCatList.associateBy { it.id }
         val vodCatOrder = vodCatList.withIndex().associate { (i, c) -> c.id to i }
@@ -569,22 +595,6 @@ class PlaylistRepository(
         // l'était que pour le M3U) : toutes les chaînes valaient 0, donc l'ordre
         // du panel était perdu. mapIndexed le corrige — même principe que les
         // films (cf. vodStreams).
-        val channels = liveStreams.mapIndexed { index, stream ->
-            val cat = liveCats[stream.categoryId]?.name.orEmpty()
-            ChannelEntity(
-                name = stream.name, streamUrl = client.liveStreamUrl(stream.streamId),
-                logoUrl = stream.icon, category = cat,
-                sortOrder = index,
-                xtreamStreamId = stream.streamId,
-                nameLanguageCode = ChannelEntity.nameLanguageCodeFor(stream.name),
-                nameStripped = ChannelEntity.nameStrippedFor(stream.name),
-                categoryLanguageCode = ChannelEntity.categoryLanguageCodeFor(cat),
-                categoryStripped = ChannelEntity.categoryStrippedFor(cat),
-                tntRank = ChannelEntity.tntRankForName(stream.name),
-                categoryOrder = liveCatOrder[stream.categoryId] ?: 0
-            )
-        }
-
         // Pas d'appel TMDb pour Xtream (contrairement au M3U, dont le tvg-logo
         // est peu fiable) : le panel fournit déjà icône/plot/rating/cover pour
         // la quasi-totalité de son catalogue. Sur un panel à plusieurs dizaines
@@ -633,8 +643,8 @@ class PlaylistRepository(
 
         // Une seule transaction pour tout le remplacement — cf. replaceCatalog.
         db.withTransaction {
-            db.channelDao().deleteAll(); db.movieDao().deleteAll(); db.seriesDao().deleteAll()
-            insertInChunks(channels, 90, 93, "Chaînes", onProgress) { db.channelDao().insertAll(it) }
+            if (channels.isEmpty()) db.channelDao().deleteAll()   // sinon déjà remplacées plus haut
+            db.movieDao().deleteAll(); db.seriesDao().deleteAll()
             insertInChunks(movies, 93, 98, "Films", onProgress) { db.movieDao().insertAll(it) }
             insertInChunks(seriesEntities, 98, 99, "Séries", onProgress) { db.seriesDao().insertAll(it) }
         }

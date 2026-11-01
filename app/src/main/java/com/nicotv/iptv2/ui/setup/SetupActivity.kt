@@ -14,6 +14,8 @@ import com.nicotv.iptv2.databinding.ActivitySetupBinding
 import com.nicotv.iptv2.ui.common.BaseActivity
 import com.nicotv.iptv2.ui.common.LoadingDialog
 import com.nicotv.iptv2.ui.common.RotatingBorderView
+import com.nicotv.iptv2.ui.login.LoginActivity
+import kotlinx.coroutines.withTimeoutOrNull
 import com.nicotv.iptv2.ui.main.MainActivity
 import com.nicotv.iptv2.update.checkForAppUpdate
 import kotlinx.coroutines.launch
@@ -56,6 +58,8 @@ class SetupActivity : BaseActivity() {
         val splashScreen = installSplashScreen()
         splashScreen.setKeepOnScreenCondition { keepSplashOn }
         super.onCreate(savedInstanceState)
+        // App privée : sans session NicoTV, retour au login.
+        if (!(application as IptvApplication).sessionManager.isLoggedIn()) { goToLogin(); return }
         binding = ActivitySetupBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -96,15 +100,15 @@ class SetupActivity : BaseActivity() {
      * `MainActivity.onStart()` faire CE check, à froid (throttle intact,
      * activité stable, pas en cours de finish()). */
     private fun maybeAutoLoadLastProfile() {
-        if (intent.getBooleanExtra(EXTRA_FORCE_SHOW, false)) {
-            keepSplashOn = false
-            checkForAppUpdate()
-            return
-        }
+        val forced = intent.getBooleanExtra(EXTRA_FORCE_SHOW, false)
         lifecycleScope.launch {
-            val hasActiveProfile = (application as IptvApplication).playlistRepository.hasValidActiveProfile()
+            val app = application as IptvApplication
+            // Récupère les codes Xtream attribués par l'admin. Plafonné à 4 s : hors-ligne, on garde ce qu'on a.
+            val status = withTimeoutOrNull(4_000L) { app.remoteSources.sync(force = forced) }
+            if (status == com.nicotv.iptv2.account.RemoteSources.Status.UNAUTHORIZED) { keepSplashOn = false; goToLogin(); return@launch }
+            val hasActiveProfile = app.playlistRepository.hasValidActiveProfile()
             keepSplashOn = false
-            if (hasActiveProfile) goToMain() else checkForAppUpdate()
+            if (hasActiveProfile && !forced) goToMain() else checkForAppUpdate()
         }
     }
 
@@ -195,6 +199,10 @@ class SetupActivity : BaseActivity() {
     }
 
     private fun setupTypeCards() {
+        // App privée : les codes sont attribués par l'admin, plus d'ajout manuel de playlist/Xtream.
+        binding.cardTypePlaylist.visibility = View.GONE
+        binding.cardTypeXtream.visibility = View.GONE
+        if (true) return
         val cards = listOf(
             Triple(binding.cardTypePlaylist, binding.cardTypePlaylistRing) {
                 startActivity(Intent(this, AddPlaylistActivity::class.java))
@@ -245,21 +253,14 @@ class SetupActivity : BaseActivity() {
             goToMain()
             return
         }
-        setLoading(true)
+        // Chargement EN ARRIÈRE-PLAN : on entre tout de suite dans l'appli, un bandeau en haut affiche le
+        // pourcentage (cf. BaseActivity) et la télé reste utilisable pendant que films/séries se chargent.
         lifecycleScope.launch {
-            val result = (application as IptvApplication).playlistRepository.loadProfile(profileId) { pct, msg ->
-                loadingDialog?.onProgress(pct, msg)
-            }
-            setLoading(false)
-            result.onSuccess { count ->
-                showStatus(getString(R.string.setup_success, count))
-                // Nouveau catalogue chargé : le fond aléatoire de l'accueil ne doit
-                // pas garder une jaquette de l'ancienne source.
-                com.nicotv.iptv2.ui.main.MainActivity.resetHomeBg()
-                goToMain()
-            }.onFailure { e ->
-                showStatus(e.message ?: getString(R.string.setup_error_generic))
-            }
+            val app = application as IptvApplication
+            val name = app.playlistRepository.getProfile(profileId)?.name ?: "Playlist"
+            com.nicotv.iptv2.ui.main.MainActivity.resetHomeBg()
+            app.catalogLoader.start(profileId, name)
+            goToMain()
         }
     }
 
@@ -289,6 +290,12 @@ class SetupActivity : BaseActivity() {
             ring.visibility = if (hasFocus) View.VISIBLE else View.INVISIBLE
             if (hasFocus) ring.startAnim() else ring.stopAnim()
         }
+    }
+
+    private fun goToLogin() {
+        keepSplashOn = false
+        startActivity(Intent(this, LoginActivity::class.java))
+        finish()
     }
 
     private fun goToMain() {

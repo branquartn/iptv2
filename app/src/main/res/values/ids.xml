@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Bandeau de chargement de la playlist (cf. BaseActivity.onStart). -->
+    <item name="load_banner_text" type="id" />
+    <item name="load_banner_bar" type="id" />
+</resources>

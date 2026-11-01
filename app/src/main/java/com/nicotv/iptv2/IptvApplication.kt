@@ -40,6 +40,13 @@ class IptvApplication : Application(), ImageLoaderFactory {
         PlaylistRepository(this, database, okHttpClient, sourcePrefs, appScope)
     }
 
+    // Compte NicoTV (même login que l'app iptv) + codes Xtream gérés à distance par l'admin.
+    val sessionManager by lazy { com.nicotv.iptv2.account.SessionManager(this) }
+    val accountApi by lazy { com.nicotv.iptv2.account.AccountApi(okHttpClient, sessionManager) }
+    val remoteSources by lazy { com.nicotv.iptv2.account.RemoteSources(accountApi, sessionManager, playlistRepository, sourcePrefs) }
+    // Chargement de la playlist en arrière-plan, avec pourcentage (bandeau en haut de chaque écran).
+    val catalogLoader by lazy { com.nicotv.iptv2.account.CatalogLoader(this) }
+
     // Config Coil explicite (défaut sinon non borné en usage réel : mur
     // d'affiches films/séries/chaînes potentiellement énorme sur un gros
     // panel Xtream). 300 Mo de cache disque, 25% de la RAM dispo en mémoire —

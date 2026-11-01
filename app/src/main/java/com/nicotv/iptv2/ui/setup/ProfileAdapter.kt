@@ -91,8 +91,9 @@ class ProfileAdapter(
                 }
             )
             b.root.setOnClickListener { onClick(profile) }
-            b.btnEdit.setOnClickListener { onEdit(profile) }
-            b.btnDelete.setOnClickListener { onDelete(profile) }
+            // Profils gérés par l'admin : ni modification ni suppression côté appli.
+            b.btnEdit.visibility = android.view.View.GONE
+            b.btnDelete.visibility = android.view.View.GONE
         }
 
         private fun bindExpiry(profile: PlaylistProfileEntity) {

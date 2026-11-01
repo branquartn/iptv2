@@ -54,6 +54,14 @@
             </intent-filter>
         </activity-alias>
 
+        <!-- Login NicoTV (app privée) -->
+        <activity
+            android:name=".ui.login.LoginActivity"
+            android:screenOrientation="sensorLandscape"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize"
+            android:exported="false" />
+
         <!-- Pages complètes "Charger votre playlist" / "Xtream Codes"
              (29/08/2026, remplacent les anciens AlertDialog centrés). -->
         <activity

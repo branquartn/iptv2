@@ -54,6 +54,24 @@ class SettingsActivity : BaseActivity() {
 
         updateLastUpdateLabel()
         updateImageCacheSizeLabel()
+
+        // Compte NicoTV : identité + déconnexion (efface la session et les profils du serveur).
+        val iptvApp = application as com.nicotv.iptv2.IptvApplication
+        binding.tvAccountName.text = iptvApp.sessionManager.getUsername()
+        binding.btnLogout.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Se déconnecter ?")
+                .setMessage("Tu devras te reconnecter pour retrouver tes playlists.")
+                .setNegativeButton("Annuler", null)
+                .setPositiveButton("Se déconnecter") { _, _ ->
+                    lifecycleScope.launch {
+                        iptvApp.remoteSources.logout()
+                        startActivity(Intent(this@SettingsActivity, com.nicotv.iptv2.ui.login.LoginActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+                    }
+                }
+                .show()
+        }
     }
 
     override fun onResume() {

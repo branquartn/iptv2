@@ -8,6 +8,11 @@ object AppConfig {
         const val VERSION_URL = "https://iptv2.nicotv.ovh/update/version.json"
     }
 
+    object Account {
+        // Login (mêmes comptes que NicoTV) + codes Xtream attribués par l'admin (admin.nicotv.ovh).
+        const val BASE_URL = "https://api.nicotv.ovh/"
+    }
+
     object Transcode {
         // Réutilise le même serveur/pipeline ffmpeg que NicoTV (cf. api/iptv.php,
         // actions pub_remux/pub_audiofmt) — pool de quota SÉPARÉ de NicoTV, ne peut
