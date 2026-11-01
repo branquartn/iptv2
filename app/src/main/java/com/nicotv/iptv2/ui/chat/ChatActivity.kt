@@ -31,6 +31,7 @@ import com.nicotv.iptv2.R
 import com.nicotv.iptv2.chat.ChatMessage
 import com.nicotv.iptv2.databinding.ActivityChatBinding
 import com.nicotv.iptv2.ui.common.BaseActivity
+import com.nicotv.iptv2.ui.common.isTvDevice
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -59,6 +60,7 @@ class ChatActivity : BaseActivity() {
     private var replyTo: ChatMessage? = null
     private var allMessages: List<ChatMessage> = emptyList()
     private var searchQuery = ""
+    private var initialFocusDone = false
     // Dernier message lu à l'ouverture : sert au bandeau « Messages non lus ».
     private var lastReadAtOpen = 0L
     private val quickReactions = listOf("❤️", "👍", "👎", "🔥", "🥰", "👏", "😁")
@@ -105,6 +107,17 @@ class ChatActivity : BaseActivity() {
         binding.rvChat.itemAnimator = null
 
         binding.btnChatBack.setOnClickListener { finish() }
+        // Télécommande : Retour referme d'abord la recherche, la réponse ou la modification en cours, puis quitte le tchat.
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                when {
+                    binding.chatSearchBar.visibility == android.view.View.VISIBLE -> closeSearch()
+                    replyTo != null -> setReply(null)
+                    editingId > 0L -> cancelEdit(clearText = true)
+                    else -> finish()
+                }
+            }
+        })
         binding.btnChatSearch.setOnClickListener { openSearch() }
         binding.btnChatSearchClose.setOnClickListener { closeSearch() }
         binding.etChatSearch.doAfterTextChanged { searchQuery = it?.toString().orEmpty().trim(); render(scrollBottom = false) }
@@ -130,6 +143,16 @@ class ChatActivity : BaseActivity() {
         binding.btnChatAction.setOnClickListener { onAction() }
         binding.tvEditBar.setOnClickListener { cancelEdit(clearText = true) }
         binding.etChat.doAfterTextChanged { updateActionIcon() }
+        // Télécommande : un champ multiligne garde les flèches haut/bas pour le curseur → impossible d'en sortir.
+        // On les redonne à la navigation (le curseur reste mobile au tactile / clavier physique via gauche-droite).
+        binding.etChat.setOnKeyListener { v, keyCode, event ->
+            if (event.action == android.view.KeyEvent.ACTION_DOWN &&
+                (keyCode == android.view.KeyEvent.KEYCODE_DPAD_UP || keyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN)) {
+                val dir = if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_UP) android.view.View.FOCUS_UP else android.view.View.FOCUS_DOWN
+                v.focusSearch(dir)?.requestFocus()
+                true
+            } else false
+        }
         updateActionIcon()
 
         lifecycleScope.launch {
@@ -171,6 +194,14 @@ class ChatActivity : BaseActivity() {
         binding.tvChatSearchCount.text = if (q.isEmpty()) "" else "${shown.size}/${allMessages.size}"
         adapter.submitMessages(shown, if (q.isEmpty()) lastReadAtOpen else 0L) {
             if (scrollBottom && adapter.itemCount > 0) binding.rvChat.scrollToPosition(adapter.itemCount - 1)
+            // Télécommande : au premier affichage, le focus va sur le dernier message (sinon il reste sur « retour »).
+            if (!initialFocusDone && adapter.itemCount > 0 && isTvDevice()) {
+                initialFocusDone = true
+                binding.rvChat.postDelayed({
+                    val last = adapter.itemCount - 1
+                    (binding.rvChat.findViewHolderForAdapterPosition(last) as? ChatAdapter.MsgVH)?.b?.bubble?.requestFocus()
+                }, 350)
+            }
         }
         binding.tvChatEmpty.text = if (q.isNotEmpty()) "Aucun résultat." else "Pas encore de message."
         binding.tvChatEmpty.visibility = if (shown.isEmpty()) android.view.View.VISIBLE else android.view.View.GONE
