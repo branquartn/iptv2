@@ -1,7 +1,6 @@
-            {
-              "versionCode": 99,
-              "versionName": "1.0.98",
-              "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.98.apk",
-              "changelog": "• Les cartes Films et Séries sont toujours visibles, même si l'administrateur coupe les films/séries d'une playlist : tes films et séries du serveur restent accessibles
-• Quand l'administrateur coupe les films ou les séries d'une playlist, ils disparaissent de l'appli (rechargement automatique en arrière-plan, au plus une minute après)"
-            }
+{
+  "versionCode": 101,
+  "versionName": "1.0.100",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.100.apk",
+  "changelog": "• Changer de playlist est instantané : chaque playlist garde son propre cache, rien n'est retéléchargé tant qu'il a moins de 7 jours (rechargement complet seulement de temps en temps, ou si l'administrateur a modifié la playlist)"
+}
