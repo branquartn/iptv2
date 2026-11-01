@@ -1,6 +1,6 @@
 {
-  "versionCode": 90,
-  "versionName": "1.0.89",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.89.apk",
-  "changelog": "Test : conversion vidéo automatique via le serveur NicoTV si un flux ne se lit pas (codec non supporté)."
+  "versionCode": 94,
+  "versionName": "1.0.93",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.93.apk",
+  "changelog": "• Nouvelle source « Mon serveur » : les films et séries de ta bibliothèque NicoTV, à choisir sur l'écran des sources à côté de tes codes Xtream (pas de chaînes en direct avec cette source)"
 }
