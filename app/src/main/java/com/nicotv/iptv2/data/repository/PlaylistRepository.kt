@@ -74,6 +74,9 @@ class PlaylistRepository(
     /** Jeton NicoTV (posé par IptvApplication) : sert à lire la bibliothèque « Mon serveur » et à signer les liens d'épisodes. */
     var serverToken: () -> String = { "" }
 
+    /** Appelé après un chargement Xtream réussi avec les réglages (films, séries) qu'il a appliqués. */
+    var onFlagsApplied: (Long, Pair<Boolean, Boolean>) -> Unit = { _, _ -> }
+
     companion object {
         // Reprise affichée dès 5s de lecture (comme NicoTV) — sous ce seuil, pas
         // la peine de proposer une reprise pour quelques secondes de générique/pub.
@@ -761,6 +764,7 @@ class PlaylistRepository(
         // Épisodes chargés à la demande (loadEpisodesForSeries) : des milliers de
         // séries impliqueraient sinon des milliers d'appels get_series_info au
         // chargement initial — bien trop long.
+        onFlagsApplied(profile.id, filmsOn to seriesOn)
         channels.size + movies.size + seriesList.size
     }
 

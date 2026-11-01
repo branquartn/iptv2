@@ -60,6 +60,19 @@ class SessionManager(context: Context) {
         putString(KEY_FLAGS, o.toString())
     }
 
+    // Réglages (films, séries) utilisés pour construire le catalogue actuellement en base, par profil local.
+    // Comparés aux réglages de l'admin : s'ils diffèrent, le catalogue est périmé → rechargement.
+    fun getLoadedFlags(localId: Long): Pair<Boolean, Boolean>? = runCatching {
+        val a = org.json.JSONObject(prefs.getString(KEY_LOADED_FLAGS, "{}") ?: "{}").optJSONArray(localId.toString())
+        if (a == null) null else a.optBoolean(0, true) to a.optBoolean(1, true)
+    }.getOrNull()
+
+    fun setLoadedFlags(localId: Long, flags: Pair<Boolean, Boolean>) = prefs.edit {
+        val o = runCatching { org.json.JSONObject(prefs.getString(KEY_LOADED_FLAGS, "{}") ?: "{}") }.getOrDefault(org.json.JSONObject())
+        o.put(localId.toString(), org.json.JSONArray().put(flags.first).put(flags.second))
+        putString(KEY_LOADED_FLAGS, o.toString())
+    }
+
     fun getLastSyncAt(): Long = prefs.getLong(KEY_LAST_SYNC, 0L)
     fun setLastSyncAt(t: Long) = prefs.edit { putLong(KEY_LAST_SYNC, t) }
 
@@ -72,5 +85,6 @@ class SessionManager(context: Context) {
         private const val KEY_REMOTE_MAP = "remote_map"
         private const val KEY_LAST_SYNC = "last_sync"
         private const val KEY_FLAGS = "content_flags"
+        private const val KEY_LOADED_FLAGS = "loaded_flags"
     }
 }

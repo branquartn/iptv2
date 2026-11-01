@@ -21,8 +21,11 @@ class RemoteSources(
     /** Appelé quand le profil ACTIF change côté admin (identifiants ou contenu autorisé) : l'app recharge en fond. */
     var onActiveProfileChanged: ((profileId: Long, profileName: String) -> Unit)? = null
 
+    /** Posé par l'application : vrai si un chargement de catalogue est déjà en cours (évite de le relancer en boucle). */
+    var catalogReloadRunning: () -> Boolean = { false }
+
     /** [force] false : ne fait rien si une synchro a eu lieu il y a moins de [minAgeMs]. */
-    suspend fun sync(force: Boolean = true, minAgeMs: Long = 5 * 60_000L): Status {
+    suspend fun sync(force: Boolean = true, minAgeMs: Long = 30_000L): Status {
         if (!session.isLoggedIn()) return Status.UNAUTHORIZED
         if (!force && System.currentTimeMillis() - session.getLastSyncAt() < minAgeMs) return Status.OK
 
@@ -67,7 +70,13 @@ class RemoteSources(
             val newFlags = acc.films to acc.series
             val flagsChanged = flags[localId]?.let { it != newFlags } ?: false
             flags[localId] = newFlags
-            if (localId == activeId && (credsChanged || flagsChanged)) activeChanged = localId to acc.label
+            // Catalogue chargé avec d'autres réglages films/séries que ceux de l'admin (ex. films coupés APRÈS le
+            // chargement) : périmé. Jamais enregistré → on ne recharge que si l'admin a coupé quelque chose.
+            val loaded = session.getLoadedFlags(localId)
+            val catalogStale = if (loaded != null) loaded != newFlags else newFlags != (true to true)
+            if (localId == activeId && (credsChanged || flagsChanged || catalogStale) && !catalogReloadRunning()) {
+                activeChanged = localId to acc.label
+            }
         }
         flags.keys.retainAll(map.values.toSet())
         session.saveContentFlagsMap(flags)

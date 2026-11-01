@@ -41,6 +41,7 @@ class IptvApplication : Application(), ImageLoaderFactory {
             // Films / séries autorisés par l'admin pour le profil chargé.
             repo.contentFlags = { id -> sessionManager.getContentFlags(id) }
             repo.serverToken = { sessionManager.getToken() }
+            repo.onFlagsApplied = { id, flags -> sessionManager.setLoadedFlags(id, flags) }
         }
     }
 
@@ -51,6 +52,7 @@ class IptvApplication : Application(), ImageLoaderFactory {
         com.nicotv.iptv2.account.RemoteSources(accountApi, sessionManager, playlistRepository, sourcePrefs).also { rs ->
             // L'admin a changé la playlist active (identifiants ou films/séries) : rechargement en arrière-plan.
             rs.onActiveProfileChanged = { id, name -> catalogLoader.start(id, name) }
+            rs.catalogReloadRunning = { catalogLoader.isRunning }
         }
     }
     // Tchat NicoTV ↔ Telegram (mêmes routes et mêmes comptes que l'app iptv).

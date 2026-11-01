@@ -163,19 +163,12 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         binding.tvExpiry.visibility = View.VISIBLE
     }
 
-    /** Masque les tuiles Films / Séries si l'admin les a coupées pour la playlist active. */
+    /** Les cartes Films et Séries restent TOUJOURS visibles : même quand l'admin coupe films/séries d'un code
+     *  Xtream, les films et séries du serveur de l'utilisateur doivent rester accessibles. */
     private fun applyContentFlags() {
-        val app = application as IptvApplication
-        val id = app.sourcePrefs.getActiveProfileId() ?: return
-        val (films, series) = app.sessionManager.getContentFlags(id)
-        // Coupés par l'admin pour ce code : tuile masquée, sauf si le catalogue contient quand même des
-        // films/séries (ceux de « Mon serveur »).
-        lifecycleScope.launch {
-            val db = app.database
-            val loading = app.catalogLoader.isRunning   // pendant un chargement on garde les tuiles (le serveur arrive en dernier)
-            binding.cardFilms.visibility = if (films || loading || db.movieDao().count() > 0) View.VISIBLE else View.GONE
-            binding.cardSeries.visibility = if (series || loading || db.seriesDao().count() > 0) View.VISIBLE else View.GONE
-        }
+        binding.cardFilms.visibility = View.VISIBLE
+        binding.cardSeries.visibility = View.VISIBLE
+        binding.cardLive.visibility = View.VISIBLE
     }
 
     /** Fond plein écran de l'accueil (jaquette/backdrop tirée au sort dans le

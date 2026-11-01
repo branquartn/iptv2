@@ -10,8 +10,8 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 98
-val appVersionName = "1.0.97"
+val appVersionCode = 99
+val appVersionName = "1.0.98"
 // Changelog affiché dans le modal de mise à jour OTA.
 // ⚠️ OUBLIÉ PENDANT ~15 VERSIONS (29/08/2026, bug signalé par l'utilisateur :
 // "le texte de la maj n'est pas le bon") — appVersionCode/appVersionName ont
@@ -20,7 +20,7 @@ val appVersionName = "1.0.97"
 // modif du 28/08 alors qu'on en était à v1.0.50). Ce commentaire ne suffit
 // visiblement pas tout seul à s'en souvenir : à chaque bump de version,
 // updater CETTE ligne AVANT de commit, pas après coup.
-val appChangelog = "• Accueil : nom de la playlist et date d'expiration en simple texte gris (rouge si expiré), sans cadre\n• Accueil : les cartes Films et Séries réapparaissent dès que le chargement se termine (tes films du serveur arrivent en dernier)"
+val appChangelog = "• Les cartes Films et Séries sont toujours visibles, même si l'administrateur coupe les films/séries d'une playlist : tes films et séries du serveur restent accessibles\n• Quand l'administrateur coupe les films ou les séries d'une playlist, ils disparaissent de l'appli (rechargement automatique en arrière-plan, au plus une minute après)"
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
