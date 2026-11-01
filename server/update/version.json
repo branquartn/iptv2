@@ -1,6 +1,6 @@
 {
-  "versionCode": 94,
-  "versionName": "1.0.93",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.93.apk",
-  "changelog": "• Nouvelle source « Mon serveur » : les films et séries de ta bibliothèque NicoTV, à choisir sur l'écran des sources à côté de tes codes Xtream (pas de chaînes en direct avec cette source)"
+  "versionCode": 97,
+  "versionName": "1.0.96",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.96.apk",
+  "changelog": "• Accueil : nouvelle icône ⇄ pour changer de playlist en direct (visible quand l'admin t'en a attribué plusieurs) ; le chargement se fait en arrière-plan avec le pourcentage en haut"
 }
