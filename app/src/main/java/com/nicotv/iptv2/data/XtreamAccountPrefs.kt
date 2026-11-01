@@ -20,7 +20,9 @@ class XtreamAccountPrefs(context: Context) {
         return XtAccountInfo(
             expDateMs = if (exp <= 0L) null else exp,
             status = prefs.getString("status_$profileId", "").orEmpty(),
-            checkedAt = prefs.getLong("checked_$profileId", 0L)
+            checkedAt = prefs.getLong("checked_$profileId", 0L),
+            maxConnections = prefs.getInt("maxc_$profileId", 0),
+            activeConnections = prefs.getInt("actc_$profileId", 0)
         )
     }
 
@@ -29,6 +31,8 @@ class XtreamAccountPrefs(context: Context) {
             putLong("exp_$profileId", info.expDateMs ?: -1L)
             putString("status_$profileId", info.status)
             putLong("checked_$profileId", info.checkedAt)
+            putInt("maxc_$profileId", info.maxConnections)
+            putInt("actc_$profileId", info.activeConnections)
         }
     }
 
@@ -37,6 +41,8 @@ class XtreamAccountPrefs(context: Context) {
             remove("exp_$profileId")
             remove("status_$profileId")
             remove("checked_$profileId")
+            remove("maxc_$profileId")
+            remove("actc_$profileId")
         }
     }
 }

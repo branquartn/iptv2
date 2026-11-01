@@ -159,10 +159,11 @@ class PlaylistRepository(
     suspend fun refreshXtreamAccount(profile: PlaylistProfileEntity): XtAccountInfo? =
         withContext(Dispatchers.IO) {
             if (profile.type != SourceType.XTREAM.name) return@withContext null
-            runCatching {
+            // Valeur FRAÎCHE du panel (connexions en cours comprises) ; repli sur la dernière connue si injoignable.
+            val fresh = runCatching {
                 xtreamClientFor(profile).login { xtreamAccountPrefs.set(profile.id, it) }
-            }
-            xtreamAccountPrefs.get(profile.id)
+            }.getOrNull()
+            fresh ?: xtreamAccountPrefs.get(profile.id)
         }
 
     suspend fun getProfile(id: Long): PlaylistProfileEntity? =
