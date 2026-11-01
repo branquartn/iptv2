@@ -37,13 +37,21 @@ class IptvApplication : Application(), ImageLoaderFactory {
     }
 
     val playlistRepository by lazy {
-        PlaylistRepository(this, database, okHttpClient, sourcePrefs, appScope)
+        PlaylistRepository(this, database, okHttpClient, sourcePrefs, appScope).also { repo ->
+            // Films / séries autorisés par l'admin pour le profil chargé.
+            repo.contentFlags = { id -> sessionManager.getContentFlags(id) }
+        }
     }
 
     // Compte NicoTV (même login que l'app iptv) + codes Xtream gérés à distance par l'admin.
     val sessionManager by lazy { com.nicotv.iptv2.account.SessionManager(this) }
     val accountApi by lazy { com.nicotv.iptv2.account.AccountApi(okHttpClient, sessionManager) }
-    val remoteSources by lazy { com.nicotv.iptv2.account.RemoteSources(accountApi, sessionManager, playlistRepository, sourcePrefs) }
+    val remoteSources by lazy {
+        com.nicotv.iptv2.account.RemoteSources(accountApi, sessionManager, playlistRepository, sourcePrefs).also { rs ->
+            // L'admin a changé la playlist active (identifiants ou films/séries) : rechargement en arrière-plan.
+            rs.onActiveProfileChanged = { id, name -> catalogLoader.start(id, name) }
+        }
+    }
     // Tchat NicoTV ↔ Telegram (mêmes routes et mêmes comptes que l'app iptv).
     val chatApi by lazy { com.nicotv.iptv2.chat.ChatApi(okHttpClient, sessionManager, this) }
     // Chargement de la playlist en arrière-plan, avec pourcentage (bandeau en haut de chaque écran).

@@ -68,6 +68,9 @@ class PlaylistRepository(
     // supprimés le 30/08/2026 (cf. plus bas) — ne pas en recréer.
     private val appScope: CoroutineScope
 ) {
+    /** Films / séries autorisés pour un profil (posé par IptvApplication d'après les réglages de l'admin). */
+    var contentFlags: (Long) -> Pair<Boolean, Boolean> = { true to true }
+
     companion object {
         // Reprise affichée dès 5s de lecture (comme NicoTV) — sous ce seuil, pas
         // la peine de proposer une reprise pour quelques secondes de générique/pub.
@@ -576,8 +579,10 @@ class PlaylistRepository(
         val seriesCats = seriesCatList.associateBy { it.id }
         val seriesCatOrder = seriesCatList.withIndex().associate { (i, c) -> c.id to i }
         onProgress(60, "Récupération des films et séries…")
-        val vodStreams = client.getVodStreams().ifEmpty { fetchVodStreamsByCategory(client, vodCats.keys) }
-        val seriesList = client.getSeriesList().ifEmpty { fetchSeriesByCategory(client, seriesCats.keys) }
+        // L'admin peut couper films et/ou séries pour ce code : on ne les télécharge pas (chargement plus court aussi).
+        val (filmsOn, seriesOn) = contentFlags(profile.id)
+        val vodStreams = if (filmsOn) client.getVodStreams().ifEmpty { fetchVodStreamsByCategory(client, vodCats.keys) } else emptyList()
+        val seriesList = if (seriesOn) client.getSeriesList().ifEmpty { fetchSeriesByCategory(client, seriesCats.keys) } else emptyList()
 
         // login() a réussi (identifiants acceptés) mais les 3 catégories sont
         // vides : panel avec API JSON (player_api.php) désactivée/restreinte
@@ -587,7 +592,7 @@ class PlaylistRepository(
         // (get.php), supporté par la quasi-totalité des panels Xtream — même
         // pipeline que le mode M3U (classification par chemin d'URL /live/,
         // /movie/, /series/ — particulièrement fiable sur un export Xtream).
-        if (liveStreams.isEmpty() && vodStreams.isEmpty() && seriesList.isEmpty()) {
+        if (filmsOn && seriesOn && liveStreams.isEmpty() && vodStreams.isEmpty() && seriesList.isEmpty()) {
             return@withContext loadM3u(fetchUrl(client.playlistM3uUrl()), onProgress)
         }
 

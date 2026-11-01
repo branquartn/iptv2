@@ -71,8 +71,19 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
             if (!app.playlistRepository.hasValidActiveProfile()) {
                 startActivity(android.content.Intent(this@MainActivity, com.nicotv.iptv2.ui.setup.SetupActivity::class.java)); finish(); return@launch
             }
+            applyContentFlags()
             if (!app.catalogLoader.isRunning) app.playlistRepository.refreshActiveProfileIfStale()
         }
+        applyContentFlags()
+    }
+
+    /** Masque les tuiles Films / Séries si l'admin les a coupées pour la playlist active. */
+    private fun applyContentFlags() {
+        val app = application as IptvApplication
+        val id = app.sourcePrefs.getActiveProfileId() ?: return
+        val (films, series) = app.sessionManager.getContentFlags(id)
+        binding.cardFilms.visibility = if (films) View.VISIBLE else View.GONE
+        binding.cardSeries.visibility = if (series) View.VISIBLE else View.GONE
     }
 
     /** Fond plein écran de l'accueil (jaquette/backdrop tirée au sort dans le

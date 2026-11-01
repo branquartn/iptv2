@@ -10,7 +10,11 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 
 /** Un code Xtream attribué à l'utilisateur par l'admin (admin.nicotv.ovh). */
-data class RemoteAccount(val id: Long, val label: String, val host: String, val username: String, val password: String)
+data class RemoteAccount(
+    val id: Long, val label: String, val host: String, val username: String, val password: String,
+    // Contenu autorisé par l'admin pour ce code (les chaînes restent toujours disponibles).
+    val films: Boolean = true, val series: Boolean = true
+)
 
 /** Appels vers api.nicotv.ovh : login (mêmes comptes que NicoTV), renouvellement du jeton, codes Xtream. */
 class AccountApi(private val client: OkHttpClient, private val session: SessionManager) {
@@ -73,7 +77,8 @@ class AccountApi(private val client: OkHttpClient, private val session: SessionM
                 val arr = j.optJSONArray("accounts")
                 val list = (0 until (arr?.length() ?: 0)).map {
                     val o = arr!!.getJSONObject(it)
-                    RemoteAccount(o.optLong("id"), o.optString("label"), o.optString("host"), o.optString("username"), o.optString("password"))
+                    RemoteAccount(o.optLong("id"), o.optString("label"), o.optString("host"), o.optString("username"), o.optString("password"),
+                        o.optBoolean("films", true), o.optBoolean("series", true))
                 }
                 Fetch.Ok(list)
             }
