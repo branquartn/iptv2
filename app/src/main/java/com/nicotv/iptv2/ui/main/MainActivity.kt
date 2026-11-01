@@ -75,6 +75,40 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
             if (!app.catalogLoader.isRunning) app.playlistRepository.refreshActiveProfileIfStale()
         }
         applyContentFlags()
+        updateExpiry()
+    }
+
+    /** Playlist active + date d'expiration de son abonnement Xtream, en bas à droite de l'accueil :
+     *  d'abord la valeur en cache (instantané), puis relue auprès du panel. */
+    private fun updateExpiry() {
+        lifecycleScope.launch {
+            val repo = (application as IptvApplication).playlistRepository
+            val profile = repo.getActiveProfile()
+            if (profile == null || profile.type != com.nicotv.iptv2.data.SourceType.XTREAM.name) {
+                binding.tvExpiry.visibility = View.GONE
+                return@launch
+            }
+            showExpiry(profile.name, repo.getXtreamAccount(profile.id))
+            val fresh = runCatching { repo.refreshXtreamAccount(profile) }.getOrNull()
+            if (fresh != null) showExpiry(profile.name, fresh)
+        }
+    }
+
+    private fun showExpiry(name: String, info: com.nicotv.iptv2.data.xtream.XtAccountInfo?) {
+        if (info == null) { binding.tvExpiry.visibility = View.GONE; return }
+        val date = info.expDateMs?.let { com.nicotv.iptv2.data.xtream.formatDate(it) }
+        val status = when {
+            info.isExpired -> getString(R.string.xtream_expired_short)
+            date == null -> getString(R.string.xtream_unlimited)
+            else -> getString(R.string.xtream_expires_short, date)
+        }
+        binding.tvExpiry.text = "$name  ·  $status"
+        binding.tvExpiry.setTextColor(androidx.core.content.ContextCompat.getColor(this, when {
+            info.isExpired -> R.color.error
+            info.isExpiringSoon -> R.color.favorite_yellow
+            else -> R.color.text_secondary
+        }))
+        binding.tvExpiry.visibility = View.VISIBLE
     }
 
     /** Masque les tuiles Films / Séries si l'admin les a coupées pour la playlist active. */
