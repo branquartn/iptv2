@@ -535,6 +535,23 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
      *  décodeur) → transcodage forcé H.264 (dernier recours, coûteux côté serveur)
      *  → abandon. 3 essais max une fois en transcodage forcé (flux qui reconnecte). */
     private var liveRetries = 0
+
+    /** Source Xtream (film, épisode ou chaîne de la playlist active) dont le code est déjà utilisé ailleurs ?
+     *  Un code « 1 connexion » ne sert qu'UN appareil à la fois : la 2e lecture reste bloquée sur écran noir, sans
+     *  erreur. On interroge le panel (rapide, sans ouvrir de flux) pour l'expliquer au lieu de laisser attendre. */
+    private suspend fun xtreamBusyMessage(): String? {
+        val repo = (application as com.nicotv.iptv2.IptvApplication).playlistRepository
+        val p = repo.getActiveProfile() ?: return null
+        if (p.type != com.nicotv.iptv2.data.SourceType.XTREAM.name || p.xtreamHost.isBlank() || !streamUrl.startsWith(p.xtreamHost)) return null
+        val info = runCatching { repo.refreshXtreamAccount(p) }.getOrNull() ?: return null
+        return when {
+            info.isExpired -> "Abonnement « ${p.name} » expiré."
+            info.maxConnections > 0 && info.activeConnections >= info.maxConnections ->
+                "« ${p.name} » est déjà utilisé sur un autre appareil (${info.activeConnections}/${info.maxConnections} connexion). " +
+                    "Arrête-le là-bas (ou attends environ une minute) puis réessaie."
+            else -> null
+        }
+    }
     private fun isLiveStream(): Boolean = streamUrl.contains("/live/")
 
     /** Chaîne en direct : on NE passe PAS par le proxy de conversion (il ouvrirait une 2e connexion sur le
@@ -705,6 +722,13 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                 })
 
                 playCurrentSource()
+                // Code Xtream déjà occupé ailleurs → message clair tout de suite (au lieu d'un écran noir).
+                lifecycleScope.launch {
+                    xtreamBusyMessage()?.let { msg ->
+                        Toast.makeText(this@PlayerActivity, msg, Toast.LENGTH_LONG).show()
+                        finish()
+                    }
+                }
 
                 val key = historyKey
                 if (key.isNotBlank() && resume) {
