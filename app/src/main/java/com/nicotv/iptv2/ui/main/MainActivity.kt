@@ -9,6 +9,7 @@ import android.view.ViewOutlineProvider
 import android.widget.Button
 import androidx.activity.OnBackPressedCallback
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import coil.load
 import com.nicotv.iptv2.IptvApplication
 import com.nicotv.iptv2.R
@@ -43,6 +44,15 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         setContentView(binding.root)
 
         binding.tvVersion.text = "v${com.nicotv.iptv2.BuildConfig.VERSION_NAME}"
+        // Fin d'un chargement (changement de playlist, rechargement auto) : le contenu a changé — les films/séries du
+        // serveur arrivent EN DERNIER — donc on réévalue les tuiles Films/Séries et l'expiration.
+        lifecycleScope.launch {
+            repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                (application as IptvApplication).catalogLoader.state.collect { st ->
+                    if (st == null || st.percent >= 100 || st.error != null) { applyContentFlags(); updateExpiry() }
+                }
+            }
+        }
 
         setupNavigation()
         sizeHubCards()
@@ -148,8 +158,7 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         binding.tvExpiry.text = "$name  ·  $status"
         binding.tvExpiry.setTextColor(androidx.core.content.ContextCompat.getColor(this, when {
             info.isExpired -> R.color.error
-            info.isExpiringSoon -> R.color.favorite_yellow
-            else -> R.color.text_secondary
+            else -> R.color.text_secondary   // gris ; rouge seulement si expiré
         }))
         binding.tvExpiry.visibility = View.VISIBLE
     }
@@ -163,8 +172,9 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         // films/séries (ceux de « Mon serveur »).
         lifecycleScope.launch {
             val db = app.database
-            binding.cardFilms.visibility = if (films || db.movieDao().count() > 0) View.VISIBLE else View.GONE
-            binding.cardSeries.visibility = if (series || db.seriesDao().count() > 0) View.VISIBLE else View.GONE
+            val loading = app.catalogLoader.isRunning   // pendant un chargement on garde les tuiles (le serveur arrive en dernier)
+            binding.cardFilms.visibility = if (films || loading || db.movieDao().count() > 0) View.VISIBLE else View.GONE
+            binding.cardSeries.visibility = if (series || loading || db.seriesDao().count() > 0) View.VISIBLE else View.GONE
         }
     }
 
