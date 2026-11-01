@@ -1,6 +1,6 @@
 {
-  "versionCode": 103,
-  "versionName": "1.0.102",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.102.apk",
-  "changelog": "• Lecture : si le code Xtream de la playlist est déjà utilisé sur un autre appareil (1 connexion max), un message l'explique tout de suite au lieu d'un écran noir"
+  "versionCode": 104,
+  "versionName": "1.0.103",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.103.apk",
+  "changelog": "• Lecteur : plus d'écran noir muet — la barre de lecture est visible dès le début et un message au centre indique l'état (connexion, code Xtream déjà utilisé, conversion, lecture indisponible) ; l'écran ne se ferme plus tout seul"
 }
