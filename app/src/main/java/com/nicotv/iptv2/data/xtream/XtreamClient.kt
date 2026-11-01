@@ -104,7 +104,9 @@ class XtreamClient(
         val expSec = userInfo.opt("exp_date")?.toString()?.trim()?.toLongOrNull()
         return XtAccountInfo(
             expDateMs = expSec?.takeIf { it > 0 }?.let { it * 1000 },
-            status = userInfo.optString("status", "")
+            status = userInfo.optString("status", ""),
+            maxConnections = userInfo.opt("max_connections")?.toString()?.trim()?.toIntOrNull() ?: 0,
+            activeConnections = userInfo.opt("active_cons")?.toString()?.trim()?.toIntOrNull() ?: 0
         )
     }
 

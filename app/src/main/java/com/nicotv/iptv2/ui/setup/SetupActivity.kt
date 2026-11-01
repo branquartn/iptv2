@@ -65,7 +65,6 @@ class SetupActivity : BaseActivity() {
 
         setupHeader()
         setupProfilesList()
-        setupTypeCards()
         maybeAutoLoadLastProfile()
     }
 
@@ -115,8 +114,9 @@ class SetupActivity : BaseActivity() {
     private fun setupProfilesList() {
         profileAdapter = ProfileAdapter(
             onClick = { profile -> loadProfile(profile.id) },
-            onEdit = { profile -> editProfile(profile) },
-            onDelete = { profile -> confirmDelete(profile) }
+            // Profils gérés uniquement depuis l'admin : ni modification ni suppression dans l'appli.
+            onEdit = { },
+            onDelete = { }
         )
         // Horizontal : cartes façon sélecteur de profil (Netflix-like), pas une
         // liste verticale de lignes — cf. item_profile.xml.
@@ -171,73 +171,6 @@ class SetupActivity : BaseActivity() {
                 repo.refreshXtreamAccount(profile)
                 profileAdapter.notifyDataSetChanged()
             }
-        }
-    }
-
-    private fun confirmDelete(profile: PlaylistProfileEntity) {
-        val isActive = profile.id == profileAdapter.activeProfileId
-        val message = buildString {
-            append(getString(R.string.setup_delete_confirm_message, profile.name))
-            if (isActive) append("\n\n").append(getString(R.string.setup_delete_confirm_active_note))
-        }
-        val dialog = AlertDialog.Builder(this)
-            .setTitle(R.string.setup_delete_confirm_title)
-            .setMessage(message)
-            .setPositiveButton(R.string.action_delete) { _, _ ->
-                lifecycleScope.launch { (application as IptvApplication).playlistRepository.deleteProfile(profile.id) }
-            }
-            .setNegativeButton(R.string.action_cancel, null)
-            .create()
-        dialog.window?.setBackgroundDrawableResource(R.drawable.bg_dialog)
-        dialog.setOnShowListener {
-            // Rouge = action destructive/irréversible, pas la même couleur que
-            // "Annuler" — sans ça les 2 boutons se ressemblent trop (couleur
-            // d'accent par défaut du thème sur les deux).
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(ContextCompat.getColor(this, R.color.error))
-        }
-        dialog.show()
-    }
-
-    private fun setupTypeCards() {
-        // App privée : les codes sont attribués par l'admin, plus d'ajout manuel de playlist/Xtream.
-        binding.cardTypePlaylist.visibility = View.GONE
-        binding.cardTypeXtream.visibility = View.GONE
-        if (true) return
-        val cards = listOf(
-            Triple(binding.cardTypePlaylist, binding.cardTypePlaylistRing) {
-                startActivity(Intent(this, AddPlaylistActivity::class.java))
-            },
-            Triple(binding.cardTypeXtream, binding.cardTypeXtreamRing) {
-                startActivity(Intent(this, AddXtreamActivity::class.java))
-            }
-        )
-        cards.forEach { (card, ring, onOpen) ->
-            card.setOnClickListener { onOpen() }
-            applyRing(card, ring, 1.04f)
-        }
-    }
-
-    /** Ouvre la page correspondante, pré-remplie avec les valeurs actuelles du
-     * profil (bouton crayon sur "Mes profils"). */
-    private fun editProfile(profile: PlaylistProfileEntity) {
-        when (profile.type) {
-            "M3U_URL", "M3U_FILE" -> startActivity(
-                Intent(this, AddPlaylistActivity::class.java).apply {
-                    putExtra(AddPlaylistActivity.EXTRA_EDIT_ID, profile.id)
-                    putExtra(AddPlaylistActivity.EXTRA_EDIT_NAME, profile.name)
-                    putExtra(AddPlaylistActivity.EXTRA_EDIT_URL, profile.m3uUrl)
-                    putExtra(AddPlaylistActivity.EXTRA_EDIT_FILE_URI, profile.m3uFileUri)
-                }
-            )
-            "XTREAM" -> startActivity(
-                Intent(this, AddXtreamActivity::class.java).apply {
-                    putExtra(AddXtreamActivity.EXTRA_EDIT_ID, profile.id)
-                    putExtra(AddXtreamActivity.EXTRA_EDIT_NAME, profile.name)
-                    putExtra(AddXtreamActivity.EXTRA_EDIT_HOST, profile.xtreamHost)
-                    putExtra(AddXtreamActivity.EXTRA_EDIT_USER, profile.xtreamUsername)
-                    putExtra(AddXtreamActivity.EXTRA_EDIT_PASS, profile.xtreamPassword)
-                }
-            )
         }
     }
 

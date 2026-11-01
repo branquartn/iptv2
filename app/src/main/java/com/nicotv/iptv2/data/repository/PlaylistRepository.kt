@@ -179,13 +179,6 @@ class PlaylistRepository(
         ).also { backupProfiles() }
     }
 
-    /** Profil « Mon serveur » (films et séries de la bibliothèque NicoTV) : un seul, créé s'il n'existe pas. */
-    suspend fun ensureServerProfile(): Long = withContext(Dispatchers.IO) {
-        db.playlistProfileDao().getAllOnce().firstOrNull { it.type == SourceType.SERVER.name }?.id
-            ?: db.playlistProfileDao().insert(PlaylistProfileEntity(name = "Mon serveur", type = SourceType.SERVER.name))
-                .also { backupProfiles() }
-    }
-
     suspend fun deleteProfile(id: Long) = withContext(Dispatchers.IO) {
         db.playlistProfileDao().delete(id)
         xtreamAccountPrefs.remove(id)
@@ -240,8 +233,10 @@ class PlaylistRepository(
                     loadM3u(readLocalFile(profile.m3uFileUri), onProgress)
                 }
                 SourceType.XTREAM -> loadXtream(profile, onProgress)
-                SourceType.SERVER -> loadServer(onProgress)
+                SourceType.SERVER -> 0   // ancien profil « Mon serveur » : supprimé à la prochaine synchro
             }
+            // Films et séries du serveur de l'utilisateur, ajoutés à n'importe quelle playlist (un échec ne casse pas le chargement).
+            if (profile.type != SourceType.SERVER.name) runCatching { appendServerLibrary(onProgress) }
             onProgress(100, "Terminé")
             sourcePrefs.setActiveProfileId(profileId)
             db.playlistProfileDao().touchLastUsed(profileId)
@@ -515,71 +510,103 @@ class PlaylistRepository(
         }
     }
 
-    // ── Mon serveur (bibliothèque NicoTV : films et séries de l'utilisateur) ───────────────
+    // ── Mon serveur (bibliothèque NicoTV) FUSIONNÉ dans la playlist chargée ─────────────────
+    // Les films et séries du serveur de l'utilisateur apparaissent avec ceux de la playlist (catégorie
+    // « Mon serveur », en tête) : ce n'est PAS une autre playlist à choisir.
 
-    /** Charge la bibliothèque du compte (route `library`, la même que l'app iptv) dans les mêmes tables que
-     *  les playlists : tous les écrans (Films, Séries, recherche, favoris…) fonctionnent sans changement.
-     *  Pas de chaînes : le serveur n'en a pas. Films = lien direct ; épisodes = lien signé par le jeton. */
-    private suspend fun loadServer(
-        onProgress: (percent: Int, message: String) -> Unit = { _, _ -> }
-    ): Int = withContext(Dispatchers.IO) {
-        onProgress(10, "Connexion à ton serveur…")
-        val token = serverToken()
-        if (token.isBlank()) throw LoadException("Session expirée : reconnecte-toi")
-        val req = Request.Builder().url("https://api.nicotv.ovh/index.php?action=library")
-            .header("Authorization", "Bearer $token").build()
-        val body = okHttpClient.newCall(req).execute().use { r ->
-            if (r.code == 401) throw LoadException("Session expirée : reconnecte-toi")
-            r.body?.string().orEmpty()
-        }
-        val json = try { org.json.JSONObject(body) } catch (e: Exception) { throw LoadException("Réponse du serveur illisible") }
-        if (!json.optBoolean("ok")) throw LoadException(json.optString("error").ifBlank { "Bibliothèque indisponible" })
+    private val serverCategory = "Mon serveur"
 
-        onProgress(15, "Lecture de la bibliothèque…")
-        val category = "Mon serveur"
-        val movies = ArrayList<MovieEntity>()
-        json.optJSONArray("movies")?.let { arr ->
-            for (i in 0 until arr.length()) {
-                val o = arr.getJSONObject(i)
-                val title = o.optString("title"); val url = o.optString("url")
-                if (title.isBlank() || url.isBlank()) continue
-                movies.add(MovieEntity(
-                    title = title, streamUrl = url, releaseYear = o.optString("year").take(4), tmdbId = o.optInt("id"),
-                    category = category, languageCode = MovieEntity.languageCodeFor(category),
-                    categoryStripped = MovieEntity.categoryStrippedFor(category), categoryOrder = 0, sortOrder = movies.size
-                ))
-            }
-        }
-        val seriesEpisodes = LinkedHashMap<String, MutableList<Triple<M3uEntry, M3uParser.ParsedEpisode, Int>>>()
-        var order = 0
-        json.optJSONArray("series")?.let { arr ->
-            for (i in 0 until arr.length()) {
-                val s = arr.getJSONObject(i)
-                val name = s.optString("name")
-                if (name.isBlank()) continue
-                val seasons = s.optJSONArray("seasons") ?: continue
-                val list = seriesEpisodes.getOrPut(name) { ArrayList() }
-                for (a in 0 until seasons.length()) {
-                    val season = seasons.getJSONObject(a)
-                    val eps = season.optJSONArray("episodes") ?: continue
-                    for (b in 0 until eps.length()) {
-                        val ep = eps.getJSONObject(b)
-                        val file = ep.optString("file")
-                        if (file.isBlank()) continue
-                        val sNum = ep.optInt("season", season.optInt("season")); val eNum = ep.optInt("episode")
-                        val playKey = "$name/$file"
-                        val url = "https://api.nicotv.ovh/api.php?action=stream&type=series" +
-                            "&f=" + java.net.URLEncoder.encode(playKey, "UTF-8") +
-                            "&token=" + java.net.URLEncoder.encode(token, "UTF-8")
-                        list.add(Triple(M3uEntry(name = "$name S${sNum}E$eNum", groupTitle = category, url = url),
-                            M3uParser.ParsedEpisode(name, sNum, eNum, "Épisode $eNum"), order++))
+    /** Lit la bibliothèque du compte (route `library`, la même que l'app iptv). null si indisponible. */
+    private suspend fun fetchServerLibrary(token: String): Pair<List<MovieEntity>, Map<String, List<Triple<M3uEntry, M3uParser.ParsedEpisode, Int>>>>? =
+        withContext(Dispatchers.IO) {
+            try {
+                val req = Request.Builder().url("https://api.nicotv.ovh/index.php?action=library")
+                    .header("Authorization", "Bearer $token").build()
+                val body = okHttpClient.newCall(req).execute().use { r -> if (r.code == 401) return@withContext null; r.body?.string().orEmpty() }
+                val json = org.json.JSONObject(body)
+                if (!json.optBoolean("ok")) return@withContext null
+                val movies = ArrayList<MovieEntity>()
+                json.optJSONArray("movies")?.let { arr ->
+                    for (i in 0 until arr.length()) {
+                        val o = arr.getJSONObject(i)
+                        val title = o.optString("title"); val url = o.optString("url")
+                        if (title.isBlank() || url.isBlank()) continue
+                        movies.add(MovieEntity(
+                            title = title, streamUrl = url, releaseYear = o.optString("year").take(4), tmdbId = o.optInt("id"),
+                            category = serverCategory, languageCode = MovieEntity.languageCodeFor(serverCategory),
+                            categoryStripped = MovieEntity.categoryStrippedFor(serverCategory),
+                            categoryOrder = -1,   // avant toutes les catégories de la playlist
+                            sortOrder = -1000000 + movies.size
+                        ))
                     }
                 }
-                if (list.isEmpty()) seriesEpisodes.remove(name)
-            }
+                val seriesEpisodes = LinkedHashMap<String, MutableList<Triple<M3uEntry, M3uParser.ParsedEpisode, Int>>>()
+                var order = 0
+                json.optJSONArray("series")?.let { arr ->
+                    for (i in 0 until arr.length()) {
+                        val s = arr.getJSONObject(i)
+                        val name = s.optString("name")
+                        val seasons = s.optJSONArray("seasons")
+                        if (name.isBlank() || seasons == null) continue
+                        val list = seriesEpisodes.getOrPut(name) { ArrayList() }
+                        for (a in 0 until seasons.length()) {
+                            val season = seasons.getJSONObject(a)
+                            val eps = season.optJSONArray("episodes") ?: continue
+                            for (b in 0 until eps.length()) {
+                                val ep = eps.getJSONObject(b)
+                                val file = ep.optString("file")
+                                if (file.isBlank()) continue
+                                val sNum = ep.optInt("season", season.optInt("season")); val eNum = ep.optInt("episode")
+                                val url = "https://api.nicotv.ovh/api.php?action=stream&type=series" +
+                                    "&f=" + java.net.URLEncoder.encode("$name/$file", "UTF-8") +
+                                    "&token=" + java.net.URLEncoder.encode(token, "UTF-8")
+                                list.add(Triple(M3uEntry(name = "$name S${sNum}E$eNum", groupTitle = serverCategory, url = url),
+                                    M3uParser.ParsedEpisode(name, sNum, eNum, "Épisode $eNum"), order++))
+                            }
+                        }
+                        if (list.isEmpty()) seriesEpisodes.remove(name)
+                    }
+                }
+                movies to seriesEpisodes
+            } catch (e: Exception) { null }
         }
-        replaceCatalog(emptyList(), movies, seriesEpisodes, mapOf(category to 0), onProgress)
-        movies.size + seriesEpisodes.size
+
+    /** Ajoute les films/séries du serveur au catalogue qui vient d'être chargé (sans rien supprimer). */
+    private suspend fun appendServerLibrary(onProgress: (percent: Int, message: String) -> Unit) = withContext(Dispatchers.IO) {
+        val token = serverToken()
+        if (token.isBlank()) return@withContext
+        val (movies, seriesEpisodes) = fetchServerLibrary(token) ?: return@withContext
+        if (movies.isEmpty() && seriesEpisodes.isEmpty()) return@withContext
+        onProgress(99, "Ajout de tes films et séries du serveur…")
+        val enriched = enrichMovies(movies) { _, _ -> }   // jaquettes TMDb ; pas de pourcentage propre (déjà à 99 %)
+        val seriesLogos = seriesEpisodes.keys
+        val seriesArt = fetchSeriesArt(seriesLogos)
+        val seriesEntities = seriesEpisodes.keys.mapIndexed { index, title ->
+            val art = seriesArt[title]
+            SeriesEntity(
+                title = title, posterUrl = art?.posterUrl.orEmpty(), backdropUrl = art?.backdropUrl.orEmpty(),
+                overview = art?.overview.orEmpty(), rating = art?.rating ?: 0f, releaseYear = art?.year.orEmpty(),
+                category = serverCategory, languageCode = SeriesEntity.languageCodeFor(serverCategory),
+                categoryStripped = SeriesEntity.categoryStrippedFor(serverCategory), categoryOrder = -1,
+                sortOrder = -1000000 + index
+            )
+        }
+        db.withTransaction {
+            db.movieDao().insertAll(enriched)
+            val ids = db.seriesDao().insertAll(seriesEntities)
+            val episodes = mutableListOf<EpisodeEntity>()
+            seriesEpisodes.entries.forEachIndexed { index, (seriesTitle, items) ->
+                items.forEach { (entry, parsed, _) ->
+                    val fileKey = "$seriesTitle/${parsed.season}x${parsed.episode}"
+                    episodes.add(EpisodeEntity(
+                        seriesId = ids[index], seasonNumber = parsed.season, seasonName = "Saison ${parsed.season}",
+                        episodeNumber = parsed.episode, episodeTitle = parsed.episodeTitle, streamUrl = entry.url,
+                        fileKey = fileKey, watchKey = EpisodeEntity.computeWatchKey(fileKey)
+                    ))
+                }
+            }
+            db.episodeDao().insertAll(episodes)
+        }
     }
 
     // ── Xtream Codes ─────────────────────────────────────────────────────────

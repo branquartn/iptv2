@@ -171,7 +171,7 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                     binding.panelSettings.visibility = View.GONE
                     binding.menuMain.visibility = View.VISIBLE
                     binding.menuSub.visibility = View.GONE
-                    binding.playerView.controllerShowTimeoutMs = 5000
+                    binding.playerView.controllerShowTimeoutMs = 10_000
                 }
             }
         )
@@ -238,7 +238,9 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                 return true
             }
         })
-        binding.playerView.setOnTouchListener { _, event -> detector.onTouchEvent(event) }
+        // true TOUJOURS : GestureDetector renvoie false sur ACTION_DOWN, ce qui laissait PlayerView traiter aussi
+        // le tap (affiche la barre au relâchement) puis notre onSingleTapConfirmed la masquait ~0,3 s plus tard.
+        binding.playerView.setOnTouchListener { _, event -> detector.onTouchEvent(event); true }
     }
 
     // ── Panel ────────────────────────────────────────────────────────────────
@@ -254,7 +256,7 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         binding.panelSettings.visibility = View.GONE
         binding.menuMain.visibility = View.VISIBLE
         binding.menuSub.visibility = View.GONE
-        binding.playerView.controllerShowTimeoutMs = 5000
+        binding.playerView.controllerShowTimeoutMs = 10_000
     }
 
     private fun showMainMenu() {
@@ -532,8 +534,36 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
     /** Cascade : direct → remux copie (conteneur/tag codec mal supporté par ce
      *  décodeur) → transcodage forcé H.264 (dernier recours, coûteux côté serveur)
      *  → abandon. 3 essais max une fois en transcodage forcé (flux qui reconnecte). */
+    private var liveRetries = 0
+    private fun isLiveStream(): Boolean = streamUrl.contains("/live/")
+
+    /** Chaîne en direct : on NE passe PAS par le proxy de conversion (il ouvrirait une 2e connexion sur le
+     *  même code Xtream, souvent limité à 1, et aggraverait l'échec). On réessaie en direct, puis on explique. */
+    private fun liveRetryOrExplain() {
+        if (liveRetries < 2) {
+            liveRetries++
+            Toast.makeText(this, "Nouvelle tentative…", Toast.LENGTH_SHORT).show()
+            lifecycleScope.launch { delay(4_000); if (!isFinishing) playCurrentSource() }
+            return
+        }
+        lifecycleScope.launch {
+            val repo = (application as com.nicotv.iptv2.IptvApplication).playlistRepository
+            val info = runCatching { repo.getActiveProfile()?.let { repo.refreshXtreamAccount(it) } }.getOrNull()
+            val msg = when {
+                info != null && info.isExpired -> "Abonnement expiré."
+                info != null && info.maxConnections > 0 && info.activeConnections >= info.maxConnections ->
+                    "Ce code Xtream est déjà utilisé (${info.activeConnections}/${info.maxConnections} connexion). " +
+                        "Arrête l'autre lecture, attends environ une minute puis réessaie."
+                else -> "Chaîne indisponible pour le moment."
+            }
+            Toast.makeText(this@PlayerActivity, msg, Toast.LENGTH_LONG).show()
+            finish()
+        }
+    }
+
     private fun escalateOrGiveUp() {
         if (isFinishing) return
+        if (isLiveStream()) { liveRetryOrExplain(); return }
         when {
             !usedRemux -> {
                 usedRemux = true; remuxRetries = 0
@@ -593,7 +623,7 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                 // closePanel, mais seulement APRÈS la première disparition. Bug vécu
                 // (29/08/2026, demande explicite) : la barre semblait "disparaître
                 // vite" au premier tap précisément à cause de ce défaut de 3s.
-                binding.playerView.controllerShowTimeoutMs = 5000
+                binding.playerView.controllerShowTimeoutMs = 10_000
                 binding.playerView.setShowSubtitleButton(false)
 
                 // Sous-titres désactivés par défaut
@@ -835,6 +865,15 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
             exo.release()
         }
         player = null
+    }
+
+    /** Télécommande : l'activité consomme les touches avant PlayerView, qui ne voyait donc aucune activité et
+     *  masquait la barre trop tôt. Chaque touche relance maintenant le délai d'affichage (10 s). */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.action == KeyEvent.ACTION_DOWN && controllerShown && binding.panelSettings.visibility != View.VISIBLE) {
+            binding.playerView.showController()
+        }
+        return super.dispatchKeyEvent(event)
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {

@@ -82,12 +82,12 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         val app = application as IptvApplication
         val id = app.sourcePrefs.getActiveProfileId() ?: return
         val (films, series) = app.sessionManager.getContentFlags(id)
-        binding.cardFilms.visibility = if (films) View.VISIBLE else View.GONE
-        binding.cardSeries.visibility = if (series) View.VISIBLE else View.GONE
-        // « Mon serveur » : films et séries seulement, pas de chaînes en direct.
+        // Coupés par l'admin pour ce code : tuile masquée, sauf si le catalogue contient quand même des
+        // films/séries (ceux de « Mon serveur »).
         lifecycleScope.launch {
-            val type = app.playlistRepository.getProfile(id)?.type
-            binding.cardLive.visibility = if (type == com.nicotv.iptv2.data.SourceType.SERVER.name) View.GONE else View.VISIBLE
+            val db = app.database
+            binding.cardFilms.visibility = if (films || db.movieDao().count() > 0) View.VISIBLE else View.GONE
+            binding.cardSeries.visibility = if (series || db.seriesDao().count() > 0) View.VISIBLE else View.GONE
         }
     }
 

@@ -68,7 +68,10 @@ data class XtVodInfo(
 data class XtAccountInfo(
     val expDateMs: Long?,
     val status: String,
-    val checkedAt: Long = System.currentTimeMillis()
+    val checkedAt: Long = System.currentTimeMillis(),
+    // Connexions autorisées / en cours sur ce code (un code « 1 connexion » refuse une 2e lecture).
+    val maxConnections: Int = 0,
+    val activeConnections: Int = 0
 ) {
     /** Expiré si le panel le dit OU si la date est passée (certains panels
      * laissent "Active" quelques heures après l'échéance). */
