@@ -536,6 +536,13 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
      *  → abandon. 3 essais max une fois en transcodage forcé (flux qui reconnecte). */
     private var liveRetries = 0
 
+    /** Message d'état visible au centre de l'écran (vide = masqué). */
+    private fun showStatus(msg: String?) {
+        if (msg.isNullOrBlank()) { binding.tvPlayerStatus.visibility = View.GONE; return }
+        binding.tvPlayerStatus.text = msg
+        binding.tvPlayerStatus.visibility = View.VISIBLE
+    }
+
     /** Source Xtream (film, épisode ou chaîne de la playlist active) dont le code est déjà utilisé ailleurs ?
      *  Un code « 1 connexion » ne sert qu'UN appareil à la fois : la 2e lecture reste bloquée sur écran noir, sans
      *  erreur. On interroge le panel (rapide, sans ouvrir de flux) pour l'expliquer au lieu de laisser attendre. */
@@ -559,7 +566,7 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
     private fun liveRetryOrExplain() {
         if (liveRetries < 2) {
             liveRetries++
-            Toast.makeText(this, "Nouvelle tentative…", Toast.LENGTH_SHORT).show()
+            showStatus("Nouvelle tentative…")
             lifecycleScope.launch { delay(4_000); if (!isFinishing) playCurrentSource() }
             return
         }
@@ -573,8 +580,8 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                         "Arrête l'autre lecture, attends environ une minute puis réessaie."
                 else -> "Chaîne indisponible pour le moment."
             }
-            Toast.makeText(this@PlayerActivity, msg, Toast.LENGTH_LONG).show()
-            finish()
+            showStatus(msg + "\n(Retour pour revenir)")   // reste affiché, pas de fermeture muette
+            binding.playerView.showController()
         }
     }
 
@@ -584,18 +591,18 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         when {
             !usedRemux -> {
                 usedRemux = true; remuxRetries = 0
-                Toast.makeText(this, "Conversion du flux…", Toast.LENGTH_SHORT).show()
+                showStatus("Conversion du flux…")
                 playCurrentSource()
             }
             !usedVtrans -> {
                 usedVtrans = true; remuxRetries = 0
-                Toast.makeText(this, "Vidéo convertie pour cet appareil", Toast.LENGTH_SHORT).show()
+                showStatus("Conversion vidéo pour cet appareil…")
                 playCurrentSource()
             }
             remuxRetries < 3 -> { remuxRetries++; playCurrentSource() }
             else -> {
-                Toast.makeText(this, "Lecture indisponible.", Toast.LENGTH_LONG).show()
-                finish()
+                showStatus("Lecture indisponible.\n(Retour pour revenir)")
+                binding.playerView.showController()
             }
         }
     }
@@ -702,6 +709,7 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                         if (isPlaying) {
                             hasStartedPlaying = true
                             stallWatchdogJob?.cancel()
+                            showStatus(null)
                         }
                         if (hasStartedPlaying) {
                             binding.overlayPauseInfo.visibility =
@@ -721,12 +729,14 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                     }
                 })
 
+                showStatus("Connexion à la source…")
+                binding.playerView.showController()   // la barre est visible dès le début (plus d'écran noir sans repère)
                 playCurrentSource()
                 // Code Xtream déjà occupé ailleurs → message clair tout de suite (au lieu d'un écran noir).
                 lifecycleScope.launch {
                     xtreamBusyMessage()?.let { msg ->
-                        Toast.makeText(this@PlayerActivity, msg, Toast.LENGTH_LONG).show()
-                        finish()
+                        showStatus(msg)   // reste affiché ; retour = touche Retour / flèche
+                        binding.playerView.showController()
                     }
                 }
 

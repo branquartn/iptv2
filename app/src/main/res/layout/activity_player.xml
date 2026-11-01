@@ -21,6 +21,24 @@
         android:indeterminateTint="@color/accent"
         android:visibility="gone" />
 
+    <!-- État de la lecture au centre : « Connexion… », code Xtream occupé, erreur — jamais d'écran noir muet -->
+    <TextView
+        android:id="@+id/tv_player_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="96dp"
+        android:background="#99000000"
+        android:gravity="center"
+        android:maxWidth="520dp"
+        android:paddingStart="18dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="10dp"
+        android:textColor="@android:color/white"
+        android:textSize="15sp"
+        android:visibility="gone" />
+
     <!-- Overlay pause : logo + titre (fond transparent) -->
     <LinearLayout
         android:id="@+id/overlay_pause_info"
