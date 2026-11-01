@@ -42,6 +42,7 @@ class MoviesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         })
 
         val gridLayoutManager = GridLayoutManager(this@MoviesActivity, computeSpanCount())
+        gridManager = gridLayoutManager
         binding.rvPosters.apply {
             layoutManager = gridLayoutManager
             adapter = this@MoviesActivity.adapter
@@ -163,12 +164,15 @@ class MoviesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         return super.dispatchKeyEvent(event)
     }
 
+    private var gridManager: GridLayoutManager? = null
+
     private fun updateSourceUi() {
         val server = viewModel.serverMode.value == true
         binding.btnSource.visibility = if (viewModel.hasServerContent.value == true) View.VISIBLE else View.GONE
         binding.btnSource.text = if (server) "Mon serveur  ⇄" else "Playlist  ⇄"
         binding.rvCategories.visibility = if (server) View.GONE else View.VISIBLE
         binding.sidebarDivider.visibility = if (server) View.GONE else View.VISIBLE
+        gridManager?.spanCount = computeSpanCount()   // plus d'affiches par ligne sans sidebar (jaquettes plus petites)
     }
 
     private fun hideKeyboard() {
@@ -180,11 +184,9 @@ class MoviesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
 
     private fun computeSpanCount(): Int {
         val screenWidthDp = resources.configuration.screenWidthDp
-        // ~6 affiches par ligne sur un téléphone, plus sur grand écran — moins
-        // large que l'écran total depuis l'ajout de la sidebar catégories
-        // (180dp + séparateur + paddings, cf. activity_movies.xml).
-        val sidebarDp = 210
-        val posterWidthDp = 112
-        return ((screenWidthDp - sidebarDp) / posterWidthDp).coerceIn(4, 10)
+        // Jaquettes plus petites, comme l'app iptv : mur « Mon serveur » (sans sidebar) = plein écran, au moins
+        // 6 par ligne ; playlist (avec sidebar de catégories 210 dp) = affiches de ~100 dp, au moins 5 par ligne.
+        return if (viewModel.serverMode.value == true) (screenWidthDp / 112).coerceIn(6, 10)
+        else ((screenWidthDp - 210) / 100).coerceIn(5, 10)
     }
 }

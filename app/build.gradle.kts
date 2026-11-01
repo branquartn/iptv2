@@ -10,8 +10,8 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 101
-val appVersionName = "1.0.100"
+val appVersionCode = 102
+val appVersionName = "1.0.101"
 // Changelog affiché dans le modal de mise à jour OTA.
 // ⚠️ OUBLIÉ PENDANT ~15 VERSIONS (29/08/2026, bug signalé par l'utilisateur :
 // "le texte de la maj n'est pas le bon") — appVersionCode/appVersionName ont
@@ -20,7 +20,7 @@ val appVersionName = "1.0.100"
 // modif du 28/08 alors qu'on en était à v1.0.50). Ce commentaire ne suffit
 // visiblement pas tout seul à s'en souvenir : à chaque bump de version,
 // updater CETTE ligne AVANT de commit, pas après coup.
-val appChangelog = "• Changer de playlist est instantané : chaque playlist garde son propre cache, rien n'est retéléchargé tant qu'il a moins de 7 jours (rechargement complet seulement de temps en temps, ou si l'administrateur a modifié la playlist)"
+val appChangelog = "• Films et séries : jaquettes plus petites (plus d'affiches par ligne), comme dans l'app iptv"
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
