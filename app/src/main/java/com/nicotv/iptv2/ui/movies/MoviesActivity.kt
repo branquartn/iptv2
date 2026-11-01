@@ -38,7 +38,7 @@ class MoviesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         setContentView(binding.root)
         viewModel = ViewModelProvider(this)[MoviesViewModel::class.java]
 
-        adapter = PosterAdapter(onClick = { movie ->
+        adapter = PosterAdapter(onLongClick = { movie -> com.nicotv.iptv2.ui.common.LibraryActions.confirmRemove(this, movie, isSeries = false) }, onClick = { movie ->
             startActivity(Intent(this, DetailActivity::class.java).apply {
                 putExtra(DetailActivity.EXTRA_MOVIE_ID, movie.id)
             })

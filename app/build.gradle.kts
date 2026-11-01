@@ -10,8 +10,8 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 107
-val appVersionName = "1.0.106"
+val appVersionCode = 108
+val appVersionName = "1.0.107"
 // Changelog affiché dans le modal de mise à jour OTA.
 // ⚠️ OUBLIÉ PENDANT ~15 VERSIONS (29/08/2026, bug signalé par l'utilisateur :
 // "le texte de la maj n'est pas le bon") — appVersionCode/appVersionName ont
@@ -20,7 +20,7 @@ val appVersionName = "1.0.106"
 // modif du 28/08 alors qu'on en était à v1.0.50). Ce commentaire ne suffit
 // visiblement pas tout seul à s'en souvenir : à chaque bump de version,
 // updater CETTE ligne AVANT de commit, pas après coup.
-val appChangelog = "• Temps réel : tes films et séries du serveur se mettent à jour tout seuls (ajout, suppression), comme dans l'app iptv ; les modifications de l'admin et les messages du tchat arrivent aussi en direct"
+val appChangelog = "• Retirer un film ou une série de ton serveur : appui long sur OK (ou sur l'affiche), avec confirmation et rappel quand on reste sur l'affiche\n• Nouveau « + » sur l'accueil : recherche un film ou une série et ajoute-le à ton serveur ; il apparaît ensuite tout seul"
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")

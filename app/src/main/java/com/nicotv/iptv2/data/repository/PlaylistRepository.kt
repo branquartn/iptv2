@@ -979,6 +979,9 @@ class PlaylistRepository(
 
     suspend fun getMovieCredits(tmdbId: Int) = tmdbClient.getMovieCredits(tmdbId)
 
+    /** Recherche TMDb films + séries pour le « + » d'ajout à la bibliothèque. */
+    suspend fun searchForAdd(query: String) = tmdbClient.searchMulti(query)
+
     /** Recherche de films TMDb (liste) pour le partage dans le tchat. */
     suspend fun searchMoviesForChat(query: String) = tmdbClient.searchMovies(query)
 

@@ -24,7 +24,9 @@ import com.nicotv.iptv2.domain.model.Movie
  * redessine que les vues effectivement visibles, coût constant quelle que soit
  * la taille du catalogue. */
 class PosterAdapter(
-    private val onClick: (Movie) -> Unit
+    private val onClick: (Movie) -> Unit,
+    // Appui long (OK maintenu à la télécommande) : retirer un titre de « Mon serveur ». Null = désactivé.
+    private val onLongClick: ((Movie) -> Unit)? = null
 ) : RecyclerView.Adapter<PosterAdapter.PosterViewHolder>() {
 
     private var items: List<Movie> = emptyList()
@@ -111,7 +113,21 @@ class PosterAdapter(
             binding.focusOverlay.stopAnim()
 
             binding.root.setOnClickListener { onClick(movie) }
+            onLongClick?.let { lc -> binding.root.setOnLongClickListener { lc(movie); true } }
             binding.root.setOnFocusChangeListener { v, hasFocus ->
+                // Télécommande : si on reste ~1,5 s sur une affiche DU SERVEUR, rappelle l'appui long pour la retirer.
+                (v.getTag(com.nicotv.iptv2.R.id.tag_remove_hint) as? Runnable)?.let { v.removeCallbacks(it) }
+                if (hasFocus && onLongClick != null && movie.category == com.nicotv.iptv2.data.repository.PlaylistRepository.SERVER_CATEGORY) {
+                    val r = Runnable {
+                        val now = System.currentTimeMillis()
+                        if (now - lastHintAt > 12_000L) {
+                            lastHintAt = now
+                            android.widget.Toast.makeText(v.context, "Maintiens OK appuyé pour retirer « ${movie.displayTitle} » de la bibliothèque", android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    }
+                    v.setTag(com.nicotv.iptv2.R.id.tag_remove_hint, r)
+                    v.postDelayed(r, 1_500L)
+                }
                 v.animate()
                     .scaleX(if (hasFocus) 1.08f else 1f)
                     .scaleY(if (hasFocus) 1.08f else 1f)
@@ -122,4 +138,6 @@ class PosterAdapter(
             }
         }
     }
+
+    private companion object { var lastHintAt = 0L }
 }

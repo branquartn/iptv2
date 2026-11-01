@@ -88,6 +88,33 @@
                 android:visibility="invisible" />
         </FrameLayout>
 
+        <!-- Ajouter un film / une série à la bibliothèque du serveur -->
+        <FrameLayout
+            android:id="@+id/btn_add"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginEnd="12dp"
+            android:focusable="true"
+            android:clickable="true"
+            android:clipChildren="false"
+            android:clipToPadding="false">
+
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_add"
+                app:tint="@color/text_primary" />
+
+            <com.nicotv.iptv2.ui.common.RotatingBorderView
+                android:id="@+id/btn_add_ring"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                app:circular="true"
+                app:borderColor="@android:color/white"
+                android:visibility="invisible" />
+        </FrameLayout>
+
         <!-- Recherche -->
         <FrameLayout
             android:id="@+id/btn_search"

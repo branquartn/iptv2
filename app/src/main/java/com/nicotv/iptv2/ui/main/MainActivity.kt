@@ -245,6 +245,7 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         binding.btnSearch.setOnClickListener { startActivity(Intent(this, SearchActivity::class.java)) }
         binding.btnFavorites.setOnClickListener { startActivity(Intent(this, FavoritesActivity::class.java)) }
         binding.btnSwitch.setOnClickListener { showSwitchPlaylistDialog() }
+        binding.btnAdd.setOnClickListener { startActivity(Intent(this, com.nicotv.iptv2.ui.add.AddActivity::class.java)) }
         binding.btnChat.setOnClickListener { startActivity(Intent(this, com.nicotv.iptv2.ui.chat.ChatActivity::class.java)) }
         binding.btnSettings.setOnClickListener {
             startActivity(Intent(this, com.nicotv.iptv2.ui.settings.SettingsActivity::class.java))
@@ -268,6 +269,7 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
             binding.btnResume to binding.btnResumeRing,
             binding.btnSearch to binding.btnSearchRing,
             binding.btnFavorites to binding.btnFavoritesRing,
+            binding.btnAdd to binding.btnAddRing,
             binding.btnSwitch to binding.btnSwitchRing,
             binding.btnChat to binding.btnChatRing,
             binding.btnSettings to binding.btnSettingsRing

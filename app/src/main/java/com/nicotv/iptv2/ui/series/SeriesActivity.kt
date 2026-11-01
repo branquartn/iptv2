@@ -39,7 +39,7 @@ class SeriesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         setContentView(binding.root)
         viewModel = ViewModelProvider(this)[SeriesViewModel::class.java]
 
-        adapter = PosterAdapter(onClick = { item ->
+        adapter = PosterAdapter(onLongClick = { item -> com.nicotv.iptv2.ui.common.LibraryActions.confirmRemove(this, item, isSeries = true) }, onClick = { item ->
             startActivity(Intent(this, SeriesDetailActivity::class.java).apply {
                 putExtra(SeriesDetailActivity.EXTRA_SERIES_ID, item.id)
                 putExtra(SeriesDetailActivity.EXTRA_SERIES_TITLE, item.displayTitle)

@@ -109,6 +109,26 @@ class TmdbClient(private val client: OkHttpClient) {
         }
     }
 
+    /** Recherche films ET séries (liste) — « + » de l'accueil : ajout d'un titre à la bibliothèque du serveur. */
+    suspend fun searchMulti(query: String): List<TmdbWork> {
+        if (query.isBlank()) return emptyList()
+        val body = get(urlFor("search/multi", mapOf("query" to query.trim()))) ?: return emptyList()
+        return try {
+            val arr = JSONObject(body).optJSONArray("results") ?: return emptyList()
+            (0 until arr.length()).mapNotNull { i ->
+                val o = arr.optJSONObject(i) ?: return@mapNotNull null
+                val type = o.optString("media_type")
+                if (type != "movie" && type != "tv") return@mapNotNull null
+                val tv = type == "tv"
+                TmdbWork(
+                    id = o.optInt("id"), isTv = tv, title = o.optString(if (tv) "name" else "title"),
+                    posterPath = o.optNullableString("poster_path"),
+                    year = o.optString(if (tv) "first_air_date" else "release_date").take(4)
+                )
+            }.filter { it.title.isNotBlank() }.take(20)
+        } catch (e: Exception) { emptyList() }
+    }
+
     /** Recherche de films (liste) — partage d'un film dans le tchat. */
     suspend fun searchMovies(query: String): List<TmdbWork> {
         if (query.isBlank()) return emptyList()

@@ -3,4 +3,6 @@
     <!-- Bandeau de chargement de la playlist (cf. BaseActivity.onStart). -->
     <item name="load_banner_text" type="id" />
     <item name="load_banner_bar" type="id" />
+    <!-- Rappel « maintiens OK pour retirer » posé sur l'affiche (cf. PosterAdapter). -->
+    <item name="tag_remove_hint" type="id" />
 </resources>
