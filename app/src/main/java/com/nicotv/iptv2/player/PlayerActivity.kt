@@ -544,6 +544,34 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
      *  → abandon. 3 essais max une fois en transcodage forcé (flux qui reconnecte). */
     private var liveRetries = 0
 
+    // ── Présence : ce que l'admin voit (« TF1 · Chaîne · Xtream Salon », position, lecture/pause) ──
+    private var presenceSource = ""
+
+    private fun computePresenceSource() {
+        lifecycleScope.launch {
+            val kind = when {
+                streamUrl.contains("/live/") -> "Chaîne"
+                seriesId != -1L || streamUrl.contains("/series/") -> "Série"
+                else -> "Film"
+            }
+            val repo = (application as com.nicotv.iptv2.IptvApplication).playlistRepository
+            val p = runCatching { repo.getActiveProfile() }.getOrNull()
+            val fromXtream = p != null && p.type == com.nicotv.iptv2.data.SourceType.XTREAM.name &&
+                p.xtreamHost.isNotBlank() && streamUrl.startsWith(p.xtreamHost)
+            presenceSource = if (fromXtream) "$kind · Xtream ${p!!.name}" else "$kind · Mon serveur"
+        }
+    }
+
+    override fun reportPresence(reporter: com.nicotv.iptv2.account.PresenceReporter) {
+        val p = player
+        val name = (if (seriesId != -1L) "$seriesTitle — $episodeTitle" else title).ifBlank { title }
+        reporter.watching(
+            title = name.ifBlank { "Lecture" }, source = presenceSource,
+            posMs = p?.currentPosition?.coerceAtLeast(0L) ?: 0L, durMs = p?.duration?.coerceAtLeast(0L) ?: 0L,
+            playing = p?.isPlaying ?: false
+        )
+    }
+
     /** Message d'état visible au centre de l'écran (vide = masqué). */
     private fun showStatus(msg: String?) {
         if (msg.isNullOrBlank()) { binding.tvPlayerStatus.visibility = View.GONE; return }
@@ -722,6 +750,7 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                             hasStartedPlaying = true
                             stallWatchdogJob?.cancel()
                             showStatus(null)
+                            reportPresence((application as com.nicotv.iptv2.IptvApplication).presenceReporter)   // « regarde » tout de suite
                         }
                         if (hasStartedPlaying) {
                             binding.overlayPauseInfo.visibility =
@@ -741,6 +770,7 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                     }
                 })
 
+                computePresenceSource()
                 showStatus("Connexion à la source…")
                 binding.playerView.showController()   // la barre est visible dès le début (plus d'écran noir sans repère)
                 playCurrentSource()

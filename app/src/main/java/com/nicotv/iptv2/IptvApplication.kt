@@ -60,6 +60,7 @@ class IptvApplication : Application(), ImageLoaderFactory {
     val chatApi by lazy { com.nicotv.iptv2.chat.ChatApi(okHttpClient, sessionManager, this) }
     // Chargement de la playlist en arrière-plan, avec pourcentage (bandeau en haut de chaque écran).
     val catalogLoader by lazy { com.nicotv.iptv2.account.CatalogLoader(this) }
+    val presenceReporter by lazy { com.nicotv.iptv2.account.PresenceReporter(this, okHttpClient, sessionManager, appScope) }
     val libraryApi by lazy { com.nicotv.iptv2.account.LibraryApi(okHttpClient, sessionManager) }
 
     // Temps réel (ws.nicotv.ovh), comme l'app iptv : bibliothèque du serveur, codes Xtream de l'admin, tchat.

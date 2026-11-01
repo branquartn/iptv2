@@ -48,6 +48,15 @@ open class BaseActivity : FragmentActivity() {
         val app = application as? com.nicotv.iptv2.IptvApplication ?: return
         startedCount++
         app.connectRealtime()
+        // Présence pour l'admin : un battement immédiat puis toutes les 20 s tant que cet écran est visible.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    reportPresence(app.presenceReporter)
+                    kotlinx.coroutines.delay(20_000L)
+                }
+            }
+        }
         val content = findViewById<android.view.ViewGroup>(android.R.id.content) ?: return
         val dp = resources.displayMetrics.density
         val banner = loadBanner ?: android.widget.LinearLayout(this).apply {
@@ -95,7 +104,32 @@ open class BaseActivity : FragmentActivity() {
     override fun onStop() {
         super.onStop()
         // Plus aucun écran visible (appli en arrière-plan) : on coupe le temps réel ; reconnexion au retour.
-        if (--startedCount <= 0) { startedCount = 0; (application as? com.nicotv.iptv2.IptvApplication)?.disconnectRealtime() }
+        if (--startedCount <= 0) {
+            startedCount = 0
+            (application as? com.nicotv.iptv2.IptvApplication)?.let { it.disconnectRealtime(); it.presenceReporter.stop() }
+        }
+    }
+
+    /** Ce que cet écran dit de l'utilisateur à l'admin. Par défaut « en ligne » + nom de l'écran ; le lecteur redéfinit
+     *  pour annoncer ce qui est regardé. */
+    protected open fun reportPresence(reporter: com.nicotv.iptv2.account.PresenceReporter) {
+        reporter.online(screenLabel())
+    }
+
+    private fun screenLabel(): String = when (this::class.java.simpleName) {
+        "MainActivity" -> "Accueil"
+        "MoviesActivity" -> "Films"
+        "SeriesActivity", "SeriesDetailActivity" -> "Séries"
+        "LiveActivity" -> "Chaînes"
+        "DetailActivity" -> "Fiche film"
+        "SearchActivity" -> "Recherche"
+        "FavoritesActivity" -> "Favoris"
+        "ResumeActivity" -> "Reprise"
+        "ChatActivity" -> "Tchat"
+        "AddActivity" -> "Ajout"
+        "SettingsActivity" -> "Réglages"
+        "SetupActivity" -> "Playlists"
+        else -> "Dans l'appli"
     }
 
     companion object { private var startedCount = 0 }
