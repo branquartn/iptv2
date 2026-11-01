@@ -1,6 +1,9 @@
-{
-  "versionCode": 106,
-  "versionName": "1.0.105",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.105.apk",
-  "changelog": "• Lecture réparée : films, séries et chaînes ne démarraient plus du tout (le lecteur restait à 00:00 sur écran noir)"
-}
+            {
+              "versionCode": 110,
+              "versionName": "1.1.0",
+              "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.1.0.apk",
+              "changelog": "• Temps réel : tes films et séries du serveur se mettent à jour tout seuls (ajout, suppression) ; les modifications de l'admin et les messages du tchat arrivent en direct
+• Retirer un film ou une série de ton serveur : appui long sur OK (ou sur l'affiche)
+• Nouveau « + » sur l'accueil : recherche un film ou une série et ajoute-le à ton serveur
+• Tchat à la télécommande : message et boutons entourés en bleu, focus sur le dernier message, flèches hors du champ de saisie, OK maintenu = menu du message"
+            }
