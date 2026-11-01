@@ -46,6 +46,8 @@ open class BaseActivity : FragmentActivity() {
     override fun onStart() {
         super.onStart()
         val app = application as? com.nicotv.iptv2.IptvApplication ?: return
+        startedCount++
+        app.connectRealtime()
         val content = findViewById<android.view.ViewGroup>(android.R.id.content) ?: return
         val dp = resources.displayMetrics.density
         val banner = loadBanner ?: android.widget.LinearLayout(this).apply {
@@ -89,6 +91,14 @@ open class BaseActivity : FragmentActivity() {
             }
         }
     }
+
+    override fun onStop() {
+        super.onStop()
+        // Plus aucun écran visible (appli en arrière-plan) : on coupe le temps réel ; reconnexion au retour.
+        if (--startedCount <= 0) { startedCount = 0; (application as? com.nicotv.iptv2.IptvApplication)?.disconnectRealtime() }
+    }
+
+    companion object { private var startedCount = 0 }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)

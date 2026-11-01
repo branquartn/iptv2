@@ -5,6 +5,9 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
+import kotlinx.coroutines.launch
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.lifecycleScope
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import androidx.lifecycle.ViewModelProvider
@@ -75,6 +78,15 @@ class SeriesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         binding.rvCategories.adapter = categoryAdapter
         viewModel.categories.observe(this) { cats -> categoryAdapter.submitList(cats) }
         // Séries du serveur (mur d'affiches sans catégories) ⇄ séries de la playlist (avec catégories).
+        // Temps réel : un titre ajouté/supprimé côté serveur → la grille se recharge toute seule.
+        lifecycleScope.launch {
+            repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                var first = true
+                (application as com.nicotv.iptv2.IptvApplication).libraryRevision.collect {
+                    if (first) first = false else viewModel.refresh()
+                }
+            }
+        }
         binding.btnSource.setOnClickListener { viewModel.serverMode.value = viewModel.serverMode.value != true }
         viewModel.hasServerContent.observe(this) { updateSourceUi() }
         viewModel.serverMode.observe(this) { updateSourceUi() }

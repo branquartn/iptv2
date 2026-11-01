@@ -116,8 +116,13 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
         }
         _series.addSource(searchQuery) { load() }
         _series.addSource(selectedCategory) { load() }
+        _series.addSource(revision) { load() }
         _series.addSource(serverMode) { load() }
     }
+
+    /** Temps réel : la bibliothèque du serveur a changé → recharge la liste (et les catégories). */
+    private val revision = MutableLiveData(0)
+    fun refresh() { revision.value = (revision.value ?: 0) + 1 }
 
     private fun loadCategories() {
         viewModelScope.launch {

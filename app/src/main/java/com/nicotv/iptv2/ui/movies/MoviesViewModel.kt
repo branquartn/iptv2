@@ -162,6 +162,9 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    /** Temps réel : la bibliothèque du serveur a changé → recharge la liste (et les catégories). */
+    fun refresh() { reload() }
+
     private fun loadCategories() {
         viewModelScope.launch {
             // ⚠️ try/catch obligatoire : awaitingDefaultCategory bloque TOUT

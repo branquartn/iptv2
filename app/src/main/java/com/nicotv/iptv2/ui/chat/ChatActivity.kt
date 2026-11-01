@@ -40,7 +40,7 @@ import java.io.File
 /**
  * Tchat NicoTV ↔ Telegram (pendant de l'icône 💬 de la PWA) : fil privé avec Nicolas.
  * Texte, photos / fichiers, vocaux (envoi + lecture), modification et suppression de ses
- * messages. Rafraîchi par sondage (sans bus WS dans cette appli) avec un
+ * messages. Temps réel via le bus WS (chat:*) avec un
  * sondage de secours toutes les 8 s tant que l'écran est visible.
  *
  * Même rendu que la PWA : papier peint, bulles blanche/crème, réponses, réactions, transfert,
@@ -134,9 +134,11 @@ class ChatActivity : BaseActivity() {
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
+                // Temps réel (WebSocket) : nouveau message / réaction / modification → rechargement immédiat.
+                launch { app.chatEvents.collect { reload() } }
                 while (true) {
                     reload()
-                    delay(8_000)
+                    delay(30_000)   // filet si le WebSocket est coupé
                 }
             }
         }

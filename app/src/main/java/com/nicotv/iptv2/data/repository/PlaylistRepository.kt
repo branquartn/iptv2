@@ -597,6 +597,20 @@ class PlaylistRepository(
             } catch (e: Exception) { null }
         }
 
+    /** Temps réel : le serveur a changé (titre ajouté/supprimé) → on remplace UNIQUEMENT la section « Mon serveur »
+     *  du catalogue de la playlist active, sans toucher à la playlist Xtream. Faux si rien n'a pu être relu. */
+    suspend fun refreshServerLibrary(): Boolean = withContext(Dispatchers.IO) {
+        val token = serverToken()
+        if (token.isBlank() || sourcePrefs.getActiveProfileId() == null) return@withContext false
+        val lib = fetchServerLibrary(token) ?: return@withContext false   // échec réseau : on garde l'existant
+        db.withTransaction {
+            db.movieDao().deleteByCategory(serverCategory)
+            db.seriesDao().deleteByCategory(serverCategory)
+        }
+        appendServerLibrary { _, _ -> }
+        true
+    }
+
     /** Ajoute les films/séries du serveur au catalogue qui vient d'être chargé (sans rien supprimer). */
     private suspend fun appendServerLibrary(onProgress: (percent: Int, message: String) -> Unit) = withContext(Dispatchers.IO) {
         val token = serverToken()

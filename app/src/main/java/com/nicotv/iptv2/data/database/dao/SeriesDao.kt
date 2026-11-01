@@ -92,4 +92,8 @@ interface SeriesDao {
 
     @Query("SELECT COUNT(*) FROM series")
     suspend fun count(): Int
+
+    // Les épisodes partent avec leur série (clé étrangère en cascade, cf. deleteAll).
+    @Query("DELETE FROM series WHERE category = :category")
+    suspend fun deleteByCategory(category: String)
 }

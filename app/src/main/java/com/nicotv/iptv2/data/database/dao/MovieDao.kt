@@ -127,4 +127,7 @@ interface MovieDao {
 
     @Query("SELECT COUNT(*) FROM movies")
     suspend fun count(): Int
+
+    @Query("DELETE FROM movies WHERE category = :category")
+    suspend fun deleteByCategory(category: String)
 }

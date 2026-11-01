@@ -60,6 +60,33 @@ class IptvApplication : Application(), ImageLoaderFactory {
     // Chargement de la playlist en arrière-plan, avec pourcentage (bandeau en haut de chaque écran).
     val catalogLoader by lazy { com.nicotv.iptv2.account.CatalogLoader(this) }
 
+    // Temps réel (ws.nicotv.ovh), comme l'app iptv : bibliothèque du serveur, codes Xtream de l'admin, tchat.
+    val chatEvents = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 8, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
+    // Incrémenté à chaque rafraîchissement de la bibliothèque du serveur : Films / Séries rechargent leur grille.
+    val libraryRevision = kotlinx.coroutines.flow.MutableStateFlow(0)
+    @Volatile private var librarySyncJob: kotlinx.coroutines.Job? = null
+    private val wsClient by lazy { OkHttpClient.Builder().pingInterval(20, TimeUnit.SECONDS).build() }
+    private val realtimeClient by lazy {
+        com.nicotv.iptv2.account.RealtimeClient(wsClient, { sessionManager.getToken() }, appScope,
+            onLibraryChanged = { onRealtimeLibraryChange() },
+            onXtreamChanged = { appScope.launch { runCatching { remoteSources.sync(force = true) } } },
+            onChatEvent = { chatEvents.tryEmit(Unit) })
+    }
+
+    fun connectRealtime() { if (sessionManager.isLoggedIn()) realtimeClient.start() }
+    fun disconnectRealtime() { realtimeClient.stop() }
+
+    /** Débouncé (rafales d'évènements) ; jamais pendant un chargement complet (il relit déjà la bibliothèque). */
+    private fun onRealtimeLibraryChange() {
+        if (!sessionManager.isLoggedIn()) return
+        librarySyncJob?.cancel()
+        librarySyncJob = appScope.launch {
+            kotlinx.coroutines.delay(1_500L)
+            if (catalogLoader.isRunning) return@launch
+            if (runCatching { playlistRepository.refreshServerLibrary() }.getOrDefault(false)) libraryRevision.value++
+        }
+    }
+
     // Config Coil explicite (défaut sinon non borné en usage réel : mur
     // d'affiches films/séries/chaînes potentiellement énorme sur un gros
     // panel Xtream). 300 Mo de cache disque, 25% de la RAM dispo en mémoire —
