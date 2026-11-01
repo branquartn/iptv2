@@ -527,7 +527,15 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         stallWatchdogJob?.cancel()
         stallWatchdogJob = lifecycleScope.launch {
             delay(8000)
-            if (!hasStartedPlaying) escalateOrGiveUp()
+            if (hasStartedPlaying) return@launch
+            // Vérifié seulement si la lecture NE démarre PAS : au lancement, le panel compterait notre propre
+            // connexion et annoncerait à tort un code « déjà utilisé ».
+            val busy = xtreamBusyMessage()
+            if (hasStartedPlaying) return@launch
+            if (busy != null) {
+                showStatus(busy + "\n(Retour pour revenir)")
+                binding.playerView.showController()
+            } else escalateOrGiveUp()
         }
     }
 
@@ -638,6 +646,10 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
             .build()
             .also { exo ->
+                // ⚠️ Affecté ICI, pas seulement au retour du `.also` : playCurrentSource() lit `player`, et l'appeler
+                // avec un champ encore nul ressortait sans rien faire (rien ne se lisait depuis la 1.0.88 : ni film,
+                // ni chaîne, ni erreur, ni watchdog).
+                player = exo
                 binding.playerView.player = exo
                 binding.playerView.controllerAutoShow = true
                 binding.playerView.controllerHideOnTouch = false
@@ -732,13 +744,6 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                 showStatus("Connexion à la source…")
                 binding.playerView.showController()   // la barre est visible dès le début (plus d'écran noir sans repère)
                 playCurrentSource()
-                // Code Xtream déjà occupé ailleurs → message clair tout de suite (au lieu d'un écran noir).
-                lifecycleScope.launch {
-                    xtreamBusyMessage()?.let { msg ->
-                        showStatus(msg)   // reste affiché ; retour = touche Retour / flèche
-                        binding.playerView.showController()
-                    }
-                }
 
                 val key = historyKey
                 if (key.isNotBlank() && resume) {

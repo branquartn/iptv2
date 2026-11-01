@@ -10,8 +10,8 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 105
-val appVersionName = "1.0.104"
+val appVersionCode = 106
+val appVersionName = "1.0.105"
 // Changelog affiché dans le modal de mise à jour OTA.
 // ⚠️ OUBLIÉ PENDANT ~15 VERSIONS (29/08/2026, bug signalé par l'utilisateur :
 // "le texte de la maj n'est pas le bon") — appVersionCode/appVersionName ont
@@ -20,7 +20,7 @@ val appVersionName = "1.0.104"
 // modif du 28/08 alors qu'on en était à v1.0.50). Ce commentaire ne suffit
 // visiblement pas tout seul à s'en souvenir : à chaque bump de version,
 // updater CETTE ligne AVANT de commit, pas après coup.
-val appChangelog = "• Lecture : le message « code Xtream déjà utilisé sur un autre appareil » s'affiche maintenant vraiment (le nombre de connexions en cours n'était jamais relu)"
+val appChangelog = "• Lecture réparée : films, séries et chaînes ne démarraient plus du tout (le lecteur restait à 00:00 sur écran noir)"
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
