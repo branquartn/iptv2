@@ -49,6 +49,10 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
     private val _categories = MutableLiveData<List<String>>(emptyList())
     val categories: LiveData<List<String>> = _categories
 
+    // Séries du SERVEUR de l'utilisateur : mur d'affiches sans catégories (comme l'app iptv), bascule vers la playlist.
+    val serverMode = MutableLiveData(false)
+    val hasServerContent = MutableLiveData(false)
+
     private val _isReady = MutableLiveData(false)
     val isReady: LiveData<Boolean> = _isReady
 
@@ -88,9 +92,10 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
             job = viewModelScope.launch {
                 val query = searchQuery.value.orEmpty().trim()
                 if (query.isNotBlank()) delay(150)
-                val cat = selectedCategory.value
+                val server = serverMode.value == true
+                val cat = if (server) PlaylistRepository.SERVER_CATEGORY else selectedCategory.value
                 val result = withContext(Dispatchers.Default) {
-                    if (query.isNotBlank()) {
+                    val raw = if (query.isNotBlank()) {
                         var s = repository.searchSeriesByTitle(query)
                         s = applyLanguageFilter(s)
                         // Catégorie BRUTE (30/08/2026 : plus de renommage,
@@ -100,6 +105,7 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
                     } else {
                         repository.getSeriesPage(contentLanguage, cat, offset = 0, limit = pageLimitFor(cat))
                     }
+                    if (server) raw else raw.filter { it.category != PlaylistRepository.SERVER_CATEGORY }
                 }
                 isSearching = query.isNotBlank()
                 pagingOffset = result.size
@@ -110,6 +116,7 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
         }
         _series.addSource(searchQuery) { load() }
         _series.addSource(selectedCategory) { load() }
+        _series.addSource(serverMode) { load() }
     }
 
     private fun loadCategories() {
@@ -118,7 +125,9 @@ class SeriesViewModel(application: Application) : AndroidViewModel(application) 
                 // Ordre de la playlist — cf. MoviesViewModel.loadCategories.
                 repository.getSeriesCategories(contentLanguage).filter { it.isNotBlank() }
             }
-            _categories.value = result
+            hasServerContent.value = result.contains(PlaylistRepository.SERVER_CATEGORY)
+            _categories.value = result.filter { it != PlaylistRepository.SERVER_CATEGORY }
+            if (hasServerContent.value == true) serverMode.value = true   // ouvre d'abord sur les séries du serveur
         }
     }
 

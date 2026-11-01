@@ -78,6 +78,8 @@ class PlaylistRepository(
     var onFlagsApplied: (Long, Pair<Boolean, Boolean>) -> Unit = { _, _ -> }
 
     companion object {
+        /** Catégorie des films/séries du serveur NicoTV de l'utilisateur (affichés à part, sans sidebar de catégories). */
+        const val SERVER_CATEGORY = "Mon serveur"
         // Reprise affichée dès 5s de lecture (comme NicoTV) — sous ce seuil, pas
         // la peine de proposer une reprise pour quelques secondes de générique/pub.
         private const val MIN_RESUME_MS = 5_000L
@@ -517,7 +519,7 @@ class PlaylistRepository(
     // Les films et séries du serveur de l'utilisateur apparaissent avec ceux de la playlist (catégorie
     // « Mon serveur », en tête) : ce n'est PAS une autre playlist à choisir.
 
-    private val serverCategory = "Mon serveur"
+    private val serverCategory = SERVER_CATEGORY
 
     /** Lit la bibliothèque du compte (route `library`, la même que l'app iptv). null si indisponible. */
     private suspend fun fetchServerLibrary(token: String): Pair<List<MovieEntity>, Map<String, List<Triple<M3uEntry, M3uParser.ParsedEpisode, Int>>>>? =

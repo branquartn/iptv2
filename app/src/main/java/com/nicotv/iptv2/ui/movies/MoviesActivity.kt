@@ -73,6 +73,10 @@ class MoviesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         categoryFastScroll = com.nicotv.iptv2.ui.common.CategoryFastScroll(binding.rvCategories)
         binding.rvCategories.adapter = categoryAdapter
         viewModel.categories.observe(this) { cats -> categoryAdapter.submitList(cats) }
+        // Films du serveur (mur d'affiches sans catégories) ⇄ films de la playlist (avec catégories).
+        binding.btnSource.setOnClickListener { viewModel.serverMode.value = viewModel.serverMode.value != true }
+        viewModel.hasServerContent.observe(this) { updateSourceUi() }
+        viewModel.serverMode.observe(this) { updateSourceUi() }
         // ⚠️ Surbrillance de la catégorie ouverte par défaut (30/08/2026, cf.
         // util.pickDefaultCategory) — setSelectedSilently, pas `selected =` :
         // la sélection vient DÉJÀ du ViewModel, la repasser par le setter
@@ -157,6 +161,14 @@ class MoviesActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
         if (categoryFastScroll?.handleKeyEvent(event) == true) return true
         return super.dispatchKeyEvent(event)
+    }
+
+    private fun updateSourceUi() {
+        val server = viewModel.serverMode.value == true
+        binding.btnSource.visibility = if (viewModel.hasServerContent.value == true) View.VISIBLE else View.GONE
+        binding.btnSource.text = if (server) "Mon serveur  ⇄" else "Playlist  ⇄"
+        binding.rvCategories.visibility = if (server) View.GONE else View.VISIBLE
+        binding.sidebarDivider.visibility = if (server) View.GONE else View.VISIBLE
     }
 
     private fun hideKeyboard() {

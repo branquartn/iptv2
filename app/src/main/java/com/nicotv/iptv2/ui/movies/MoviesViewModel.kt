@@ -62,6 +62,10 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
     private val _categories = MutableLiveData<List<String>>(emptyList())
     val categories: LiveData<List<String>> = _categories
 
+    // Films du SERVEUR de l'utilisateur : mur d'affiches sans catégories (comme l'app iptv), bascule vers la playlist.
+    val serverMode = MutableLiveData(false)
+    val hasServerContent = MutableLiveData(false)
+
     // ⚠️ Distingue "pas encore chargé" de "vraiment vide" — même principe que
     // PlaylistRepository.isMoviesReady (écrans Séries/Chaînes), appliqué ici
     // directement sur le chargement de la première page plutôt que sur le
@@ -116,6 +120,7 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
     init {
         _movies.addSource(searchQuery) { reload() }
         _movies.addSource(selectedCategory) { reload() }
+        _movies.addSource(serverMode) { reload() }
         loadCategories()
     }
 
@@ -129,9 +134,10 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
         job = viewModelScope.launch {
             val query = searchQuery.value.orEmpty().trim()
             if (query.isNotBlank()) delay(150)
-            val cat = selectedCategory.value
+            val server = serverMode.value == true
+            val cat = if (server) PlaylistRepository.SERVER_CATEGORY else selectedCategory.value
             val result = withContext(Dispatchers.Default) {
-                if (query.isNotBlank()) {
+                val raw = if (query.isNotBlank()) {
                     var m = repository.searchMoviesByTitle(query)
                     m = applyLanguageFilter(m)
                     // Comparaison sur la catégorie BRUTE (30/08/2026 : plus de
@@ -142,6 +148,8 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
                 } else {
                     repository.getMoviesPage(contentLanguage, cat, offset = 0, limit = pageLimitFor(cat))
                 }
+                // Mode playlist : les films du serveur ont leur propre écran, on ne les mélange pas.
+                if (server) raw else raw.filter { it.category != PlaylistRepository.SERVER_CATEGORY }
             }
             isSearching = query.isNotBlank()
             pagingOffset = result.size
@@ -174,10 +182,14 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
             } catch (e: Exception) {
                 emptyList()
             }
-            _categories.value = result
+            val hasServer = result.contains(PlaylistRepository.SERVER_CATEGORY)
+            val playlistCats = result.filter { it != PlaylistRepository.SERVER_CATEGORY }
+            hasServerContent.value = hasServer
+            _categories.value = playlistCats
+            if (hasServer) serverMode.value = true   // ouvre d'abord sur les films du serveur
 
             // Catégorie ouverte par défaut — cf. util.pickDefaultCategory.
-            val default = pickDefaultCategory(result, MOVIES_PREFERRED_CATEGORIES)
+            val default = pickDefaultCategory(playlistCats, MOVIES_PREFERRED_CATEGORIES)
             awaitingDefaultCategory = false
             if (default != null) {
                 // Déclenche reload() via addSource(selectedCategory).
