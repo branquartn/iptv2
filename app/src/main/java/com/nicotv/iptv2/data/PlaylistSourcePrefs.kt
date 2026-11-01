@@ -26,6 +26,14 @@ class PlaylistSourcePrefs(context: Context) {
         }
     }
 
+    /** Date (ms) du dernier chargement COMPLET réussi du catalogue de ce profil ; 0 = jamais chargé. */
+    fun getLoadedAt(profileId: Long): Long = prefs.getLong("loaded_at_$profileId", 0L)
+    fun setLoadedAt(profileId: Long, t: Long = System.currentTimeMillis()) = prefs.edit { putLong("loaded_at_$profileId", t) }
+
+    /** Ancien catalogue unique (base principale) déjà vidé ? cf. PlaylistRepository.init. */
+    fun isCatalogMigrated(): Boolean = prefs.getBoolean("catalog_per_profile_v1", false)
+    fun setCatalogMigrated() = prefs.edit { putBoolean("catalog_per_profile_v1", true) }
+
     companion object {
         private const val KEY_ACTIVE_ID = "active_profile_id"
     }

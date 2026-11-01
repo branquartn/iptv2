@@ -44,29 +44,37 @@ abstract class AppDatabase : RoomDatabase() {
         // par Room fait planter l'app au démarrage, pire que perdre un profil).
         fun getInstance(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
-                INSTANCE ?: Room.databaseBuilder(
-                    context.applicationContext,
-                    AppDatabase::class.java,
-                    "iptv2_database"
-                ).fallbackToDestructiveMigration()
-                    // ⚠️ `synchronous = NORMAL` (30/08/2026) : avec le mode WAL
-                    // — celui que Room active par défaut — SQLite n'a plus
-                    // besoin de forcer une synchronisation disque à chaque
-                    // commit, ce qui est le gros du coût d'écriture d'un
-                    // catalogue de ~215 000 lignes. Compromis assumé et adapté
-                    // ICI : la seule perte possible est celle des toutes
-                    // dernières écritures en cas de coupure de courant ou de
-                    // crash SYSTÈME (un crash de l'app, lui, ne perd rien) — or
-                    // cette base n'est qu'un CACHE de la playlist, entièrement
-                    // reconstructible en la rechargeant. À ne pas reprendre tel
-                    // quel dans une base contenant des données non
-                    // reproductibles.
-                    .addCallback(object : RoomDatabase.Callback() {
-                        override fun onOpen(db: androidx.sqlite.db.SupportSQLiteDatabase) {
-                            db.execSQL("PRAGMA synchronous = NORMAL")
-                        }
-                    })
-                    .build().also { INSTANCE = it }
+                INSTANCE ?: build(context, "iptv2_database").also { INSTANCE = it }
             }
+
+        // Une base de CATALOGUE par playlist (« iptv2_catalog_<id> ») : basculer d'une playlist à l'autre ne
+        // retélécharge plus rien tant que le cache est récent. La base principale (« iptv2_database ») ne garde que
+        // la table des profils. Même schéma (mêmes entités) pour toutes, donc aucune migration.
+        private val catalogs = java.util.concurrent.ConcurrentHashMap<String, AppDatabase>()
+
+        fun forProfile(context: Context, profileId: Long?): AppDatabase =
+            if (profileId == null) getInstance(context)
+            else catalogs.getOrPut("iptv2_catalog_$profileId") { build(context, "iptv2_catalog_$profileId") }
+
+        /** Ferme et supprime le cache d'une playlist (profil retiré par l'admin). */
+        fun deleteProfileCatalog(context: Context, profileId: Long) {
+            val name = "iptv2_catalog_$profileId"
+            catalogs.remove(name)?.close()
+            context.applicationContext.deleteDatabase(name)
+        }
+
+        private fun build(context: Context, name: String): AppDatabase =
+            Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, name)
+                .fallbackToDestructiveMigration()
+                // ⚠️ `synchronous = NORMAL` : avec le mode WAL, SQLite n'a plus besoin de forcer une synchronisation
+                // disque à chaque commit (gros du coût d'écriture d'un catalogue de ~215 000 lignes). La seule perte
+                // possible est celle des toutes dernières écritures en cas de coupure/crash SYSTÈME : ces bases ne
+                // sont qu'un CACHE de la playlist, entièrement reconstructible.
+                .addCallback(object : RoomDatabase.Callback() {
+                    override fun onOpen(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        db.execSQL("PRAGMA synchronous = NORMAL")
+                    }
+                })
+                .build()
     }
 }

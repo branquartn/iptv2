@@ -23,6 +23,32 @@ class CatalogLoader(private val app: IptvApplication) {
 
     val isRunning: Boolean get() = job?.isActive == true
 
+    /** Le catalogue de ce profil doit-il être (re)chargé ? Jamais chargé, plus vieux que 24 h, ou construit avec d'autres
+     *  réglages films/séries que ceux de l'admin. Sinon le cache de sa base est servi tel quel (bascule instantanée). */
+    fun needsLoad(profileId: Long): Boolean {
+        val loadedAt = app.sourcePrefs.getLoadedAt(profileId)
+        if (loadedAt <= 0L || System.currentTimeMillis() - loadedAt > com.nicotv.iptv2.data.repository.PlaylistRepository.CATALOG_MAX_AGE_MS) return true
+        val loadedFlags = app.sessionManager.getLoadedFlags(profileId) ?: (true to true)
+        return loadedFlags != app.sessionManager.getContentFlags(profileId)
+    }
+
+    /** Active une playlist : si son cache est récent on la sert tout de suite, sinon chargement en arrière-plan. */
+    fun activate(profileId: Long, profileName: String): Boolean {
+        if (isRunning) return false
+        app.sourcePrefs.setActiveProfileId(profileId)
+        if (needsLoad(profileId)) start(profileId, profileName)
+        return true
+    }
+
+    /** Au démarrage : recharge la playlist active seulement si son cache est périmé. */
+    fun refreshIfNeeded() {
+        if (isRunning) return
+        app.appScope.launch {
+            val p = app.playlistRepository.getActiveProfile() ?: return@launch
+            if (needsLoad(p.id)) start(p.id, p.name)
+        }
+    }
+
     fun start(profileId: Long, profileName: String) {
         if (isRunning) return
         job = app.appScope.launch {

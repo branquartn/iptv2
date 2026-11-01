@@ -192,7 +192,7 @@ class SetupActivity : BaseActivity() {
             val app = application as IptvApplication
             val name = app.playlistRepository.getProfile(profileId)?.name ?: "Playlist"
             com.nicotv.iptv2.ui.main.MainActivity.resetHomeBg()
-            app.catalogLoader.start(profileId, name)
+            app.catalogLoader.activate(profileId, name)   // cache récent → instantané, sinon chargement en fond
             goToMain()
         }
     }

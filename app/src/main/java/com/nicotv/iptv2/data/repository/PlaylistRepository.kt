@@ -30,6 +30,7 @@ import com.nicotv.iptv2.util.cleanTitleForMatch
 import com.nicotv.iptv2.util.extractLeadingLanguageCode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -58,7 +59,7 @@ import java.io.IOException
  */
 class PlaylistRepository(
     private val context: Context,
-    private val db: AppDatabase,
+    private val mainDb: AppDatabase,
     private val okHttpClient: OkHttpClient,
     private val sourcePrefs: PlaylistSourcePrefs,
     // Survit à la destruction d'une Activity/ViewModel — pour les écritures qui
@@ -68,6 +69,21 @@ class PlaylistRepository(
     // supprimés le 30/08/2026 (cf. plus bas) — ne pas en recréer.
     private val appScope: CoroutineScope
 ) {
+    /** Base du catalogue de la playlist ACTIVE (une base par playlist) ; base principale si aucune n'est active. */
+    private val db: AppDatabase get() = AppDatabase.forProfile(context, sourcePrefs.getActiveProfileId())
+
+    init {
+        // Passage au cache par playlist : l'ancien catalogue unique (base principale) est vidé une fois pour libérer la place.
+        appScope.launch(Dispatchers.IO) {
+            if (!sourcePrefs.isCatalogMigrated()) {
+                runCatching {
+                    mainDb.channelDao().deleteAll(); mainDb.movieDao().deleteAll(); mainDb.seriesDao().deleteAll()
+                }
+                sourcePrefs.setCatalogMigrated()
+            }
+        }
+    }
+
     /** Films / séries autorisés pour un profil (posé par IptvApplication d'après les réglages de l'admin). */
     var contentFlags: (Long) -> Pair<Boolean, Boolean> = { true to true }
 
@@ -87,7 +103,7 @@ class PlaylistRepository(
         // au-delà de cet âge, on retente un chargement réseau best-effort en fond
         // sans bloquer l'écran. Le tap sur un profil (SetupActivity) reste lui
         // toujours un rechargement réseau explicite, jamais servi depuis Room.
-        private const val CATALOG_MAX_AGE_MS = 24 * 60 * 60 * 1000L
+        const val CATALOG_MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000L   // cache d'une playlist : valable 7 jours
         // Taille de page des écrans Films/Séries/Chaînes — assez pour remplir
         // l'écran + une marge de scroll sans viser l'exhaustivité immédiate
         // (tout l'intérêt de la pagination).
@@ -128,7 +144,7 @@ class PlaylistRepository(
 
     // ── Profils sauvegardés ──────────────────────────────────────────────────
 
-    fun getProfiles(): Flow<List<PlaylistProfileEntity>> = db.playlistProfileDao().getAll()
+    fun getProfiles(): Flow<List<PlaylistProfileEntity>> = mainDb.playlistProfileDao().getAll()
 
     // Date d'expiration Xtream : mémorisée à chaque login (loadXtream) et
     // rafraîchie à l'ouverture de l'écran Profils (refreshXtreamAccount).
@@ -150,7 +166,7 @@ class PlaylistRepository(
         }
 
     suspend fun getProfile(id: Long): PlaylistProfileEntity? =
-        withContext(Dispatchers.IO) { db.playlistProfileDao().getById(id) }
+        withContext(Dispatchers.IO) { mainDb.playlistProfileDao().getById(id) }
 
     /** Vrai seulement si le profil actif existe ENCORE en base : l'id vit dans
      * SharedPreferences (jamais effacé) alors que les profils vivent dans Room,
@@ -159,7 +175,7 @@ class PlaylistRepository(
      * profil disparu (catalogue vide, impossible de recharger). */
     suspend fun hasValidActiveProfile(): Boolean = withContext(Dispatchers.IO) {
         val id = sourcePrefs.getActiveProfileId() ?: return@withContext false
-        val exists = db.playlistProfileDao().getById(id) != null
+        val exists = mainDb.playlistProfileDao().getById(id) != null
         if (!exists) sourcePrefs.setActiveProfileId(null)
         exists
     }
@@ -169,23 +185,24 @@ class PlaylistRepository(
     // existant écrase la même ligne (édition) au lieu d'en créer une nouvelle.
     // Laissé à 0 (défaut) pour un nouveau profil : Room lui assigne un id.
     suspend fun saveM3uUrlProfile(name: String, url: String, existingId: Long = 0): Long = withContext(Dispatchers.IO) {
-        db.playlistProfileDao().insert(PlaylistProfileEntity(id = existingId, name = name, type = SourceType.M3U_URL.name, m3uUrl = url))
+        mainDb.playlistProfileDao().insert(PlaylistProfileEntity(id = existingId, name = name, type = SourceType.M3U_URL.name, m3uUrl = url))
             .also { backupProfiles() }
     }
 
     suspend fun saveM3uFileProfile(name: String, uri: String, existingId: Long = 0): Long = withContext(Dispatchers.IO) {
-        db.playlistProfileDao().insert(PlaylistProfileEntity(id = existingId, name = name, type = SourceType.M3U_FILE.name, m3uFileUri = uri))
+        mainDb.playlistProfileDao().insert(PlaylistProfileEntity(id = existingId, name = name, type = SourceType.M3U_FILE.name, m3uFileUri = uri))
             .also { backupProfiles() }
     }
 
     suspend fun saveXtreamProfile(name: String, host: String, username: String, password: String, existingId: Long = 0): Long = withContext(Dispatchers.IO) {
-        db.playlistProfileDao().insert(
+        mainDb.playlistProfileDao().insert(
             PlaylistProfileEntity(id = existingId, name = name, type = SourceType.XTREAM.name, xtreamHost = host, xtreamUsername = username, xtreamPassword = password)
         ).also { backupProfiles() }
     }
 
     suspend fun deleteProfile(id: Long) = withContext(Dispatchers.IO) {
-        db.playlistProfileDao().delete(id)
+        mainDb.playlistProfileDao().delete(id)
+        AppDatabase.deleteProfileCatalog(context, id)   // son cache de catalogue avec lui
         xtreamAccountPrefs.remove(id)
         if (sourcePrefs.getActiveProfileId() == id) sourcePrefs.setActiveProfileId(null)
         backupProfiles()
@@ -195,7 +212,7 @@ class PlaylistRepository(
      * profil (cf. [ProfileBackupPrefs]) — Room peut être vidé (montée de schéma
      * destructive, incident), pas les prefs. */
     private suspend fun backupProfiles() = withContext(Dispatchers.IO) {
-        profileBackup.save(db.playlistProfileDao().getAllOnce())
+        profileBackup.save(mainDb.playlistProfileDao().getAllOnce())
     }
 
     /** Appelé au démarrage : si Room n'a aucun profil mais que la copie de
@@ -203,11 +220,11 @@ class PlaylistRepository(
      * d'un ancien catalogue ne s'y rattachent pas, même limite qu'un rechargement
      * normal). Ne fait rien dans le cas nominal (Room non vide). */
     suspend fun restoreProfilesIfEmpty() = withContext(Dispatchers.IO) {
-        if (db.playlistProfileDao().countProfiles() > 0) return@withContext
+        if (mainDb.playlistProfileDao().countProfiles() > 0) return@withContext
         val saved = profileBackup.load()
         if (saved.isEmpty()) return@withContext
         android.util.Log.i("PlaylistRepository", "Room vide : restauration de ${saved.size} profil(s) depuis la sauvegarde de secours")
-        saved.forEach { db.playlistProfileDao().insert(it.copy(id = 0)) }
+        saved.forEach { mainDb.playlistProfileDao().insert(it.copy(id = 0)) }
     }
 
     /** Charge (ou recharge) un profil sauvegardé : dispatch selon son type,
@@ -225,8 +242,9 @@ class PlaylistRepository(
      * appelants qui n'affichent pas de dialogue (refreshActiveProfileIfStale)
      * n'ont rien à changer. */
     suspend fun loadProfile(profileId: Long, onProgress: (percent: Int, message: String) -> Unit = { _, _ -> }): Result<Int> {
-        val profile = withContext(Dispatchers.IO) { db.playlistProfileDao().getById(profileId) }
+        val profile = withContext(Dispatchers.IO) { mainDb.playlistProfileDao().getById(profileId) }
             ?: return Result.failure(LoadException("Profil introuvable"))
+        sourcePrefs.setActiveProfileId(profileId)   // le chargement écrit dans la base de CE profil
         return try {
             val count = when (SourceType.valueOf(profile.type)) {
                 SourceType.M3U_URL -> {
@@ -243,8 +261,9 @@ class PlaylistRepository(
             // Films et séries du serveur de l'utilisateur, ajoutés à n'importe quelle playlist (un échec ne casse pas le chargement).
             if (profile.type != SourceType.SERVER.name) runCatching { appendServerLibrary(onProgress) }
             onProgress(100, "Terminé")
+            sourcePrefs.setLoadedAt(profileId)   // cache valable jusqu'au prochain rechargement complet
             sourcePrefs.setActiveProfileId(profileId)
-            db.playlistProfileDao().touchLastUsed(profileId)
+            mainDb.playlistProfileDao().touchLastUsed(profileId)
             Result.success(count)
         } catch (e: Exception) {
             Result.failure(if (e is LoadException) e else LoadException(e.message ?: "Erreur de chargement", e))
@@ -252,7 +271,7 @@ class PlaylistRepository(
     }
 
     suspend fun getActiveProfile(): PlaylistProfileEntity? = withContext(Dispatchers.IO) {
-        sourcePrefs.getActiveProfileId()?.let { db.playlistProfileDao().getById(it) }
+        sourcePrefs.getActiveProfileId()?.let { mainDb.playlistProfileDao().getById(it) }
     }
 
     /** Appelé au démarrage de l'accueil (MainActivity.onStart) : recharge le
@@ -263,7 +282,8 @@ class PlaylistRepository(
      * part, le catalogue existant reste affiché tel quel. */
     suspend fun refreshActiveProfileIfStale(maxAgeMs: Long = CATALOG_MAX_AGE_MS): Boolean {
         val profile = getActiveProfile() ?: return false
-        if (System.currentTimeMillis() - profile.lastUsedAt < maxAgeMs) return false
+        val loadedAt = sourcePrefs.getLoadedAt(profile.id)
+        if (loadedAt > 0 && System.currentTimeMillis() - loadedAt < maxAgeMs) return false
         return loadProfile(profile.id).isSuccess
     }
 
@@ -779,7 +799,7 @@ class PlaylistRepository(
         if (cached.isNotEmpty() || series.xtreamSeriesId.isBlank()) return@withContext cached
 
         val activeId = sourcePrefs.getActiveProfileId() ?: return@withContext cached
-        val profile = db.playlistProfileDao().getById(activeId) ?: return@withContext cached
+        val profile = mainDb.playlistProfileDao().getById(activeId) ?: return@withContext cached
         if (profile.type != SourceType.XTREAM.name) return@withContext cached
         val client = xtreamClientFor(profile)
         val info = client.getSeriesInfo(series.xtreamSeriesId)

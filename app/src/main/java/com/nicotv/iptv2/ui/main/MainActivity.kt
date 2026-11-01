@@ -83,7 +83,7 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                 startActivity(android.content.Intent(this@MainActivity, com.nicotv.iptv2.ui.setup.SetupActivity::class.java)); finish(); return@launch
             }
             applyContentFlags()
-            if (!app.catalogLoader.isRunning) app.playlistRepository.refreshActiveProfileIfStale()
+            app.catalogLoader.refreshIfNeeded()   // cache périmé (24 h) ou jamais chargé → en arrière-plan avec bandeau %
         }
         applyContentFlags()
         updateExpiry()
@@ -116,11 +116,12 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                         app.catalogLoader.isRunning ->
                             android.widget.Toast.makeText(this@MainActivity, "Un chargement est déjà en cours…", android.widget.Toast.LENGTH_SHORT).show()
                         else -> {
-                            app.sourcePrefs.setActiveProfileId(p.id)   // actif tout de suite (expiration, tuiles)
+                            // Cache récent : bascule instantanée, aucun téléchargement. Sinon chargement en fond (bandeau %).
+                            val cached = !app.catalogLoader.needsLoad(p.id)
+                            app.catalogLoader.activate(p.id, p.name)
                             resetHomeBg()
-                            app.catalogLoader.start(p.id, p.name)
-                            applyContentFlags()
-                            updateExpiry()
+                            if (cached) android.widget.Toast.makeText(this@MainActivity, "${p.name} : cache à jour", android.widget.Toast.LENGTH_SHORT).show()
+                            recreate()   // l'accueil relit le catalogue de la nouvelle playlist
                         }
                     }
                 }
