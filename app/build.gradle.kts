@@ -10,8 +10,8 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 96
-val appVersionName = "1.0.95"
+val appVersionCode = 97
+val appVersionName = "1.0.96"
 // Changelog affiché dans le modal de mise à jour OTA.
 // ⚠️ OUBLIÉ PENDANT ~15 VERSIONS (29/08/2026, bug signalé par l'utilisateur :
 // "le texte de la maj n'est pas le bon") — appVersionCode/appVersionName ont
@@ -20,7 +20,7 @@ val appVersionName = "1.0.95"
 // modif du 28/08 alors qu'on en était à v1.0.50). Ce commentaire ne suffit
 // visiblement pas tout seul à s'en souvenir : à chaque bump de version,
 // updater CETTE ligne AVANT de commit, pas après coup.
-val appChangelog = "• Accueil : la date d'expiration de ton abonnement Xtream s'affiche en bas à droite, avec le nom de la playlist (jaune si elle expire dans moins de 7 jours, rouge si expiré)"
+val appChangelog = "• Accueil : nouvelle icône ⇄ pour changer de playlist en direct (visible quand l'admin t'en a attribué plusieurs) ; le chargement se fait en arrière-plan avec le pourcentage en haut"
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")

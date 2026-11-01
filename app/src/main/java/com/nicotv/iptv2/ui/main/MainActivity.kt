@@ -22,6 +22,7 @@ import com.nicotv.iptv2.ui.series.SeriesActivity
 import com.nicotv.iptv2.update.checkForAppUpdate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -76,6 +77,48 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         }
         applyContentFlags()
         updateExpiry()
+        updateSwitchVisibility()
+    }
+
+    /** Icône « changer de playlist » : visible seulement s'il y a au moins 2 playlists attribuées. */
+    private fun updateSwitchVisibility() {
+        lifecycleScope.launch {
+            val n = (application as IptvApplication).playlistRepository.getProfiles().first().size
+            binding.btnSwitch.visibility = if (n > 1) View.VISIBLE else View.GONE
+        }
+    }
+
+    /** Bascule en direct sur une autre playlist attribuée par l'admin : chargement en arrière-plan, bandeau %. */
+    private fun showSwitchPlaylistDialog() {
+        lifecycleScope.launch {
+            val app = application as IptvApplication
+            val profiles = app.playlistRepository.getProfiles().first()
+            if (profiles.isEmpty()) return@launch
+            val activeId = app.sourcePrefs.getActiveProfileId()
+            val names = profiles.map { (if (it.id == activeId) "✓  " else "     ") + it.name }.toTypedArray()
+            val dialog = AlertDialog.Builder(this@MainActivity)
+                .setTitle("Changer de playlist")
+                .setItems(names) { d, which ->
+                    val p = profiles[which]
+                    d.dismiss()
+                    when {
+                        p.id == activeId -> Unit
+                        app.catalogLoader.isRunning ->
+                            android.widget.Toast.makeText(this@MainActivity, "Un chargement est déjà en cours…", android.widget.Toast.LENGTH_SHORT).show()
+                        else -> {
+                            app.sourcePrefs.setActiveProfileId(p.id)   // actif tout de suite (expiration, tuiles)
+                            resetHomeBg()
+                            app.catalogLoader.start(p.id, p.name)
+                            applyContentFlags()
+                            updateExpiry()
+                        }
+                    }
+                }
+                .setNegativeButton("Annuler", null)
+                .create()
+            dialog.show()
+            dialog.window?.setBackgroundDrawableResource(R.drawable.bg_dialog)
+        }
     }
 
     /** Playlist active + date d'expiration de son abonnement Xtream, en bas à droite de l'accueil :
@@ -197,6 +240,7 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         binding.btnResume.setOnClickListener { startActivity(Intent(this, ResumeActivity::class.java)) }
         binding.btnSearch.setOnClickListener { startActivity(Intent(this, SearchActivity::class.java)) }
         binding.btnFavorites.setOnClickListener { startActivity(Intent(this, FavoritesActivity::class.java)) }
+        binding.btnSwitch.setOnClickListener { showSwitchPlaylistDialog() }
         binding.btnChat.setOnClickListener { startActivity(Intent(this, com.nicotv.iptv2.ui.chat.ChatActivity::class.java)) }
         binding.btnSettings.setOnClickListener {
             startActivity(Intent(this, com.nicotv.iptv2.ui.settings.SettingsActivity::class.java))
@@ -220,6 +264,7 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
             binding.btnResume to binding.btnResumeRing,
             binding.btnSearch to binding.btnSearchRing,
             binding.btnFavorites to binding.btnFavoritesRing,
+            binding.btnSwitch to binding.btnSwitchRing,
             binding.btnChat to binding.btnChatRing,
             binding.btnSettings to binding.btnSettingsRing
         ).forEach { (view, ring) ->
