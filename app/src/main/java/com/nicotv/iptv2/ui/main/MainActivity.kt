@@ -147,6 +147,7 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
         binding.btnResume.setOnClickListener { startActivity(Intent(this, ResumeActivity::class.java)) }
         binding.btnSearch.setOnClickListener { startActivity(Intent(this, SearchActivity::class.java)) }
         binding.btnFavorites.setOnClickListener { startActivity(Intent(this, FavoritesActivity::class.java)) }
+        binding.btnChat.setOnClickListener { startActivity(Intent(this, com.nicotv.iptv2.ui.chat.ChatActivity::class.java)) }
         binding.btnSettings.setOnClickListener {
             startActivity(Intent(this, com.nicotv.iptv2.ui.settings.SettingsActivity::class.java))
         }
@@ -169,6 +170,7 @@ class MainActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
             binding.btnResume to binding.btnResumeRing,
             binding.btnSearch to binding.btnSearchRing,
             binding.btnFavorites to binding.btnFavoritesRing,
+            binding.btnChat to binding.btnChatRing,
             binding.btnSettings to binding.btnSettingsRing
         ).forEach { (view, ring) ->
             view.setOnFocusChangeListener { v, hasFocus ->

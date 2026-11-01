@@ -10,8 +10,8 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 91
-val appVersionName = "1.0.90"
+val appVersionCode = 92
+val appVersionName = "1.0.91"
 // Changelog affiché dans le modal de mise à jour OTA.
 // ⚠️ OUBLIÉ PENDANT ~15 VERSIONS (29/08/2026, bug signalé par l'utilisateur :
 // "le texte de la maj n'est pas le bon") — appVersionCode/appVersionName ont
@@ -20,7 +20,7 @@ val appVersionName = "1.0.90"
 // modif du 28/08 alors qu'on en était à v1.0.50). Ce commentaire ne suffit
 // visiblement pas tout seul à s'en souvenir : à chaque bump de version,
 // updater CETTE ligne AVANT de commit, pas après coup.
-val appChangelog = "• Connexion avec ton compte NicoTV (même identifiant que l'app iptv)\n• Tes codes Xtream sont maintenant attribués par l'administrateur : plus de saisie, ils apparaissent tout seuls\n• Chargement de la playlist en arrière-plan avec pourcentage en haut de l'écran ; les chaînes sont regardables avant la fin du chargement"
+val appChangelog = "• Tchat : le même que dans l'app iptv (bouton en haut de l'accueil) — messages, photos, vocaux, réponses, réactions, partage de film, recherche"
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")

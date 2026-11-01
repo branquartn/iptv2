@@ -44,6 +44,8 @@ class IptvApplication : Application(), ImageLoaderFactory {
     val sessionManager by lazy { com.nicotv.iptv2.account.SessionManager(this) }
     val accountApi by lazy { com.nicotv.iptv2.account.AccountApi(okHttpClient, sessionManager) }
     val remoteSources by lazy { com.nicotv.iptv2.account.RemoteSources(accountApi, sessionManager, playlistRepository, sourcePrefs) }
+    // Tchat NicoTV ↔ Telegram (mêmes routes et mêmes comptes que l'app iptv).
+    val chatApi by lazy { com.nicotv.iptv2.chat.ChatApi(okHttpClient, sessionManager, this) }
     // Chargement de la playlist en arrière-plan, avec pourcentage (bandeau en haut de chaque écran).
     val catalogLoader by lazy { com.nicotv.iptv2.account.CatalogLoader(this) }
 

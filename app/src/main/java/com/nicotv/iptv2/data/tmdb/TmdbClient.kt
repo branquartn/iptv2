@@ -109,6 +109,24 @@ class TmdbClient(private val client: OkHttpClient) {
         }
     }
 
+    /** Recherche de films (liste) — partage d'un film dans le tchat. */
+    suspend fun searchMovies(query: String): List<TmdbWork> {
+        if (query.isBlank()) return emptyList()
+        val body = get(urlFor("search/movie", mapOf("query" to query.trim()))) ?: return emptyList()
+        return try {
+            val arr = JSONObject(body).optJSONArray("results") ?: return emptyList()
+            (0 until minOf(arr.length(), 20)).mapNotNull { i ->
+                arr.optJSONObject(i)?.let { o ->
+                    TmdbWork(
+                        id = o.optInt("id"), isTv = false, title = o.optString("title"),
+                        posterPath = o.optNullableString("poster_path"),
+                        year = o.optString("release_date").take(4)
+                    )
+                }
+            }
+        } catch (e: Exception) { emptyList() }
+    }
+
     // ── Fiche film (casting, réalisateur, recommandations, bande-annonce) ────
 
     suspend fun getMovieCredits(movieId: Int): TmdbCredits {

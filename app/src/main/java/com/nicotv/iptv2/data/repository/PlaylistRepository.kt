@@ -828,6 +828,9 @@ class PlaylistRepository(
 
     suspend fun getMovieCredits(tmdbId: Int) = tmdbClient.getMovieCredits(tmdbId)
 
+    /** Recherche de films TMDb (liste) pour le partage dans le tchat. */
+    suspend fun searchMoviesForChat(query: String) = tmdbClient.searchMovies(query)
+
     suspend fun getMovieTrailerKey(tmdbId: Int) = tmdbClient.getTrailerKey(tmdbId, isTv = false)
 
     suspend fun getWorkTrailerKey(tmdbId: Int, isTv: Boolean) = tmdbClient.getTrailerKey(tmdbId, isTv)
