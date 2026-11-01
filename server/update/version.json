@@ -1,6 +1,6 @@
 {
-  "versionCode": 101,
-  "versionName": "1.0.100",
-  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.100.apk",
-  "changelog": "• Changer de playlist est instantané : chaque playlist garde son propre cache, rien n'est retéléchargé tant qu'il a moins de 7 jours (rechargement complet seulement de temps en temps, ou si l'administrateur a modifié la playlist)"
+  "versionCode": 102,
+  "versionName": "1.0.101",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.0.101.apk",
+  "changelog": "• Films et séries : jaquettes plus petites (plus d'affiches par ligne), comme dans l'app iptv"
 }
