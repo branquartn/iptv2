@@ -1,9 +1,6 @@
-            {
-              "versionCode": 110,
-              "versionName": "1.1.0",
-              "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.1.0.apk",
-              "changelog": "• Temps réel : tes films et séries du serveur se mettent à jour tout seuls (ajout, suppression) ; les modifications de l'admin et les messages du tchat arrivent en direct
-• Retirer un film ou une série de ton serveur : appui long sur OK (ou sur l'affiche)
-• Nouveau « + » sur l'accueil : recherche un film ou une série et ajoute-le à ton serveur
-• Tchat à la télécommande : message et boutons entourés en bleu, focus sur le dernier message, flèches hors du champ de saisie, OK maintenu = menu du message"
-            }
+{
+  "versionCode": 111,
+  "versionName": "1.1.1",
+  "apkUrl": "https://iptv2.nicotv.ovh/update/iptv2-1.1.1.apk",
+  "changelog": "• L'administrateur voit maintenant qui est connecté et ce qui est regardé (chaîne, film ou série, playlist, position, lecture/pause) sur admin.nicotv.ovh"
+}
