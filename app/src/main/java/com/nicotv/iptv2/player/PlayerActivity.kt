@@ -442,10 +442,16 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
 
     override fun onStart() {
         super.onStart()
+        current = this
         initPlayer()
     }
 
+    /** Pause / reprise demandées depuis l'admin (cf. IptvApplication.handleRemoteCommand, thread principal). */
+    fun remotePause() { player?.pause() }
+    fun remoteResume() { player?.play() }
+
     override fun onStop() {
+        if (current === this) current = null
         saveAndRelease()
         super.onStop()
     }
@@ -755,6 +761,8 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
                         if (hasStartedPlaying) {
                             binding.overlayPauseInfo.visibility =
                                 if (isPlaying) View.GONE else View.VISIBLE
+                            // Pause / lecture : l'admin le voit tout de suite (bouton « Pause à distance » ⇄ « Reprendre »).
+                            reportPresence((application as com.nicotv.iptv2.IptvApplication).presenceReporter)
                         }
                     }
                     override fun onTracksChanged(tracks: Tracks) {
@@ -1038,6 +1046,9 @@ class PlayerActivity : com.nicotv.iptv2.ui.common.BaseActivity() {
     }
 
     companion object {
+        /** Lecteur actuellement ouvert (pour la pause à distance). */
+        @Volatile var current: PlayerActivity? = null
+
         const val EXTRA_MOVIE_ID       = "movie_id"
         const val EXTRA_STREAM_URL     = "stream_url"
         const val EXTRA_TITLE          = "title"

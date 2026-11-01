@@ -73,7 +73,21 @@ class IptvApplication : Application(), ImageLoaderFactory {
         com.nicotv.iptv2.account.RealtimeClient(wsClient, { sessionManager.getToken() }, appScope,
             onLibraryChanged = { onRealtimeLibraryChange() },
             onXtreamChanged = { appScope.launch { runCatching { remoteSources.sync(force = true) } } },
-            onChatEvent = { chatEvents.tryEmit(Unit) })
+            onChatEvent = { chatEvents.tryEmit(Unit) },
+            onRemote = { data -> handleRemoteCommand(data) })
+    }
+
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
+    /** Pause / reprise à distance depuis admin.nicotv.ovh. Plusieurs appareils d'un même compte partagent le canal :
+     *  on n'obéit que si l'ordre vise CET appareil (même identifiant que celui annoncé dans la présence). Le lecteur doit
+     *  être piloté depuis le thread principal : le WebSocket tourne sur un thread de fond. */
+    private fun handleRemoteCommand(data: org.json.JSONObject) {
+        if (data.optString("deviceId") != com.nicotv.iptv2.util.DeviceId.get(this)) return
+        when (data.optString("cmd")) {
+            "pause" -> mainHandler.post { com.nicotv.iptv2.player.PlayerActivity.current?.remotePause() }
+            "resume" -> mainHandler.post { com.nicotv.iptv2.player.PlayerActivity.current?.remoteResume() }
+        }
     }
 
     fun connectRealtime() { if (sessionManager.isLoggedIn()) realtimeClient.start() }

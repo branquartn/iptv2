@@ -28,7 +28,9 @@ class RealtimeClient(
     private val scope: CoroutineScope,
     private val onLibraryChanged: () -> Unit,
     private val onXtreamChanged: () -> Unit,
-    private val onChatEvent: () -> Unit
+    private val onChatEvent: () -> Unit,
+    // Ordres envoyés par l'admin (pause / reprise à distance), ciblés sur un appareil précis.
+    private val onRemote: (JSONObject) -> Unit = {}
 ) {
     private val wantOpen = AtomicBoolean(false)
     @Volatile private var ws: WebSocket? = null
@@ -79,6 +81,7 @@ class RealtimeClient(
                 event == "iptv:add" || event == "iptv:lib" || event == "state" -> runCatching { onLibraryChanged() }
                 event == "xtream" -> runCatching { onXtreamChanged() }
                 event.startsWith("chat:") -> runCatching { onChatEvent() }
+                event == "remote" -> runCatching { onRemote(JSONObject(text).optJSONObject("data") ?: JSONObject()) }
             }
         }
 
