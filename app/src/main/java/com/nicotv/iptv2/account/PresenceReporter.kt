@@ -24,7 +24,10 @@ class PresenceReporter(
 ) {
     private val endpoint = AppConfig.Account.BASE_URL + "index.php"
     private val deviceId = DeviceId.get(context)
-    private val deviceLabel = "iptv2 · ${Build.MANUFACTURER} ${Build.MODEL}".trim()
+    // ⚠️ ASCII uniquement : OkHttp REFUSE les caractères non ASCII (« · », accents) dans un en-tête HTTP et lève une
+    // exception — l'envoi échouait en silence et l'admin ne voyait rien.
+    private val deviceLabel = "iptv2 - ${Build.MANUFACTURER} ${Build.MODEL}".trim()
+        .map { if (it.code in 32..126) it else '?' }.joinToString("")
 
     private fun send(action: String, params: Map<String, String>) {
         if (!session.isLoggedIn()) return

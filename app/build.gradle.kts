@@ -10,8 +10,8 @@ plugins {
 
 // Version centralisée : référencée dans defaultConfig ET dans la tâche de publication
 // (évite l'accès à android.defaultConfig depuis une tâche, qui force l'ancienne DSL).
-val appVersionCode = 111
-val appVersionName = "1.1.1"
+val appVersionCode = 112
+val appVersionName = "1.1.2"
 // Changelog affiché dans le modal de mise à jour OTA.
 // ⚠️ OUBLIÉ PENDANT ~15 VERSIONS (29/08/2026, bug signalé par l'utilisateur :
 // "le texte de la maj n'est pas le bon") — appVersionCode/appVersionName ont
@@ -20,7 +20,7 @@ val appVersionName = "1.1.1"
 // modif du 28/08 alors qu'on en était à v1.0.50). Ce commentaire ne suffit
 // visiblement pas tout seul à s'en souvenir : à chaque bump de version,
 // updater CETTE ligne AVANT de commit, pas après coup.
-val appChangelog = "• L'administrateur voit maintenant qui est connecté et ce qui est regardé (chaîne, film ou série, playlist, position, lecture/pause) sur admin.nicotv.ovh"
+val appChangelog = "• Admin : la présence (qui est connecté, qui regarde quoi) arrive enfin — l'envoi échouait à cause d'un caractère dans l'étiquette de l'appareil"
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
